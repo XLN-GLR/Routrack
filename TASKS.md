@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 13 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`, `TASK-009`, `TASK-010`, `TASK-011`, `TASK-012`, `TASK-013`)
+- **Tareas Completadas:** 14 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`, `TASK-009`, `TASK-010`, `TASK-011`, `TASK-012`, `TASK-013`, `TASK-014`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 15 (`TASK-014` a `TASK-028`)
+- **Tareas Pendientes:** 14 (`TASK-015` a `TASK-028`)
 
 ---
 
@@ -340,18 +340,21 @@
 
 ## FASE 5: Slice Vertical de Monitoreo Web y Mapas (Leaflet + Trazado de Rutas + Detección de Desvíos PostGIS)
 
-### [ ] TASK-014 — Componente base de visor de mapas interactivo con Leaflet y OpenStreetMap
+### [x] TASK-014 — Componente base de visor de mapas interactivo con Leaflet y OpenStreetMap
 - **Identificador:** `TASK-014`
 - **Nombre:** Componente base de visor de mapas interactivo con Leaflet y OpenStreetMap
-- **Descripción:** Desarrollar en `web-admin` el componente modular `MapView.tsx` utilizando React-Leaflet con carga dinámica (`ssr: false`), tiles de OpenStreetMap configurables vía variables de entorno y controles de zoom y centrado.
+- **Descripción:** Desarrollar en `web-admin` el componente modular `MapView.tsx` utilizando React y Leaflet con carga dinámica (`ssr: false`), tiles de OpenStreetMap configurables vía variables de entorno (`NEXT_PUBLIC_MAP_TILE_PROVIDER_URL`) y controles de zoom y centrado.
 - **Dependencias:** `TASK-006`.
 - **Archivos Involucrados:**
   - `web-admin/src/components/map/MapView.tsx`
   - `web-admin/src/components/map/MapContainerWrapper.tsx`
+  - `web-admin/src/app/(dashboard)/live/page.tsx`
+  - `web-admin/scripts/run-map-tests.mjs`
+  - `web-admin/package.json`
 - **Criterios de Aceptación:**
   1. Renderizado fluido sin errores de hidratación de Next.js en servidor.
   2. Proveedor de teselas responde a `NEXT_PUBLIC_MAP_TILE_PROVIDER_URL`.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-015 — Vista de monitoreo en vivo con marcadores de estados operativos
 - **Identificador:** `TASK-015`

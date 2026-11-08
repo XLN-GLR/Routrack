@@ -40,8 +40,8 @@
 
 ## 3. Fase Actual del Proyecto
 
-- **Fase Activa:** **Fase 4 — Slice Vertical de Sincronización Offline-First (En Progreso).**
-- **Progreso de Fase:** 2 de 5 tareas completadas en la Fase 4 (13 de 28 tareas completadas en el proyecto). Se implementó y verificó la Supabase Edge Function `sync-jornada` (`TASK-012`) y el worker oficial de sincronización con WorkManager en Android (`TASK-013`) con restricciones de red (`NetworkType.CONNECTED`), backoff exponencial de 30s, límite de 100 registros por lote, firmas HMAC deterministas y transición atómica a sincronizado en SQLite/SQLCipher con 22/22 pruebas aprobadas. Preparado para continuar con `TASK-014`.
+- **Fase Activa:** **FASE 5 — Slice Vertical de Monitoreo Web y Mapas (En Progreso).**
+- **Progreso de Fase:** 1 de 3 tareas completadas en la Fase 5 (14 de 28 tareas completadas en el proyecto). Se desarrolló e integró en el panel web el componente modular de mapas interactivo con Leaflet y OpenStreetMap (`MapView.tsx` y `MapContainerWrapper.tsx` para `TASK-014`), garantizando cero errores de hidratación SSR (`ssr: false`), centrado por defecto en Quito (WGS 84), soporte para variables de entorno de teselas y controles de navegación interactivos con 14/14 pruebas aprobadas (30/30 pruebas totales en web-admin). Preparado para continuar con `TASK-015`.
 
 ---
 
@@ -112,18 +112,23 @@
   - Orquestador y Restricciones (`SyncScheduler.kt`): Configuración inmutable de restricciones de red (`NetworkType.CONNECTED`), reintentos con backoff exponencial (`BackoffPolicy.EXPONENTIAL`, retardo inicial de 30 segundos) y métodos de encolado periódico (15 min) e inmediato bajo demanda.
   - Repositorio y Transporte Desacoplado (`SyncRepository.kt`, `SyncRepositoryImpl.kt`, `HttpTransport.kt`): Mapeo canónico a `SyncBatchPayload` en formato JSON, firmado HMAC de puntos de telemetría y visitas, transmisión vía HTTP POST seguro a `/functions/v1/sync-jornada`, transición atómica a `sincronizado = true` ante HTTP 200 y discriminación de excepciones (`NetworkException`, `ServerException`, `ClientException`).
   - Suite de Pruebas Unitarias y Validación (`SyncJornadaWorkerTest.kt` y `validate-sync-worker.mjs`): 22/22 pruebas aprobadas verificando restricciones de red, backoff exponencial, límite de lote, confirmación HTTP 200 y retención intacta de datos ante fallas de red.
+- **[x] TASK-014 — Componente base de visor de mapas interactivo con Leaflet y OpenStreetMap:**
+  - Componente Core (`MapView.tsx` en `web-admin/src/components/map`): Implementación interactiva con Leaflet (`use client`), teselas de OpenStreetMap ($0 USD) con fallback y soporte para `NEXT_PUBLIC_MAP_TILE_PROVIDER_URL`, coordenadas por defecto centradas en Quito (`[-0.180653, -78.467834]`), zoom 13, corrección de iconos de marcadores en Webpack y controles táctiles flotantes personalizados (`ZoomIn`, `ZoomOut`, `LocateFixed` / recenter).
+  - Contenedor Dinámico (`MapContainerWrapper.tsx`): Carga asíncrona mediante `next/dynamic` con `{ ssr: false }` y skeleton animado (`MapLoadingSkeleton`) para evitar al 100% errores de hidratación SSR en Next.js.
+  - Integración en Dashboard: Reemplazo del placeholder de `/live` con el visor de mapas operativo, compilando 11/11 rutas estáticas en `next build`.
+  - Suite de Pruebas: 14 pruebas unitarias formales en `web-admin/scripts/run-map-tests.mjs` con 100% de éxito empírico (30/30 pruebas totales en `web-admin test`).
 
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-014 (Fase 5):** Componente base de visor de mapas interactivo con Leaflet y OpenStreetMap (`web-admin/src/components/map/MapView.tsx`). Depende de `TASK-006`.
+- **[ ] TASK-015 (Fase 5):** Vista de monitoreo en vivo con marcadores de estados operativos (`web-admin/src/app/(dashboard)/live/page.tsx`, `SellerMarker.tsx`, `SellerPopup.tsx`). Depende de `TASK-014`, `TASK-004`.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* Todas las suites de prueba: Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. El panel web compila sin errores (`tsc --noEmit`).
+- *Ninguno identificado.* Todas las suites de prueba: Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. El panel web compila sin errores (`tsc --noEmit` y `next build`).
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-014**: Desarrollar en `web-admin` el componente modular `MapView.tsx` utilizando React-Leaflet con carga dinámica (`ssr: false`), tiles de OpenStreetMap y controles interactivos de navegación.
+- Proceder con **TASK-015**: Desarrollar la vista `/live` en `web-admin` suscrita a la última posición de vendedores activos, renderizando marcadores diferenciados con los 5 estados operativos definidos en `docs/DESIGN.md` (En Ruta, Detenido, Visita Validada, Desviación, Sin Conexión).

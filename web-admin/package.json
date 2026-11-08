@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/run-sync-tests.mjs && node scripts/run-spatial-tests.mjs",
+    "test": "node scripts/run-sync-tests.mjs && node scripts/run-spatial-tests.mjs && node scripts/run-map-tests.mjs",
+    "test:map": "node scripts/run-map-tests.mjs",
     "test:spatial": "node scripts/run-spatial-tests.mjs"
   },
   "dependencies": {
