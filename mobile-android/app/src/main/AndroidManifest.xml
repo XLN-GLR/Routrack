@@ -5,12 +5,12 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- Permisos de Localización Geoespacial -->
+    <!-- Permisos de Localización Geoespacial Obligatorios -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
-    <!-- Permisos de Ejecución en Primer Plano y Reconocimiento de Actividad -->
+    <!-- Permisos de Ejecución en Primer Plano (Android 9+ / Android 14+) y Notificaciones (Android 13+) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -34,7 +34,14 @@
             </intent-filter>
         </activity>
 
-        <!-- Servicio en Primer Plano para Rastreo Continuo -->
+        <!-- Servicio Oficial en Primer Plano para Rastreo de Ubicación y Auditoría Criptográfica -->
+        <service
+            android:name=".service.LocationForegroundService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
+        <!-- Servicio de compatibilidad previa -->
         <service
             android:name=".service.TrackingForegroundService"
             android:enabled="true"

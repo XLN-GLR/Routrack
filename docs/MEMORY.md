@@ -1,8 +1,8 @@
 # Memoria Viva del Proyecto — ROUTRACK
 
-**Última Actualización:** 6 de Noviembre de 2026  
+**Última Actualización:** 7 de Noviembre de 2026  
 **Documento:** Estado Vivo y Registro Dinámico de Contexto (Project Memory)  
-**Versión:** 1.0.0  
+**Versión:** 1.1.0  
 **Autor:** Senior Software Engineer, Cloud/Mobile Solutions Architect & Technical Lead  
 
 ---
@@ -40,8 +40,8 @@
 
 ## 3. Fase Actual del Proyecto
 
-- **Fase Activa:** **Fase 2 — Desarrollo por Rebanadas Verticales (Iniciada).**
-- **Progreso de Fase:** Culminación y validación exitosa de `TASK-001`, `TASK-002` y `TASK-003`. Preparado para iniciar Fase 3 (`TASK-004`).
+- **Fase Activa:** **Fase 3 — Slice Vertical de Captura Local y Cifrado (Culminada con éxito).**
+- **Progreso de Fase:** Culminación y validación exitosa de `TASK-001`, `TASK-002`, `TASK-003` y `TASK-004`. Preparado para iniciar Fase 4 (Sincronización Offline-First con WorkManager y Supabase Edge Function `sync-jornada`).
 
 ---
 
@@ -63,18 +63,24 @@
   - Migración SQL `supabase/migrations/20260101000002_auth_triggers.sql`: Trigger `handle_new_user` sincronizando `auth.users` hacia `public.perfiles`, RPC `get_mi_perfil()` y políticas RLS por rol y organización.
   - Panel Web `web-admin`: Formulario de login en `src/app/login/page.tsx` con estados de carga y error, middleware `src/middleware.ts` para bloqueo de usuarios no autorizados o vendedores, hook `useAuth.ts` con prevención de hidratación, y dashboard protegido en `src/app/page.tsx` con cabecera de usuario, badge de rol y botón de logout.
   - Cliente Android `mobile-android`: Proveedor Singleton `SupabaseClientProvider`, repositorio `AuthRepositoryImpl` con GoTrue y Postgrest, `LoginViewModel` con StateFlow reactivo y `LoginScreen` en Compose con Material 3.
+- **[x] TASK-004 — Slice Vertical: Captura de Ubicación en Segundo Plano, Almacenamiento Local Cifrado y Cadena de Integridad (Android):**
+  - Criptografía Segura (`KeyStoreManager.kt`): Generación y custodia de clave simétrica AES-256-GCM en hardware Android Keystore (TEE/StrongBox) y derivación de passphrase para SQLCipher.
+  - Cadena de Auditoría (`AuditChainManager.kt`): Algoritmo HMAC-SHA256 encadenado determinista ($Hash_n = \text{HMAC}(Payload_n \parallel Hash_{n-1}, K)$) con detección de adulteraciones y validación matemática unitaria.
+  - Persistencia Local (`RoutrackDatabase.kt`): Base de datos Room cifrada en reposo con SQLCipher, entidades `JornadaEntity`, `UbicacionGpsEntity`, `BitacoraAuditoriaEntity` y DAOs reactivos con `Flow` y funciones `suspend`.
+  - Servicio Foreground (`LocationForegroundService.kt`): Notificación permanente obligatoria transparente en barra de estado ("ROUTRACK: Seguimiento de jornada activo" bajo LOPDP), captura adaptativa con FusedLocationProvider y persistencia asíncrona con encadenamiento criptográfico.
+  - Interfaz de Turno en Compose (`TrackingScreen.kt`, `TrackingViewModel.kt`): Gestión de inicio/fin de jornada, tarjetas de estado y telemetría en tiempo real, conteo local y solicitud reactiva de permisos.
 
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-004 (Fase 3):** Slice Vertical de Captura Local y Cifrado (Foreground Service + Room + SQLCipher + HMAC).
+- **[ ] TASK-005 / TASK-012 (Fase 4):** Slice Vertical de Sincronización Offline-First con WorkManager y Supabase Edge Function `sync-jornada` (Ingesta por lotes, verificación HMAC e idempotencia).
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado en esta etapa.* El flujo de autenticación, control de sesiones, middleware de protección por roles y tipado estricto están validados sin errores.
+- *Ninguno identificado en esta etapa.* La arquitectura criptográfica local, base de datos Room, servicio foreground y la interfaz en Compose están implementados siguiendo los estándares definidos.
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con la **Fase 3 / TASK-004**: Base de datos Room cifrada con SQLCipher, DAOs locales y modelos de telemetría en `mobile-android`.
+- Proceder con la **Fase 4**: Implementación de la Edge Function `sync-jornada` en Supabase y el sincronizador `SyncWorker` en WorkManager de Android para el envío seguro por lotes.

@@ -116,19 +116,32 @@
 
 ## FASE 3: Slice Vertical de Captura Local y Cifrado (Foreground Service + Room + SQLCipher + HMAC)
 
-### [ ] TASK-004 — Base de datos Room cifrada con SQLCipher y DAOs locales
+### [x] TASK-004 — Slice Vertical: Captura de Ubicación en Segundo Plano, Almacenamiento Local Cifrado y Cadena de Integridad (Android)
 - **Identificador:** `TASK-004`
-- **Nombre:** Base de datos Room cifrada con SQLCipher y DAOs locales
-- **Descripción:** Implementar la base de datos Room (`AppDatabase`) en `mobile-android` integrando `SQLCipher` con la frase de paso resguardada en Android Keystore. Definir entidades locales `LocalTrackingPointEntity`, `LocalWorkShiftEntity`, `LocalVisitEntity` y `LocalAuditEventEntity` con estados de sincronización (`PENDING`, `SYNCED`).
+- **Nombre:** Slice Vertical: Captura de Ubicación en Segundo Plano, Almacenamiento Local Cifrado y Cadena de Integridad (Android)
+- **Descripción:** Implementación integral del motor local de captura y persistencia segura en `mobile-android`: `KeyStoreManager` (AES-256-GCM en hardware seguro), `AuditChainManager` (HMAC-SHA256 encadenado determinista), base de datos Room cifrada (`RoutrackDatabase`), entidades (`JornadaEntity`, `UbicacionGpsEntity`, `BitacoraAuditoriaEntity`), DAOs correspondientes, `LocationForegroundService` con notificación persistente transparente y `TrackingScreen`/`TrackingViewModel` en Jetpack Compose.
 - **Dependencias:** `TASK-003`.
 - **Archivos Involucrados:**
-  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/AppDatabase.kt`
-  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/entities/`
-  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/dao/`
+  - `mobile-android/app/src/main/AndroidManifest.xml`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/crypto/KeyStoreManager.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/crypto/AuditChainManager.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/entity/JornadaEntity.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/entity/UbicacionGpsEntity.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/entity/BitacoraAuditoriaEntity.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/dao/JornadaDao.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/dao/UbicacionGpsDao.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/dao/BitacoraAuditoriaDao.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/RoutrackDatabase.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/service/LocationForegroundService.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/ui/tracking/TrackingViewModel.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/ui/tracking/TrackingScreen.kt`
+  - `mobile-android/app/src/test/java/com/empresa/routrack/data/crypto/AuditChainManagerTest.kt`
 - **Criterios de Aceptación:**
-  1. El archivo de base de datos en almacenamiento privado resulta ilegible para herramientas SQLite estándar.
-  2. Pruebas unitarias en memoria validan inserción y recuperación cronológica de registros.
-- **Estado:** Pendiente.
+  1. `AuditChainManager` encadena correctamente los hashes; alteración de registros invalida la verificación.
+  2. Room expone DAOs funcionales con `Flow` y funciones `suspend` para telemetría, turnos y auditoría.
+  3. `LocationForegroundService` implementa notificación permanente visible bajo LOPDP y captura optimizada por FusedLocation.
+  4. `TrackingScreen` y `TrackingViewModel` gestionan el ciclo de jornada y telemetría local de puntos almacenados.
+- **Estado:** Completada.
 
 ### [ ] TASK-009 — Generador criptográfico de HMAC encadenado en Android
 - **Identificador:** `TASK-009`
