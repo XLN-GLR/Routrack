@@ -40,8 +40,8 @@
 
 ## 3. Fase Actual del Proyecto
 
-- **Fase Activa:** **FASE 5 — Slice Vertical de Monitoreo Web y Mapas (En Progreso).**
-- **Progreso de Fase:** 2 de 3 tareas completadas en la Fase 5 (15 de 28 tareas completadas en el proyecto). Se desarrolló e integró en el panel web la vista de monitoreo en tiempo real `/live` con marcadores interactivos vectoriales diferenciados para los 5 estados operativos (`TASK-015`), flechas de orientación con rumbo espacial (*bearing*), popups detallados con velocidad, batería, hora de reporte y alerta de Fake GPS, y panel lateral con KPIs y auto-refresco con 17/17 pruebas aprobadas (47/47 pruebas totales en web-admin). Preparado para continuar con `TASK-016`.
+- **Fase Activa:** **FASE 6 — Slice Vertical de Visitas y Acuerdos Comerciales (Por Iniciar).**
+- **Progreso de Fase:** 0 de 3 tareas completadas en la Fase 6 (16 de 28 tareas completadas en el proyecto). La Fase 5 ha concluido exitosamente al 100% (3 de 3 tareas completadas: `TASK-014`, `TASK-015` y `TASK-016`). Se desarrolló el visor de histórico de rutas `/routes` con polilínea cronológica continua, cálculo geodésico de distancias y velocidades, detección espacial de segmentos de desvío (> 300m de paradas autorizadas) resaltados en rojo semitransparente con popups de exceso de distancia y duración, geocercas circulares de clientes y tarjetas KPI de la jornada, con 16/16 pruebas unitarias aprobadas (63/63 pruebas totales en `web-admin`). Preparado para continuar con `TASK-017`.
 
 ---
 
@@ -123,17 +123,23 @@
   - Panel de Control en Tiempo Real (`web-admin/src/app/(dashboard)/live/page.tsx`): Integración del mapa interactivo con barra lateral de supervisión, KPIs con conteo en vivo por estado, buscador, selector de auto-refresco (15s), encuadre general (`fitBounds`) y recentrado suave individual (`flyTo`).
   - Suite de Pruebas: 17 pruebas unitarias formales en `web-admin/scripts/run-live-monitoring-tests.mjs` con 100% de éxito empírico (47/47 pruebas totales en `web-admin test`).
 
+- **[x] TASK-016 — Vista de histórico de rutas, polilíneas y detección espacial de desvíos en PostGIS:**
+  - Motor de Análisis Espacial y Desvíos (`web-admin/src/lib/geo/deviations.ts`): Implementación estricta de ordenamiento cronológico de telemetría GPS (`sortPointsChronologically`) para prevenir distorsiones cartográficas, cálculo geodésico Haversine de distancia total acumulada en km, detección de desviaciones respecto a paradas comerciales con umbral configurable (`DEFAULT_DEVIATION_THRESHOLD_METERS = 300`), agrupación continua en segmentos de desvío (`DeviationSegment`) con métricas cuantitativas (desviación máxima, promedio y duración temporal), cálculo de velocidades promedio/máxima y delimitación de Bounding Box para encuadre.
+  - Componente de Polilíneas y Geocercas (`RoutePolyline.tsx` en `web-admin/src/components/map`): Renderizado modular con Leaflet de la polilínea principal continua en color Azul Tránsito (`#2563EB`, grosor 4px), superposición de segmentos desviados en color rojo semitransparente (`#DC2626`, grosor 6px, opacidad 0.7, dashArray `8, 8`) con popup informativo de exceso de distancia y duración en minutos, marcadores diferenciados de inicio/fin de turno y geocercas circulares de clientes con radio de tolerancia y numeración de secuencia.
+  - Vista Interactiva de Auditoría de Rutas (`web-admin/src/app/(dashboard)/routes/page.tsx`): Selector interactivo de asesor y fecha, 6 tarjetas KPI con métricas consolidadas (distancia total recorrida en km, duración de jornada en formato horas/minutos, puntos auditados, velocidad promedio y máxima, y conteo de desvíos), leyenda interactiva con toggle para activar/desactivar desvíos y panel lateral con pestañas para enfocar instantáneamente anomalías o paradas comerciales.
+  - Suite de Pruebas: 16 pruebas unitarias formales en `web-admin/scripts/run-routes-tests.mjs` con 100% de éxito empírico (63/63 pruebas totales en `web-admin test`).
+
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-016 (Fase 5):** Vista de histórico de rutas, polilíneas y detección espacial de desvíos en PostGIS (`web-admin/src/app/(dashboard)/routes/page.tsx`, `RoutePolyline.tsx`). Depende de `TASK-007`, `TASK-014`.
+- **[ ] TASK-017 (Fase 6):** Módulo de gestión y georreferenciación de clientes en panel web (`web-admin/src/app/(dashboard)/clients/page.tsx`, `ClientModal.tsx`, `ClientLocationPicker.tsx`). Depende de `TASK-014`, `TASK-004`.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* Todas las suites de prueba: Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. El panel web compila sin errores (`tsc --noEmit` y `next build`).
+- *Ninguno identificado.* Todas las suites de prueba: Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. El panel web compila sin errores (`tsc --noEmit` y `next build`).
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-016**: Implementar en `web-admin` la vista `/routes` con selector de vendedor y fecha para renderizar la polilínea completa de la jornada, calculando visualmente y mediante consulta PostGIS los segmentos con desviaciones no autorizadas superiores a 300 metros.
+- Proceder con **TASK-017**: Desarrollar el CRUD de clientes comerciales en `web-admin` permitiendo registrar nombre, RUC, dirección, coordenadas exactas (mediante selector interactivo en mapa Leaflet) y radio de tolerancia en metros.

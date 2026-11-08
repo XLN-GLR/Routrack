@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 15 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`, `TASK-009`, `TASK-010`, `TASK-011`, `TASK-012`, `TASK-013`, `TASK-014`, `TASK-015`)
+- **Tareas Completadas:** 16 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`, `TASK-009`, `TASK-010`, `TASK-011`, `TASK-012`, `TASK-013`, `TASK-014`, `TASK-015`, `TASK-016`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 13 (`TASK-016` a `TASK-028`)
+- **Tareas Pendientes:** 12 (`TASK-017` a `TASK-028`)
 
 ---
 
@@ -375,7 +375,7 @@
   2. Popup muestra datos de vendedor, velocidad, batería y última hora de reporte.
 - **Estado:** Completada.
 
-### [ ] TASK-016 — Vista de histórico de rutas, polilíneas y detección espacial de desvíos en PostGIS
+### [x] TASK-016 — Vista de histórico de rutas, polilíneas y detección espacial de desvíos en PostGIS
 - **Identificador:** `TASK-016`
 - **Nombre:** Vista de histórico de rutas, polilíneas y detección espacial de desvíos en PostGIS
 - **Descripción:** Implementar en `web-admin` la vista `/routes` con selector de vendedor y fecha para renderizar la polilínea completa de la jornada, calculando visualmente y mediante consulta PostGIS los segmentos con desviaciones no autorizadas superiores a 300 metros.
@@ -384,11 +384,13 @@
   - `web-admin/src/app/(dashboard)/routes/page.tsx`
   - `web-admin/src/components/map/RoutePolyline.tsx`
   - `web-admin/src/lib/geo/deviations.ts`
+  - `web-admin/scripts/run-routes-tests.mjs`
+  - `web-admin/package.json`
 - **Criterios de Aceptación:**
-  1. Polilínea dibuja cronológicamente el recorrido sin deformaciones espaciales.
-  2. Trazos desviados se destacan en color rojo semitransparente.
-  3. Muestra métricas de distancia total recorrida y duración del turno.
-- **Estado:** Pendiente.
+  1. Polilínea dibuja cronológicamente el recorrido sin deformaciones espaciales en color Azul Tránsito (`#2563EB`, 4px).
+  2. Trazos desviados (> 300m de los clientes/paradas autorizadas) se destacan en color rojo semitransparente (`#DC2626`, grosor 6px, opacidad 0.7, dashArray `8, 8`) con popups informativos de exceso de distancia y duración.
+  3. Muestra tarjetas KPI con métricas cuantitativas consolidadas de la jornada: distancia total recorrida (`km`), duración del turno (`Xh YYm`), horario de inicio y fin, velocidad promedio/máxima y conteo de desvíos.
+- **Estado:** Completada.
 
 ---
 
