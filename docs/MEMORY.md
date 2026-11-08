@@ -40,8 +40,8 @@
 
 ## 3. Fase Actual del Proyecto
 
-- **Fase Activa:** **Fase 4 — Sincronización Segura, Edge Functions y Geocercas PostGIS (En Progreso).**
-- **Progreso de Fase:** 1 de 5 tareas completadas en la Fase 4 (12 de 28 tareas completadas en el proyecto). Se implementó y verificó la Supabase Edge Function `sync-jornada` (`TASK-012`) con validación criptográfica HMAC-SHA256, contratos de esquema estrictos, registro automático de alertas por adulteración (`HMAC_CHAIN_TAMPERED`) e idempotencia a nivel de lote y fila con 15/15 pruebas aprobadas. Preparado para continuar con `TASK-013`.
+- **Fase Activa:** **Fase 4 — Slice Vertical de Sincronización Offline-First (En Progreso).**
+- **Progreso de Fase:** 2 de 5 tareas completadas en la Fase 4 (13 de 28 tareas completadas en el proyecto). Se implementó y verificó la Supabase Edge Function `sync-jornada` (`TASK-012`) y el worker oficial de sincronización con WorkManager en Android (`TASK-013`) con restricciones de red (`NetworkType.CONNECTED`), backoff exponencial de 30s, límite de 100 registros por lote, firmas HMAC deterministas y transición atómica a sincronizado en SQLite/SQLCipher con 22/22 pruebas aprobadas. Preparado para continuar con `TASK-014`.
 
 ---
 
@@ -107,18 +107,23 @@
   - Validador de Esquemas Estricto (`schema.ts`): Validación de contratos JSON sin dependencias externas pesadas (UUIDs RFC 4122, coordenadas WGS84, precisión, nivel de batería, formato hex de hashes HMAC y rechazo de timestamps futuros > 5 min).
   - Verificación Criptográfica Determinista (`verify-hmac.ts`): Recálculo de la cadena HMAC-SHA256 utilizando la Web Cryptography API nativa de Deno (`crypto.subtle`), reconstrucción canónica de payloads idéntica a Android (`HmacChainSigner.kt`), comparación segura en tiempo constante contra timing attacks y detección de adulteraciones con registro de alerta `HMAC_CHAIN_TAMPERED` en `bitacora_auditoria`.
   - Suite de Pruebas Unitarias (`supabase/tests/sync_jornada_edge_test.mjs`): 15/15 pruebas aprobadas empíricamente cubriendo lotes válidos (HTTP 200), detección de manipulación HMAC (HTTP 400), idempotencia por batch duplicado, validación de coordenadas fuera de rango, timestamps futuros y formato de hash.
+- **[x] TASK-013 — Worker de sincronización en segundo plano con WorkManager en Android:**
+  - Worker de Segundo Plano (`SyncJornadaWorker.kt` en `com.routrack.mobile.workers`): Implementación con `CoroutineWorker`, encolado de lotes de hasta 100 registros locales (`MAX_BATCH_SIZE = 100`) y procesamiento secuencial resiliente.
+  - Orquestador y Restricciones (`SyncScheduler.kt`): Configuración inmutable de restricciones de red (`NetworkType.CONNECTED`), reintentos con backoff exponencial (`BackoffPolicy.EXPONENTIAL`, retardo inicial de 30 segundos) y métodos de encolado periódico (15 min) e inmediato bajo demanda.
+  - Repositorio y Transporte Desacoplado (`SyncRepository.kt`, `SyncRepositoryImpl.kt`, `HttpTransport.kt`): Mapeo canónico a `SyncBatchPayload` en formato JSON, firmado HMAC de puntos de telemetría y visitas, transmisión vía HTTP POST seguro a `/functions/v1/sync-jornada`, transición atómica a `sincronizado = true` ante HTTP 200 y discriminación de excepciones (`NetworkException`, `ServerException`, `ClientException`).
+  - Suite de Pruebas Unitarias y Validación (`SyncJornadaWorkerTest.kt` y `validate-sync-worker.mjs`): 22/22 pruebas aprobadas verificando restricciones de red, backoff exponencial, límite de lote, confirmación HTTP 200 y retención intacta de datos ante fallas de red.
 
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-013 (Fase 4):** Worker de sincronización en segundo plano con WorkManager en Android (`mobile-android/app/src/main/java/com/routrack/mobile/sync/SyncWorker.kt`, `SyncScheduler.kt`, `SyncRepository.kt`). Depende de `TASK-004`, `TASK-008`, `TASK-012`.
+- **[ ] TASK-014 (Fase 5):** Componente base de visor de mapas interactivo con Leaflet y OpenStreetMap (`web-admin/src/components/map/MapView.tsx`). Depende de `TASK-006`.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* Las suites de prueba de la Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. El panel web compila sin errores (`tsc --noEmit`).
+- *Ninguno identificado.* Todas las suites de prueba: Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. El panel web compila sin errores (`tsc --noEmit`).
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-013**: Implementar el worker de sincronización en segundo plano con WorkManager en Android para empaquetar lotes locales de Room, firmar la cadena HMAC y sincronizar con la Edge Function `sync-jornada` bajo políticas de reintento exponencial y resiliencia offline.
+- Proceder con **TASK-014**: Desarrollar en `web-admin` el componente modular `MapView.tsx` utilizando React-Leaflet con carga dinámica (`ssr: false`), tiles de OpenStreetMap y controles interactivos de navegación.

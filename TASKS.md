@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 12 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`, `TASK-009`, `TASK-010`, `TASK-011`, `TASK-012`)
+- **Tareas Completadas:** 13 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`, `TASK-009`, `TASK-010`, `TASK-011`, `TASK-012`, `TASK-013`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 16 (`TASK-013` a `TASK-028`)
+- **Tareas Pendientes:** 15 (`TASK-014` a `TASK-028`)
 
 ---
 
@@ -316,18 +316,25 @@
   3. Retransmisiones duplicadas son ignoradas sin error.
 - **Estado:** Completada.
 
-### [ ] TASK-013 — Worker de sincronización en segundo plano con WorkManager en Android
+### [x] TASK-013 — Worker de sincronización en segundo plano con WorkManager en Android
 - **Identificador:** `TASK-013`
 - **Nombre:** Worker de sincronización en segundo plano con WorkManager en Android
 - **Descripción:** Implementar `SyncJornadaWorker.kt` que empaqueta en lotes de hasta 100 registros pendientes en Room y los transmite mediante HTTP POST seguro a la Edge Function `sync-jornada` bajo la restricción `NetworkType.CONNECTED` y con política de reintentos exponenciales.
 - **Dependencias:** `TASK-010`, `TASK-012`.
 - **Archivos Involucrados:**
   - `mobile-android/app/src/main/java/com/routrack/mobile/workers/SyncJornadaWorker.kt`
+  - `mobile-android/app/src/main/java/com/routrack/mobile/data/repository/SyncRepository.kt`
   - `mobile-android/app/src/main/java/com/routrack/mobile/data/repository/SyncRepositoryImpl.kt`
+  - `mobile-android/app/src/main/java/com/routrack/mobile/data/repository/HttpTransport.kt`
+  - `mobile-android/app/src/main/java/com/routrack/mobile/workers/SyncScheduler.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/workers/SyncWorker.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/repository/RepositoryProvider.kt`
+  - `mobile-android/app/src/test/java/com/routrack/mobile/workers/SyncJornadaWorkerTest.kt`
+  - `mobile-android/scripts/validate-sync-worker.mjs`
 - **Criterios de Aceptación:**
   1. Registros en estado `PENDING` cambian a `SYNCED` tras confirmación HTTP 200.
   2. Fallos de red disparan reintento con backoff sin perder datos en local.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ---
 

@@ -3,6 +3,8 @@ package com.empresa.routrack.data.repository
 import android.content.Context
 import com.empresa.routrack.data.crypto.KeyStoreManager
 import com.empresa.routrack.data.local.RoutrackDatabase
+import com.routrack.mobile.data.repository.SyncRepository
+import com.routrack.mobile.data.repository.SyncRepositoryImpl
 import kotlinx.coroutines.Dispatchers
 
 /**
@@ -24,6 +26,9 @@ object RepositoryProvider {
 
     @Volatile
     private var visitRepositoryInstance: VisitRepository? = null
+
+    @Volatile
+    private var syncRepositoryInstance: SyncRepository? = null
 
     @Volatile
     private var unifiedRepositoryInstance: com.empresa.routrack.data.RoutrackRepository? = null
@@ -118,6 +123,27 @@ object RepositoryProvider {
                 override val tracking: TrackingRepository = getTrackingRepository(context)
                 override val visits: VisitRepository = getVisitRepository(context)
             }.also { unifiedRepositoryInstance = it }
+        }
+    }
+
+    /**
+     * Retorna la instancia singleton de SyncRepository.
+     */
+    fun getSyncRepository(context: Context): SyncRepository {
+        return syncRepositoryInstance ?: synchronized(this) {
+            syncRepositoryInstance ?: run {
+                val db = getDatabase(context)
+                val secretKeyProvider = getSecretKeyProvider(context)
+                SyncRepositoryImpl(
+                    ubicacionDao = db.ubicacionGpsDao(),
+                    visitaDao = db.visitaDao(),
+                    auditoriaDao = db.bitacoraAuditoriaDao(),
+                    jornadaDao = db.jornadaDao(),
+                    authRepository = AuthRepositoryImpl(),
+                    secretKeyProvider = secretKeyProvider,
+                    ioDispatcher = Dispatchers.IO
+                ).also { syncRepositoryInstance = it }
+            }
         }
     }
 }

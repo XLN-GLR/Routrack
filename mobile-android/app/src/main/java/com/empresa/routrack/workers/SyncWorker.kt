@@ -3,18 +3,21 @@ package com.empresa.routrack.workers
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.empresa.routrack.data.repository.RepositoryProvider
+import com.routrack.mobile.workers.SyncJornadaWorker
 
 /**
- * Worker para sincronización en segundo plano con WorkManager.
- * Encola la ingesta por lotes hacia la Edge Function de Supabase.
- * Su implementación completa corresponde al Slice Vertical de Sincronización (Fase 4).
+ * Worker para sincronización en segundo plano con WorkManager (compatibilidad con paquete com.empresa.routrack.workers).
+ * Delega su ejecución en [SyncJornadaWorker] y el repositorio [RepositoryProvider.getSyncRepository].
  */
 class SyncWorker(
     appContext: Context,
     workerParams: WorkerParameters
 ) : CoroutineWorker(appContext, workerParams) {
 
+    private val delegate = SyncJornadaWorker(appContext, workerParams)
+
     override suspend fun doWork(): Result {
-        return Result.success()
+        return delegate.doWork()
     }
 }
