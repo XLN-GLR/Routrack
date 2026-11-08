@@ -41,7 +41,7 @@
 ## 3. Fase Actual del Proyecto
 
 - **Fase Activa:** **FASE 5 — Slice Vertical de Monitoreo Web y Mapas (En Progreso).**
-- **Progreso de Fase:** 1 de 3 tareas completadas en la Fase 5 (14 de 28 tareas completadas en el proyecto). Se desarrolló e integró en el panel web el componente modular de mapas interactivo con Leaflet y OpenStreetMap (`MapView.tsx` y `MapContainerWrapper.tsx` para `TASK-014`), garantizando cero errores de hidratación SSR (`ssr: false`), centrado por defecto en Quito (WGS 84), soporte para variables de entorno de teselas y controles de navegación interactivos con 14/14 pruebas aprobadas (30/30 pruebas totales en web-admin). Preparado para continuar con `TASK-015`.
+- **Progreso de Fase:** 2 de 3 tareas completadas en la Fase 5 (15 de 28 tareas completadas en el proyecto). Se desarrolló e integró en el panel web la vista de monitoreo en tiempo real `/live` con marcadores interactivos vectoriales diferenciados para los 5 estados operativos (`TASK-015`), flechas de orientación con rumbo espacial (*bearing*), popups detallados con velocidad, batería, hora de reporte y alerta de Fake GPS, y panel lateral con KPIs y auto-refresco con 17/17 pruebas aprobadas (47/47 pruebas totales en web-admin). Preparado para continuar con `TASK-016`.
 
 ---
 
@@ -117,18 +117,23 @@
   - Contenedor Dinámico (`MapContainerWrapper.tsx`): Carga asíncrona mediante `next/dynamic` con `{ ssr: false }` y skeleton animado (`MapLoadingSkeleton`) para evitar al 100% errores de hidratación SSR en Next.js.
   - Integración en Dashboard: Reemplazo del placeholder de `/live` con el visor de mapas operativo, compilando 11/11 rutas estáticas en `next build`.
   - Suite de Pruebas: 14 pruebas unitarias formales en `web-admin/scripts/run-map-tests.mjs` con 100% de éxito empírico (30/30 pruebas totales en `web-admin test`).
+- **[x] TASK-015 — Vista de monitoreo en vivo con marcadores de estados operativos:**
+  - Marcadores de Estados Operativos (`SellerMarker.tsx` en `web-admin/src/components/map`): Marcadores vectoriales dinámicos (`L.divIcon`) para los 5 estados según `docs/DESIGN.md`: En Ruta (Azul `#2563EB` con rumbo *bearing* en grados y halo pulsante), Detenido (Ámbar `#D97706`), Visita Validada (Esmeralda `#059669` con check), Desviación (Rojo `#DC2626` con advertencia e indicador de Fake GPS) y Sin Conexión (Gris `#64748B`).
+  - Tarjeta Emergente y Tooltip (`SellerPopup.tsx`): Generador HTML y componente reactivo (`SellerPopupCard`) que presenta el nombre del vendedor, velocidad en km/h, porcentaje de batería con código de color, rumbo, última hora de reporte con tiempo relativo y alerta explícita ante `is_mock = true`.
+  - Panel de Control en Tiempo Real (`web-admin/src/app/(dashboard)/live/page.tsx`): Integración del mapa interactivo con barra lateral de supervisión, KPIs con conteo en vivo por estado, buscador, selector de auto-refresco (15s), encuadre general (`fitBounds`) y recentrado suave individual (`flyTo`).
+  - Suite de Pruebas: 17 pruebas unitarias formales en `web-admin/scripts/run-live-monitoring-tests.mjs` con 100% de éxito empírico (47/47 pruebas totales en `web-admin test`).
 
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-015 (Fase 5):** Vista de monitoreo en vivo con marcadores de estados operativos (`web-admin/src/app/(dashboard)/live/page.tsx`, `SellerMarker.tsx`, `SellerPopup.tsx`). Depende de `TASK-014`, `TASK-004`.
+- **[ ] TASK-016 (Fase 5):** Vista de histórico de rutas, polilíneas y detección espacial de desvíos en PostGIS (`web-admin/src/app/(dashboard)/routes/page.tsx`, `RoutePolyline.tsx`). Depende de `TASK-007`, `TASK-014`.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* Todas las suites de prueba: Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. El panel web compila sin errores (`tsc --noEmit` y `next build`).
+- *Ninguno identificado.* Todas las suites de prueba: Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. El panel web compila sin errores (`tsc --noEmit` y `next build`).
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-015**: Desarrollar la vista `/live` en `web-admin` suscrita a la última posición de vendedores activos, renderizando marcadores diferenciados con los 5 estados operativos definidos en `docs/DESIGN.md` (En Ruta, Detenido, Visita Validada, Desviación, Sin Conexión).
+- Proceder con **TASK-016**: Implementar en `web-admin` la vista `/routes` con selector de vendedor y fecha para renderizar la polilínea completa de la jornada, calculando visualmente y mediante consulta PostGIS los segmentos con desviaciones no autorizadas superiores a 300 metros.

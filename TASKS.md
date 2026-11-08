@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 14 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`, `TASK-009`, `TASK-010`, `TASK-011`, `TASK-012`, `TASK-013`, `TASK-014`)
+- **Tareas Completadas:** 15 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`, `TASK-009`, `TASK-010`, `TASK-011`, `TASK-012`, `TASK-013`, `TASK-014`, `TASK-015`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 14 (`TASK-015` a `TASK-028`)
+- **Tareas Pendientes:** 13 (`TASK-016` a `TASK-028`)
 
 ---
 
@@ -356,7 +356,7 @@
   2. Proveedor de teselas responde a `NEXT_PUBLIC_MAP_TILE_PROVIDER_URL`.
 - **Estado:** Completada.
 
-### [ ] TASK-015 — Vista de monitoreo en vivo con marcadores de estados operativos
+### [x] TASK-015 — Vista de monitoreo en vivo con marcadores de estados operativos
 - **Identificador:** `TASK-015`
 - **Nombre:** Vista de monitoreo en vivo con marcadores de estados operativos
 - **Descripción:** Desarrollar la vista `/live` en `web-admin` suscrita a la última posición de vendedores activos, renderizando marcadores diferenciados con los 5 estados operativos definidos en `docs/DESIGN.md` (En Ruta, Detenido, Visita Validada, Desviación, Sin Conexión).
@@ -365,10 +365,15 @@
   - `web-admin/src/app/(dashboard)/live/page.tsx`
   - `web-admin/src/components/map/SellerMarker.tsx`
   - `web-admin/src/components/map/SellerPopup.tsx`
+  - `web-admin/src/types/seller.ts`
+  - `web-admin/src/components/map/MapView.tsx`
+  - `web-admin/src/components/map/MapContainerWrapper.tsx`
+  - `web-admin/scripts/run-live-monitoring-tests.mjs`
+  - `web-admin/package.json`
 - **Criterios de Aceptación:**
   1. Marcador azul en movimiento con rumbo (*bearing*), ámbar detenido y rojo en anomalía.
   2. Popup muestra datos de vendedor, velocidad, batería y última hora de reporte.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-016 — Vista de histórico de rutas, polilíneas y detección espacial de desvíos en PostGIS
 - **Identificador:** `TASK-016`

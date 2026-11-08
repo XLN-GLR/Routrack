@@ -43,6 +43,7 @@ const DynamicMapView = dynamic(() => import("./MapView"), {
 /**
  * Exportación oficial del contenedor de mapa para uso directo en cualquier vista de web-admin.
  */
-export default function MapContainerWrapper(props: MapViewProps) {
-  return <DynamicMapView {...props} />;
+export default function MapContainerWrapper({ children, ...props }: MapViewProps) {
+  return <DynamicMapView {...props}>{children}</DynamicMapView>;
 }
+

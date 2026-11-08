@@ -1,9 +1,22 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, createContext, useContext } from "react";
 import type L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { LocateFixed, ZoomIn, ZoomOut, Layers } from "lucide-react";
+
+/**
+ * Contexto de React para compartir la instancia de Leaflet Map con componentes hijos
+ * (ej. SellerMarker, RoutePolyline, GeofenceCircle).
+ */
+export const MapContext = createContext<L.Map | null>(null);
+
+/**
+ * Hook para que cualquier componente dentro del árbol de MapView acceda al mapa.
+ */
+export function useMapInstance(): L.Map | null {
+  return useContext(MapContext);
+}
 
 export interface MapViewProps {
   center?: [number, number];
@@ -198,8 +211,13 @@ export default function MapView({
         </div>
       </div>
 
-      {/* Contenido / Marcadores inyectados como hijos */}
-      {children}
+      {/* Contenido / Marcadores inyectados como hijos dentro del contexto del mapa */}
+      {isReady && mapInstanceRef.current ? (
+        <MapContext.Provider value={mapInstanceRef.current}>
+          {children}
+        </MapContext.Provider>
+      ) : null}
     </div>
   );
 }
+
