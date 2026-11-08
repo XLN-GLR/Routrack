@@ -41,7 +41,7 @@
 ## 3. Fase Actual del Proyecto
 
 - **Fase Activa:** **Fase 3 — Slice Vertical de Captura Local, Cifrado y Base Espacial.**
-- **Progreso de Fase:** Culminación y validación exitosa de `TASK-001`, `TASK-002`, `TASK-003` y `TASK-004` (4 tareas completadas de 28 proyectadas). Se completó la auditoría y recomposición integral del backlog maestro en `TASKS.md`, restableciendo la continuidad estricta de las 28 tareas sin saltos ni dependencias circulares. Preparado para abordar la siguiente tarea pendiente: `TASK-005`.
+- **Progreso de Fase:** Culminación y validación exitosa de `TASK-001`, `TASK-002`, `TASK-003`, `TASK-004` y `TASK-005` (5 tareas completadas de 28 proyectadas). Se completó la definición de los contratos de sincronización offline-first con esquemas estrictos Zod, tipos TypeScript, contratos compartidos para Edge Functions y migración SQL de índices de idempotencia y control de lotes (`sync_batches`). Preparado para abordar la siguiente tarea: `TASK-006`.
 
 ---
 
@@ -69,10 +69,14 @@
   - Persistencia Local (`RoutrackDatabase.kt`): Base de datos Room cifrada en reposo con SQLCipher, entidades `JornadaEntity`, `UbicacionGpsEntity`, `BitacoraAuditoriaEntity` y DAOs reactivos con `Flow` y funciones `suspend`.
   - Servicio Foreground (`LocationForegroundService.kt`): Notificación permanente obligatoria transparente en barra de estado ("ROUTRACK: Seguimiento de jornada activo" bajo LOPDP), captura adaptativa con FusedLocationProvider y persistencia asíncrona con encadenamiento criptográfico.
   - Interfaz de Turno en Compose (`TrackingScreen.kt`, `TrackingViewModel.kt`): Gestión de inicio/fin de jornada, tarjetas de estado y telemetría en tiempo real, conteo local y solicitud reactiva de permisos.
+- **[x] TASK-005 — Arquitectura de Sincronización y Resiliencia Offline-First hacia Supabase (Contratos Zod, Ingesta por Lotes e Idempotencia):**
+  - Tipos TypeScript Estrictos (`web-admin/src/types/sync.ts`): Modelado de `SyncBatchPayload`, `SyncTrackingPoint`, `SyncVisitRecord`, `SyncSystemEvent`, `SyncBatchResponse`, `SyncBatchErrorResponse`, enums semánticos y estados de geocerca.
+  - Validación Doble Capa con Zod (`web-admin/src/lib/validation/syncSchemas.ts`): Esquemas estrictos con validación de UUIDs RFC 4122, rangos de coordenadas WGS84, precisión, nivel de batería, hashes HMAC-SHA256 de 64 caracteres hex y rechazo de timestamps futuros mayores a 5 minutos (`MAX_CLOCK_SKEW_MS`).
+  - Suite de Pruebas Unitarias (`web-admin/src/lib/validation/syncSchemas.test.ts`, `web-admin/scripts/run-sync-tests.mjs`): 8 casos de prueba cuantitativos ejecutados exitosamente al 100% mediante `npm test` y compilación limpia con `tsc --noEmit` y `next build`.
+  - Contratos Compartidos Serverless (`supabase/functions/_shared/syncContracts.ts`): Definición de tipos y validadores portables para Edge Functions en runtime Deno.
+  - Migración SQL de Idempotencia (`supabase/migrations/20260101000003_idempotency_indexes.sql`): Tabla `sync_batches` con RLS por organización y rol, columna `client_id` e índice único en `bitacora_auditoria (organizacion_id, hmac_hash)`, índices únicos de idempotencia en `ubicaciones_gps` y `actividades_comerciales`, y función RPC `verificar_lote_sincronizado`.
 
-### 4.2. Recomposición de la Hoja de Ruta y Tareas Pendientes Inmediatas
-Se auditó y normalizó el tramo de tareas 005 a 008 en `TASKS.md`, restableciendo la secuencia correlativa de 28 tareas totales (4 completadas, 24 pendientes) con criterios cuantitativos y dependencias no circulares:
-- **[ ] TASK-005 (Fase 3):** Arquitectura de Sincronización y Resiliencia Offline-First hacia Supabase (Contratos Zod, Ingesta por Lotes e Idempotencia). Depende de `TASK-002`, `TASK-004`.
+### 4.2. Tareas Pendientes Inmediatas
 - **[ ] TASK-006 (Fase 3):** Arquitectura Base del Panel Web, Layout de Dashboard y Protección de Rutas RBAC en Next.js. Depende de `TASK-002`, `TASK-003`.
 - **[ ] TASK-007 (Fase 3):** Procesamiento Geoespacial de Rutas, Distancias y Detección de Desvíos en PostGIS (`ST_MakeLine`, `ST_Length`, corredor de desvío > 300m). Depende de `TASK-002`, `TASK-005`.
 - **[ ] TASK-008 (Fase 3):** Capa de Persistencia Local Avanzada, Repositorio Unificado y Resiliencia Offline en Android (`TrackingRepository`, `ShiftRepository`, `VisitRepository`, búfer 10k puntos). Depende de `TASK-004`, `TASK-005`.
@@ -81,10 +85,10 @@ Se auditó y normalizó el tramo de tareas 005 a 008 en `TASKS.md`, restablecien
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* La discontinuidad en la planificación del backlog maestro ha sido formalmente resuelta, conservando la inmutabilidad de las tareas ya ejecutadas y asegurando la alineación con los requerimientos funcionales RF-01 a RF-04 de `docs/PRD.md`.
+- *Ninguno identificado.* Los contratos de sincronización, esquemas Zod, tipos TypeScript y migraciones de idempotencia compilan sin errores y están certificados empíricamente.
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Abordar **TASK-005**: Definir la arquitectura de sincronización offline-first, contratos de validación estricta con Zod, esquemas de tipado compartido e índices de idempotencia para la ingesta de telemetría y auditoría en Supabase.
+- Proceder con **TASK-006**: Desarrollar la arquitectura base del dashboard administrativo en `web-admin`, implementando el layout responsivo (`layout.tsx`), barra lateral (`Sidebar.tsx`), cabecera (`Header.tsx`) y middleware RBAC con `@supabase/ssr`.

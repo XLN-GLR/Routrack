@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 4 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`)
+- **Tareas Completadas:** 5 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 24 (`TASK-005` a `TASK-028`)
+- **Tareas Pendientes:** 23 (`TASK-006` a `TASK-028`)
 
 ---
 
@@ -143,7 +143,7 @@
   4. `TrackingScreen` y `TrackingViewModel` gestionan el ciclo de jornada y telemetría local de puntos almacenados.
 - **Estado:** Completada.
 
-### [ ] TASK-005 — Arquitectura de Sincronización y Resiliencia Offline-First hacia Supabase (Contratos Zod, Ingesta por Lotes e Idempotencia)
+### [x] TASK-005 — Arquitectura de Sincronización y Resiliencia Offline-First hacia Supabase (Contratos Zod, Ingesta por Lotes e Idempotencia)
 - **Identificador:** `TASK-005`
 - **Nombre:** Arquitectura de Sincronización y Resiliencia Offline-First hacia Supabase (Contratos Zod, Ingesta por Lotes e Idempotencia)
 - **Fase:** FASE 3: Slice Vertical de Captura Local, Cifrado y Base Espacial
@@ -152,6 +152,8 @@
 - **Archivos Involucrados:**
   - `web-admin/src/types/sync.ts`
   - `web-admin/src/lib/validation/syncSchemas.ts`
+  - `web-admin/src/lib/validation/syncSchemas.test.ts`
+  - `web-admin/scripts/run-sync-tests.mjs`
   - `supabase/functions/_shared/syncContracts.ts`
   - `supabase/migrations/20260101000003_idempotency_indexes.sql`
 - **Criterios de Aceptación:**
@@ -159,7 +161,7 @@
   2. Protocolo de ingesta garantiza idempotencia estricta mediante restricciones `ON CONFLICT (id) DO NOTHING` e índices únicos en `ubicaciones_gps` y `bitacora_auditoria`.
   3. Contratos de serialización JSON coinciden exactamente entre los modelos Room de Android y los esquemas TypeScript/Deno del backend.
   4. Pruebas de validación de esquemas Zod se ejecutan sin errores con comprobaciones de TypeScript (`tsc --noEmit`).
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-006 — Arquitectura Base del Panel Web, Layout de Dashboard y Protección de Rutas RBAC en Next.js
 - **Identificador:** `TASK-006`
