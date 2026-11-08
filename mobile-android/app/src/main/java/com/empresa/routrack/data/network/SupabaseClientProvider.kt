@@ -17,8 +17,8 @@ import io.github.jan.supabase.realtime.realtime
 object SupabaseClientProvider {
 
     // Configuración base pública por defecto (puede sobreescribirse mediante BuildConfig)
-    private const val DEFAULT_SUPABASE_URL = "https://placeholder-url.supabase.co"
-    private const val DEFAULT_ANON_KEY = "placeholder-anon-key"
+    private const val DEFAULT_SUPABASE_URL = "https://aaermspsuxpamylwnbyz.supabase.co"
+    private const val DEFAULT_ANON_KEY = "sb_publishable_B910MIl6cyXtkNim6KkXLQ_vFTRXn5q"
 
     val client: SupabaseClient by lazy {
         createSupabaseClient(
