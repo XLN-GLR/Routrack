@@ -41,7 +41,7 @@
 ## 3. Fase Actual del Proyecto
 
 - **Fase Activa:** **Fase 3 — Slice Vertical de Captura Local, Cifrado y Base Espacial.**
-- **Progreso de Fase:** Culminación y validación exitosa de `TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007` y `TASK-008` (8 tareas completadas de 28 proyectadas). Se completó la implementación de la capa de persistencia local avanzada, repositorio unificado y resiliencia offline en Android (`ShiftRepository`, `TrackingRepository`, `VisitRepository` y `RoutrackRepository`), desacoplando enteramente la UI y el Foreground Service de Room, incorporando control de concurrencia atómica con Mutex para la cadena HMAC y habilitando el búfer local de hasta 10.000 puntos con 34/34 aserciones arquitectónicas aprobadas. Preparado para abordar la siguiente tarea: `TASK-009`.
+- **Progreso de Fase:** Culminación y validación exitosa de `TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008` y `TASK-009` (9 tareas completadas de 28 proyectadas). Se completó la implementación del generador criptográfico especializado de firmas HMAC-SHA256 encadenadas en Android (`HmacChainSigner.kt`), con serialización canónica inmutable de puntos y eventos, semilla inicial determinista, resistencia a timing attacks y suite de pruebas unitarias demostrando la invalidación estricta de la cadena ante cualquier alteración de coordenadas, timestamps o banderas mock. Preparado para abordar la siguiente tarea: `TASK-010`.
 
 ---
 
@@ -90,18 +90,22 @@
   - Soporte de Visitas Comerciales en Campo (`VisitaEntity.kt`, `VisitaDao.kt`): Entidad local, índices y DAO para persistencia de check-in georreferenciado, verificación de geocercas, acuerdos comerciales y check-out.
   - Búfer de Telemetría Offline y Purga: Soporte para almacenamiento y consulta de más de 10.000 puntos locales sin degradación de memoria heap mediante paginación con límites configurables y consultas de depuración (`purgarSincronizadasAntiguas`).
   - Validación Automatizada: Suite de verificación arquitectónica en `mobile-android/scripts/validate-persistence-architecture.mjs` con 34/34 aserciones aprobadas, y pruebas unitarias de repositorios en `TrackingRepositoryTest.kt` y `ShiftRepositoryTest.kt`.
+- **[x] TASK-009 — Generador criptográfico de HMAC encadenado en Android:**
+  - Componente Criptográfico Canónico (`HmacChainSigner.kt` en `com.routrack.mobile.security`): Implementación determinista de HMAC-SHA256 ($Hash_n = \text{HMAC}(Payload_n \parallel Hash_{n-1}, K)$) con semilla inicial de turno ($Hash_0 = \text{HMAC}(\text{"ROUTRACK-SHIFT-INIT|"} \parallel ShiftID, K)$), serialización canónica inmutable de puntos GPS (`PointPayload`) y eventos (`EventPayload`), y comparación en tiempo constante contra timing attacks.
+  - Integración DRY con la Capa de Datos: `AuditChainManager.kt` actualizado para delegar en el motor criptográfico unificado de `HmacChainSigner`.
+  - Suite de Pruebas Unitarias Exhaustiva (`HmacChainSignerTest.kt` y `run-hmac-tests.mjs`): 13/13 pruebas aprobadas verificando reproducibilidad determinista, efecto avalancha ante cambios de 0.000001° en coordenadas, sensibilidad a desfases de 1 ms en timestamps, detección de alteraciones en flag `isMock`, claves inválidas y quiebre de la cadena por reordenamiento o eliminación de eventos.
 
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-009 (Fase 3):** Generador criptográfico de HMAC encadenado en Android (`HmacChainSigner.kt`, pruebas de alteración de payload y semilla). Depende de `TASK-008`.
+- **[ ] TASK-010 (Fase 3):** Android Foreground Service de captura adaptativa con Fused Location y Activity Recognition (`TrackingForegroundService.kt`, `ActivityTransitionReceiver.kt`, gestión de batería y persistencia con HMAC). Depende de `TASK-008`, `TASK-009`.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* La capa de repositorios desacopla el 100% de los accesos a Room, la validación arquitectónica supera las 34/34 aserciones y el panel web compila sin errores de tipos ni regresiones (16/16 tests passing).
+- *Ninguno identificado.* El motor criptográfico HMAC opera de forma determinista, todas las suites de prueba de la arquitectura y validación pasan al 100% (13/13 pruebas HMAC, 34/34 arquitectónicas, 16/16 web Zod/geoespaciales) y el panel web compila sin errores (`tsc --noEmit`).
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-009**: Desarrollar el componente especializado `HmacChainSigner.kt` en Kotlin que calcula el hash HMAC-SHA256 encadenado para cada nuevo punto o evento de jornada ($Hash_n = \text{HMAC}(Payload_n \parallel Hash_{n-1}, K)$), implementando pruebas unitarias que demuestren que cualquier alteración en el payload invalida la cadena.
+- Proceder con **TASK-010**: Implementar `TrackingForegroundService.kt` con notificación permanente visible en barra de estado, integración con `FusedLocationProviderClient` y `ActivityRecognitionClient` para adaptar la frecuencia de muestreo de acuerdo con el movimiento del vendedor (reducción de consumo de batería), persistiendo los puntos con su firma HMAC en Room.

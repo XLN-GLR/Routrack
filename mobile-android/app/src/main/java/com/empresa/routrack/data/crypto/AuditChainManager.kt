@@ -1,38 +1,32 @@
 package com.empresa.routrack.data.crypto
 
 import com.empresa.routrack.data.local.entity.BitacoraAuditoriaEntity
+import com.routrack.mobile.security.HmacChainSigner
 import java.nio.charset.StandardCharsets
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
 
 /**
  * Gestor de la cadena de integridad criptográfica y custodia de auditoría (HMAC-SHA256).
  *
- * Implementa el algoritmo de encadenamiento especificado en docs/SECURITY.md:
- * Hash_0 = HMAC-SHA256("ROUTRACK-SHIFT-INIT|" + ShiftID, SecretKey)
- * Hash_actual = HMAC-SHA256(Evento + "|" + Timestamp + "|" + Payload + "|" + Hash_previo, SecretKey)
- *
- * Garantiza la inmutabilidad y orden estricto de eventos de jornada antes de su sincronización.
+ * Integra y delega en HmacChainSigner como motor de bajo nivel para garantizar
+ * el principio DRY y máxima interoperabilidad en el cliente Android.
  */
 object AuditChainManager {
 
-    private const val HMAC_SHA256_ALGORITHM = "HmacSHA256"
-    private const val SEED_PREFIX = "ROUTRACK-SHIFT-INIT|"
-    private const val CANONICAL_DELIMITER = "|"
+    private const val SEED_PREFIX = HmacChainSigner.SHIFT_INIT_PREFIX
+    private const val CANONICAL_DELIMITER = HmacChainSigner.CANONICAL_DELIMITER
 
     /**
      * Calcula la semilla inicial (Hash_0) para una nueva jornada laboral.
      */
     fun calculateInitialHash(jornadaId: String, secretKey: ByteArray): String {
-        val seedMessage = "$SEED_PREFIX$jornadaId"
-        return computeHmacSha256(seedMessage, secretKey)
+        return HmacChainSigner.computeInitialSeed(jornadaId, secretKey)
     }
 
     /**
      * Sobrecarga de conveniencia para clave secreta como String.
      */
     fun calculateInitialHash(jornadaId: String, secretKey: String): String {
-        return calculateInitialHash(jornadaId, secretKey.toByteArray(StandardCharsets.UTF_8))
+        return HmacChainSigner.computeInitialSeed(jornadaId, secretKey)
     }
 
     /**
@@ -52,7 +46,7 @@ object AuditChainManager {
             metadataJson = metadataJson,
             hashPrevio = hashPrevio
         )
-        return computeHmacSha256(canonicalMessage, secretKey)
+        return HmacChainSigner.computeHmacSha256(canonicalMessage, secretKey)
     }
 
     /**
@@ -110,10 +104,6 @@ object AuditChainManager {
 
     /**
      * Verifica la integridad integral de una secuencia cronológica de registros de auditoría.
-     * Valida que:
-     * 1. Cada registro calcule exactamente su hashActual con sus datos y su hashPrevio.
-     * 2. El hashPrevio del registro n coincida fielmente con el hashActual del registro n-1.
-     * Si cualquier campo o el orden fueron adulterados, retorna false.
      */
     fun verifyChain(records: List<BitacoraAuditoriaEntity>, secretKey: ByteArray): Boolean {
         if (records.isEmpty()) return true
@@ -146,7 +136,6 @@ object AuditChainManager {
 
     /**
      * Recalcula la cadena completa a partir de una lista ordenada de registros y un hash inicial.
-     * Útil para contrastar discrepancias o reconstruir estados locales corruptos.
      */
     fun recalculateChain(
         records: List<BitacoraAuditoriaEntity>,
@@ -169,27 +158,5 @@ object AuditChainManager {
             currentPrevHash = recalculatedHash
             updatedRecord
         }
-    }
-
-    /**
-     * Realiza el cómputo criptográfico HMAC-SHA256 retornando una representación hexadecimal en minúsculas.
-     */
-    private fun computeHmacSha256(data: String, key: ByteArray): String {
-        val mac = Mac.getInstance(HMAC_SHA256_ALGORITHM)
-        val secretKeySpec = SecretKeySpec(key, HMAC_SHA256_ALGORITHM)
-        mac.init(secretKeySpec)
-        val rawHmac = mac.doFinal(data.toByteArray(StandardCharsets.UTF_8))
-        return bytesToHex(rawHmac)
-    }
-
-    private fun bytesToHex(bytes: ByteArray): String {
-        val hexChars = CharArray(bytes.size * 2)
-        val hexArray = "0123456789abcdef".toCharArray()
-        for (i in bytes.indices) {
-            val v = bytes[i].toInt() and 0xFF
-            hexChars[i * 2] = hexArray[v ushr 4]
-            hexChars[i * 2 + 1] = hexArray[v and 0x0F]
-        }
-        return String(hexChars)
     }
 }

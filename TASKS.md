@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 8 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`)
+- **Tareas Completadas:** 9 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`, `TASK-009`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 20 (`TASK-009` a `TASK-028`)
+- **Tareas Pendientes:** 19 (`TASK-010` a `TASK-028`)
 
 ---
 
@@ -242,18 +242,21 @@
   4. Flujos reactivos de datos emiten exclusivamente modelos inmutables bajo corrutinas controladas en `Dispatchers.IO`.
 - **Estado:** Completada.
 
-### [ ] TASK-009 — Generador criptográfico de HMAC encadenado en Android
+### [x] TASK-009 — Generador criptográfico de HMAC encadenado en Android
 - **Identificador:** `TASK-009`
 - **Nombre:** Generador criptográfico de HMAC encadenado en Android
+- **Fase:** FASE 3: Slice Vertical de Captura Local, Cifrado y Base Espacial
 - **Descripción:** Desarrollar el componente `HmacChainSigner.kt` en Kotlin que calcula el hash HMAC-SHA256 encadenado para cada nuevo punto o evento de jornada ($Hash_n = \text{HMAC}(Payload_n + Hash_{n-1}, K)$).
 - **Dependencias:** `TASK-008`.
 - **Archivos Involucrados:**
   - `mobile-android/app/src/main/java/com/routrack/mobile/security/HmacChainSigner.kt`
   - `mobile-android/app/src/test/java/com/routrack/mobile/security/HmacChainSignerTest.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/crypto/AuditChainManager.kt`
+  - `mobile-android/scripts/run-hmac-tests.mjs`
 - **Criterios de Aceptación:**
   1. Generación determinista y reproducible de firmas HMAC-SHA256.
   2. Pruebas unitarias demuestran que cualquier alteración en el payload invalida la cadena.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-010 — Android Foreground Service de captura adaptativa con Fused Location y Activity Recognition
 - **Identificador:** `TASK-010`
