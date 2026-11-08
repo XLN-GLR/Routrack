@@ -41,12 +41,22 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
-        <!-- Servicio de compatibilidad previa -->
+        <!-- Servicio en Primer Plano con Captura Adaptativa y Reconocimiento de Actividad (TASK-010) -->
         <service
-            android:name=".service.TrackingForegroundService"
+            android:name="com.routrack.mobile.services.TrackingForegroundService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <!-- Receptor de Transiciones de Actividad Física (Quieto, Caminando, En Vehículo) -->
+        <receiver
+            android:name="com.routrack.mobile.services.ActivityTransitionReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.routrack.mobile.ACTION_ACTIVITY_TRANSITION" />
+            </intent-filter>
+        </receiver>
 
     </application>
 

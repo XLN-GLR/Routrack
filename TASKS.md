@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 9 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`, `TASK-009`)
+- **Tareas Completadas:** 10 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`, `TASK-009`, `TASK-010`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 19 (`TASK-010` a `TASK-028`)
+- **Tareas Pendientes:** 18 (`TASK-011` a `TASK-028`)
 
 ---
 
@@ -258,20 +258,24 @@
   2. Pruebas unitarias demuestran que cualquier alteración en el payload invalida la cadena.
 - **Estado:** Completada.
 
-### [ ] TASK-010 — Android Foreground Service de captura adaptativa con Fused Location y Activity Recognition
+### [x] TASK-010 — Android Foreground Service de captura adaptativa con Fused Location y Activity Recognition
 - **Identificador:** `TASK-010`
 - **Nombre:** Android Foreground Service de captura adaptativa con Fused Location y Activity Recognition
+- **Fase:** FASE 3: Slice Vertical de Captura Local, Cifrado y Base Espacial
 - **Descripción:** Implementar `TrackingForegroundService.kt` con notificación permanente visible en barra de estado, integración con `FusedLocationProviderClient` y `ActivityRecognitionClient` para adaptar la frecuencia de muestreo de acuerdo con el movimiento del vendedor (reducción de consumo de batería), persistiendo los puntos con su firma HMAC en Room.
 - **Dependencias:** `TASK-008`, `TASK-009`.
 - **Archivos Involucrados:**
   - `mobile-android/app/src/main/java/com/routrack/mobile/services/TrackingForegroundService.kt`
   - `mobile-android/app/src/main/java/com/routrack/mobile/services/ActivityTransitionReceiver.kt`
   - `mobile-android/app/src/main/AndroidManifest.xml`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/service/TrackingForegroundService.kt`
+  - `mobile-android/app/src/test/java/com/routrack/mobile/services/TrackingForegroundServiceTest.kt`
+  - `mobile-android/scripts/validate-foreground-service.mjs`
 - **Criterios de Aceptación:**
   1. Notificación persistente se muestra de inmediato al iniciar el servicio.
   2. Coordenadas persistidas en Room con metadatos completos y hash HMAC.
   3. Cese inmediato de recolección al invocar la parada del servicio.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-011 — Detección de Mock Locations y anomalías de tiempo en Android
 - **Identificador:** `TASK-011`

@@ -140,3 +140,4 @@ assert('Inversión en el orden cronológico de eventos quiebra la cadena', !veri
 
 console.log(`\nRESUMEN FINAL: ${passed} pruebas aprobadas, ${failed} pruebas falladas.`);
 if (failed > 0) process.exit(1);
+

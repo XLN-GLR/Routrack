@@ -41,7 +41,7 @@
 ## 3. Fase Actual del Proyecto
 
 - **Fase Activa:** **Fase 3 — Slice Vertical de Captura Local, Cifrado y Base Espacial.**
-- **Progreso de Fase:** Culminación y validación exitosa de `TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008` y `TASK-009` (9 tareas completadas de 28 proyectadas). Se completó la implementación del generador criptográfico especializado de firmas HMAC-SHA256 encadenadas en Android (`HmacChainSigner.kt`), con serialización canónica inmutable de puntos y eventos, semilla inicial determinista, resistencia a timing attacks y suite de pruebas unitarias demostrando la invalidación estricta de la cadena ante cualquier alteración de coordenadas, timestamps o banderas mock. Preparado para abordar la siguiente tarea: `TASK-010`.
+- **Progreso de Fase:** Culminación y validación exitosa de `TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`, `TASK-009` y `TASK-010` (10 tareas completadas de 28 proyectadas). Se completó la implementación del servicio en primer plano persistente con captura adaptativa y reconocimiento de actividad (`TrackingForegroundService.kt` y `ActivityTransitionReceiver.kt`), notificación visible no descartable bajo LOPDP, optimización de consumo de batería mediante perfiles dinámicos (STILL, WALKING, IN_VEHICLE), persistencia local con encadenamiento HMAC en Room y cese inmediato de recolección al detener el servicio, con 22/22 aserciones aprobadas. Preparado para abordar la siguiente tarea: `TASK-011`.
 
 ---
 
@@ -94,18 +94,22 @@
   - Componente Criptográfico Canónico (`HmacChainSigner.kt` en `com.routrack.mobile.security`): Implementación determinista de HMAC-SHA256 ($Hash_n = \text{HMAC}(Payload_n \parallel Hash_{n-1}, K)$) con semilla inicial de turno ($Hash_0 = \text{HMAC}(\text{"ROUTRACK-SHIFT-INIT|"} \parallel ShiftID, K)$), serialización canónica inmutable de puntos GPS (`PointPayload`) y eventos (`EventPayload`), y comparación en tiempo constante contra timing attacks.
   - Integración DRY con la Capa de Datos: `AuditChainManager.kt` actualizado para delegar en el motor criptográfico unificado de `HmacChainSigner`.
   - Suite de Pruebas Unitarias Exhaustiva (`HmacChainSignerTest.kt` y `run-hmac-tests.mjs`): 13/13 pruebas aprobadas verificando reproducibilidad determinista, efecto avalancha ante cambios de 0.000001° en coordenadas, sensibilidad a desfases de 1 ms en timestamps, detección de alteraciones en flag `isMock`, claves inválidas y quiebre de la cadena por reordenamiento o eliminación de eventos.
+- **[x] TASK-010 — Android Foreground Service de captura adaptativa con Fused Location y Activity Recognition:**
+  - Servicio Foreground Adaptativo (`TrackingForegroundService.kt` en `com.routrack.mobile.services`): Servicio persistente (`foregroundServiceType="location"`) con notificación visual obligatoria transparente en barra de estado bajo la LOPDP ("ROUTRACK: Seguimiento de jornada activo", no descartable, canal de baja prioridad sin alertas sonoras invasivas).
+  - Optimización Energética (RNF-01) con Activity Recognition (`ActivityTransitionReceiver.kt`): Conmutación dinámica de frecuencia de muestreo según el estado físico del vendedor: modo `STILL` (90s / 25m) para máximo ahorro de batería, modo `WALKING` (20s / 10m) y modo `IN_VEHICLE` (10s / 15m con alta precisión).
+  - Persistencia y Cese Inmediato: Integración con `TrackingRepository` para persistencia en Room con metadatos espaciales y encadenamiento HMAC, desvinculación total de sensores al invocar `stopTracking()` y declaración en `AndroidManifest.xml` con 22/22 aserciones aprobadas.
 
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-010 (Fase 3):** Android Foreground Service de captura adaptativa con Fused Location y Activity Recognition (`TrackingForegroundService.kt`, `ActivityTransitionReceiver.kt`, gestión de batería y persistencia con HMAC). Depende de `TASK-008`, `TASK-009`.
+- **[ ] TASK-011 (Fase 3):** Detección de Mock Locations y anomalías de tiempo en Android (`AntiTamperingManager.kt`, detección de Fake GPS y desajustes de reloj > 60s). Depende de `TASK-010`.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* El motor criptográfico HMAC opera de forma determinista, todas las suites de prueba de la arquitectura y validación pasan al 100% (13/13 pruebas HMAC, 34/34 arquitectónicas, 16/16 web Zod/geoespaciales) y el panel web compila sin errores (`tsc --noEmit`).
+- *Ninguno identificado.* El Foreground Service adaptativo cumple con los 3 criterios de aceptación y los RNF de batería y LOPDP, todas las pruebas unitarias y validadores pasan al 100% (22/22 en Foreground Service, 13/13 en HMAC, 34/34 en arquitectura de persistencia) y el proyecto web compila con 0 errores.
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-010**: Implementar `TrackingForegroundService.kt` con notificación permanente visible en barra de estado, integración con `FusedLocationProviderClient` y `ActivityRecognitionClient` para adaptar la frecuencia de muestreo de acuerdo con el movimiento del vendedor (reducción de consumo de batería), persistiendo los puntos con su firma HMAC en Room.
+- Proceder con **TASK-011**: Implementar `AntiTamperingManager.kt` para detectar proveedores de ubicación simulada (`Location.isFromMockProvider` / `isMock`) y desajustes de reloj mediante comparación de `SystemClock.elapsedRealtime()` vs tiempo de red/GPS, etiquetando anomalías en los eventos del sistema.

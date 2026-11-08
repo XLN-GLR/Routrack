@@ -1,19 +1,7 @@
 package com.empresa.routrack.service
 
-import android.app.Service
-import android.content.Intent
-import android.os.IBinder
-
 /**
- * Servicio en Primer Plano para captura de telemetría GPS.
- * Declarado en AndroidManifest.xml con tipo "location".
- * Su implementación completa corresponde al Slice Vertical de Captura (Fase 3).
+ * Clase puente de compatibilidad que extiende de la implementación oficial
+ * en com.routrack.mobile.services.TrackingForegroundService.
  */
-class TrackingForegroundService : Service() {
-
-    override fun onBind(intent: Intent?): IBinder? = null
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        return START_STICKY
-    }
-}
+class TrackingForegroundService : com.routrack.mobile.services.TrackingForegroundService()
