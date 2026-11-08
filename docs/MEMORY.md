@@ -40,8 +40,8 @@
 
 ## 3. Fase Actual del Proyecto
 
-- **Fase Activa:** **Fase 3 — Slice Vertical de Captura Local, Cifrado y Base Espacial (Completada).**
-- **Progreso de Fase:** Culminación y validación exitosa de las 11 tareas que componen la Fase 3 (`TASK-001` a `TASK-011`). Se implementó y verificó el motor completo de seguridad anti-manipulación (`AntiTamperingManager.kt`), con detección y marcado forzado de proveedores de ubicación simulada (`is_mock = true`), detección de anomalías de reloj > 60s mediante `SystemClock.elapsedRealtime()` vs tiempo satelital, propagación a Room y emisión de eventos de advertencia en la bitácora HMAC con 14/14 pruebas aprobadas. Fase 3 culminada al 100%. Preparado para iniciar la Fase 4 con `TASK-012`.
+- **Fase Activa:** **Fase 4 — Sincronización Segura, Edge Functions y Geocercas PostGIS (En Progreso).**
+- **Progreso de Fase:** 1 de 5 tareas completadas en la Fase 4 (12 de 28 tareas completadas en el proyecto). Se implementó y verificó la Supabase Edge Function `sync-jornada` (`TASK-012`) con validación criptográfica HMAC-SHA256, contratos de esquema estrictos, registro automático de alertas por adulteración (`HMAC_CHAIN_TAMPERED`) e idempotencia a nivel de lote y fila con 15/15 pruebas aprobadas. Preparado para continuar con `TASK-013`.
 
 ---
 
@@ -102,18 +102,23 @@
   - Gestor de Seguridad Anti-Tampering (`AntiTamperingManager.kt` en `com.routrack.mobile.security`): Detección nativa de aplicaciones de Fake GPS (`Location.isMock` / `Location.isFromMockProvider`), garantizando que cualquier punto simulado se marque inequívocamente en Room con `is_mock = true` y genere el evento de auditoría `MOCK_LOCATION_DETECTED`.
   - Detección de Desvíos de Reloj (> 60 segundos): Mecanismo de control que compara el reloj del sistema (`System.currentTimeMillis()`) frente a la referencia atómica GPS (`location.time`) y el reloj monotónico no alterable (`SystemClock.elapsedRealtime()`). Desvíos superiores a 60 segundos emiten de inmediato el evento de auditoría de advertencia `TIME_ANOMALY_DETECTED`.
   - Integración en Servicios: Incorporación en `TrackingForegroundService` y `LocationForegroundService` para auditoría continua en tiempo real y suite de pruebas unitarias (`AntiTamperingManagerTest.kt` y `run-antitampering-tests.mjs`) con 14/14 pruebas aprobadas.
+- **[x] TASK-012 — Supabase Edge Function `sync-jornada` con validación HMAC e idempotencia:**
+  - Endpoint Serverless en Deno (`supabase/functions/sync-jornada/index.ts`): Implementación con `Deno.serve`, manejo de CORS, validación de JWT (`Authorization: Bearer <jwt>`), autenticación en Supabase Auth, verificación de idempotencia previa en `sync_batches` (HTTP 200 inmediato), verificación criptográfica HMAC y persistencia atómica con `upsert` (`ON CONFLICT (id) DO NOTHING`) en `ubicaciones_gps`, `actividades_comerciales`, `bitacora_auditoria` y `sync_batches`.
+  - Validador de Esquemas Estricto (`schema.ts`): Validación de contratos JSON sin dependencias externas pesadas (UUIDs RFC 4122, coordenadas WGS84, precisión, nivel de batería, formato hex de hashes HMAC y rechazo de timestamps futuros > 5 min).
+  - Verificación Criptográfica Determinista (`verify-hmac.ts`): Recálculo de la cadena HMAC-SHA256 utilizando la Web Cryptography API nativa de Deno (`crypto.subtle`), reconstrucción canónica de payloads idéntica a Android (`HmacChainSigner.kt`), comparación segura en tiempo constante contra timing attacks y detección de adulteraciones con registro de alerta `HMAC_CHAIN_TAMPERED` en `bitacora_auditoria`.
+  - Suite de Pruebas Unitarias (`supabase/tests/sync_jornada_edge_test.mjs`): 15/15 pruebas aprobadas empíricamente cubriendo lotes válidos (HTTP 200), detección de manipulación HMAC (HTTP 400), idempotencia por batch duplicado, validación de coordenadas fuera de rango, timestamps futuros y formato de hash.
 
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-012 (Fase 4):** Supabase Edge Function `sync-jornada` con validación HMAC e idempotencia (`supabase/functions/sync-jornada/index.ts`, `schema.ts`, `verify-hmac.ts`). Depende de `TASK-004`, `TASK-005`, `TASK-009`.
+- **[ ] TASK-013 (Fase 4):** Worker de sincronización en segundo plano con WorkManager en Android (`mobile-android/app/src/main/java/com/routrack/mobile/sync/SyncWorker.kt`, `SyncScheduler.kt`, `SyncRepository.kt`). Depende de `TASK-004`, `TASK-008`, `TASK-012`.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* La Fase 3 (Captura Local, Cifrado y Base Espacial) ha culminado al 100% (11 de 11 tareas). Todas las suites de prueba de seguridad, geoespaciales, contratos Zod y arquitectura pasan con éxito total y el panel web compila sin errores (`tsc --noEmit`).
+- *Ninguno identificado.* Las suites de prueba de la Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. El panel web compila sin errores (`tsc --noEmit`).
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-012**: Desarrollar en Deno/TypeScript la Supabase Edge Function `sync-jornada` que recibe lotes de telemetría, visitas y eventos, valida el JWT y rol de usuario, recalcula la cadena de hashes HMAC-SHA256 y persiste de forma idempotente (`ON CONFLICT (id) DO NOTHING`) en PostgreSQL.
+- Proceder con **TASK-013**: Implementar el worker de sincronización en segundo plano con WorkManager en Android para empaquetar lotes locales de Room, firmar la cadena HMAC y sincronizar con la Edge Function `sync-jornada` bajo políticas de reintento exponencial y resiliencia offline.

@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 11 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`, `TASK-009`, `TASK-010`, `TASK-011`)
+- **Tareas Completadas:** 12 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`, `TASK-009`, `TASK-010`, `TASK-011`, `TASK-012`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 17 (`TASK-012` a `TASK-028`)
+- **Tareas Pendientes:** 16 (`TASK-013` a `TASK-028`)
 
 ---
 
@@ -298,20 +298,23 @@
 
 ## FASE 4: Slice Vertical de Sincronización Offline-First (WorkManager + Edge Function `sync-jornada` + Idempotencia)
 
-### [ ] TASK-012 — Supabase Edge Function `sync-jornada` con validación HMAC e idempotencia
+### [x] TASK-012 — Supabase Edge Function `sync-jornada` con validación HMAC e idempotencia
 - **Identificador:** `TASK-012`
 - **Nombre:** Supabase Edge Function `sync-jornada` con validación HMAC e idempotencia
+- **Fase:** FASE 4: Slice Vertical de Sincronización Offline-First
 - **Descripción:** Desarrollar en Deno/TypeScript la Edge Function `sync-jornada` que recibe lotes de telemetría, visitas y eventos, valida el JWT, recalcula la cadena de hashes HMAC-SHA256 y persiste de forma idempotente (`ON CONFLICT (id) DO NOTHING`) en PostgreSQL.
 - **Dependencias:** `TASK-004`, `TASK-005`, `TASK-009`.
 - **Archivos Involucrados:**
   - `supabase/functions/sync-jornada/index.ts`
   - `supabase/functions/sync-jornada/schema.ts`
   - `supabase/functions/sync-jornada/verify-hmac.ts`
+  - `supabase/functions/_shared/syncContracts.ts`
+  - `supabase/tests/sync_jornada_edge_test.mjs`
 - **Criterios de Aceptación:**
   1. Lotes válidos se insertan atómicamente retornando HTTP 200 con resumen.
   2. Lotes con firma manipulada se rechazan con HTTP 400 y se registra alerta en `audit_logs`.
   3. Retransmisiones duplicadas son ignoradas sin error.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-013 — Worker de sincronización en segundo plano con WorkManager en Android
 - **Identificador:** `TASK-013`
