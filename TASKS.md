@@ -11,10 +11,10 @@
 
 ## Resumen del Estado de Tareas
 
-- **Tareas Totales:** 25
-- **Tareas Completadas:** 3 (`TASK-001`, `TASK-002`, `TASK-003`)
+- **Tareas Totales:** 28
+- **Tareas Completadas:** 4 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 22
+- **Tareas Pendientes:** 24 (`TASK-005` a `TASK-028`)
 
 ---
 
@@ -114,7 +114,7 @@
 
 ---
 
-## FASE 3: Slice Vertical de Captura Local y Cifrado (Foreground Service + Room + SQLCipher + HMAC)
+## FASE 3: Slice Vertical de Captura Local, Cifrado y Base Espacial
 
 ### [x] TASK-004 — Slice Vertical: Captura de Ubicación en Segundo Plano, Almacenamiento Local Cifrado y Cadena de Integridad (Android)
 - **Identificador:** `TASK-004`
@@ -142,6 +142,82 @@
   3. `LocationForegroundService` implementa notificación permanente visible bajo LOPDP y captura optimizada por FusedLocation.
   4. `TrackingScreen` y `TrackingViewModel` gestionan el ciclo de jornada y telemetría local de puntos almacenados.
 - **Estado:** Completada.
+
+### [ ] TASK-005 — Arquitectura de Sincronización y Resiliencia Offline-First hacia Supabase (Contratos Zod, Ingesta por Lotes e Idempotencia)
+- **Identificador:** `TASK-005`
+- **Nombre:** Arquitectura de Sincronización y Resiliencia Offline-First hacia Supabase (Contratos Zod, Ingesta por Lotes e Idempotencia)
+- **Fase:** FASE 3: Slice Vertical de Captura Local, Cifrado y Base Espacial
+- **Descripción:** Definir y estructurar los contratos de datos y la arquitectura de sincronización offline-first entre `mobile-android` y Supabase: esquemas de validación estricta con Zod para telemetría de ubicaciones, visitas comerciales y bitácoras de auditoría, definición del protocolo de retransmisión por lotes (*batching*), control de idempotencia mediante identificadores UUID únicos (`client_generated_id`), políticas de resolución de conflictos (*last-write-wins* para metadatos, append-only para telemetría) y tipado TypeScript compartido para las Edge Functions y el panel web.
+- **Dependencias:** `TASK-002`, `TASK-004`.
+- **Archivos Involucrados:**
+  - `web-admin/src/types/sync.ts`
+  - `web-admin/src/lib/validation/syncSchemas.ts`
+  - `supabase/functions/_shared/syncContracts.ts`
+  - `supabase/migrations/20260101000003_idempotency_indexes.sql`
+- **Criterios de Aceptación:**
+  1. Esquemas Zod validan paquetes de sincronización conteniendo cabeceras de jornada, arreglos de puntos GPS y eventos de auditoría con tipos estrictos (rechazo automático de payloads con coordenadas espurias o timestamps futuros > 5 minutos).
+  2. Protocolo de ingesta garantiza idempotencia estricta mediante restricciones `ON CONFLICT (id) DO NOTHING` e índices únicos en `ubicaciones_gps` y `bitacora_auditoria`.
+  3. Contratos de serialización JSON coinciden exactamente entre los modelos Room de Android y los esquemas TypeScript/Deno del backend.
+  4. Pruebas de validación de esquemas Zod se ejecutan sin errores con comprobaciones de TypeScript (`tsc --noEmit`).
+- **Estado:** Pendiente.
+
+### [ ] TASK-006 — Arquitectura Base del Panel Web, Layout de Dashboard y Protección de Rutas RBAC en Next.js
+- **Identificador:** `TASK-006`
+- **Nombre:** Arquitectura Base del Panel Web, Layout de Dashboard y Protección de Rutas RBAC en Next.js
+- **Fase:** FASE 3: Slice Vertical de Captura Local, Cifrado y Base Espacial
+- **Descripción:** Desarrollar en `web-admin` la infraestructura base del dashboard administrativo: estructura de layout persistente con barra lateral de navegación (`Sidebar.tsx`), cabecera con perfil de usuario y badge de rol semántico (`Header.tsx`), middleware de protección de rutas y gestión de sesiones mediante cookies HttpOnly seguras con `@supabase/ssr`, sirviendo de contenedor común para los módulos de monitoreo en vivo, rutas, clientes, visitas y auditoría.
+- **Dependencias:** `TASK-002`, `TASK-003`.
+- **Archivos Involucrados:**
+  - `web-admin/src/app/(dashboard)/layout.tsx`
+  - `web-admin/src/components/navigation/Sidebar.tsx`
+  - `web-admin/src/components/navigation/Header.tsx`
+  - `web-admin/src/middleware.ts`
+  - `web-admin/src/hooks/useAuth.ts`
+  - `web-admin/src/types/auth.ts`
+- **Criterios de Aceptación:**
+  1. Layout responsivo de dashboard con navegación colapsable hacia `/live`, `/routes`, `/clients`, `/visits`, `/audit` y `/reports`.
+  2. Middleware intercepta peticiones no autenticadas redirigiendo a `/login` y bloquea accesos no autorizados con código HTTP 403 para usuarios con rol `VENDEDOR`.
+  3. Header refleja el nombre completo del usuario autenticado, su rol semántico y botón funcional de cierre de sesión (`logout`).
+  4. Despliegue sin errores de compilación (`tsc --noEmit` y `npm run build` limpios) ni desajustes de hidratación en Server Components.
+- **Estado:** Pendiente.
+
+### [ ] TASK-007 — Procesamiento Geoespacial de Rutas, Distancias y Detección de Desvíos en PostGIS
+- **Identificador:** `TASK-007`
+- **Nombre:** Procesamiento Geoespacial de Rutas, Distancias y Detección de Desvíos en PostGIS
+- **Fase:** FASE 3: Slice Vertical de Captura Local, Cifrado y Base Espacial
+- **Descripción:** Implementar en Supabase/PostgreSQL las funciones espaciales y vistas optimizadas para el procesamiento geoespacial analítico: agregación cronológica de puntos GPS en polilíneas continuas (`ST_MakeLine`), cálculo geodésico exacto de distancias recorridas en metros/kilómetros (`ST_Length` sobre esferoide WGS84), detección de desvíos espaciales superiores al umbral de 300 metros respecto al corredor de clientes asignados en la jornada, y optimización de consultas con índices espaciales GiST y ordenamiento por timestamp.
+- **Dependencias:** `TASK-002`, `TASK-005`.
+- **Archivos Involucrados:**
+  - `supabase/migrations/20260101000004_postgis_route_processing.sql`
+  - `supabase/tests/postgis_route_processing_test.sql`
+- **Criterios de Aceptación:**
+  1. Función SQL `calcular_trayectoria_jornada(p_jornada_id UUID)` genera una polilínea `GEOMETRY(LineString, 4326)` válida sin auto-intersecciones degeneradas ni inversión cronológica de vértices.
+  2. Función SQL `calcular_distancia_total_jornada(p_jornada_id UUID)` retorna la distancia real en kilómetros con precisión geodésica.
+  3. Función SQL `detectar_desvios_jornada(p_jornada_id UUID, p_umbral_metros DOUBLE PRECISION)` identifica y retorna los puntos que exceden el radio de tolerancia (300 metros) respecto a clientes o paradas autorizadas.
+  4. Las consultas sobre trayectorias de 10.000 puntos ejecutan en menos de 250 ms aprovechando índices espaciales `gist(coordenadas)`.
+- **Estado:** Pendiente.
+
+### [ ] TASK-008 — Capa de Persistencia Local Avanzada, Repositorio Unificado y Resiliencia Offline en Android
+- **Identificador:** `TASK-008`
+- **Nombre:** Capa de Persistencia Local Avanzada, Repositorio Unificado y Resiliencia Offline en Android
+- **Fase:** FASE 3: Slice Vertical de Captura Local, Cifrado y Base Espacial
+- **Descripción:** Construir en `mobile-android` la capa de abstracción de datos y repositorios de dominio (`TrackingRepository`, `ShiftRepository` y `VisitRepository`): desacoplar el acceso directo a DAOs de Room, orquestar transacciones concurrentes entre la captura de telemetría GPS, firmas HMAC y visitas comerciales, implementar el búfer local de resiliencia ante pérdida de red y exponer flujos reactivos estructurados (`Flow` / `StateFlow`) en `Dispatchers.IO` para consumo seguro de la UI y los workers de sincronización.
+- **Dependencias:** `TASK-004`, `TASK-005`.
+- **Archivos Involucrados:**
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/repository/TrackingRepository.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/repository/TrackingRepositoryImpl.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/repository/ShiftRepository.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/repository/ShiftRepositoryImpl.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/RoutrackDatabase.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/dao/UbicacionGpsDao.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/dao/JornadaDao.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/dao/BitacoraAuditoriaDao.kt`
+- **Criterios de Aceptación:**
+  1. Repositorios de datos desacoplan totalmente la lógica de Room de los ViewModels y servicios en primer plano mediante interfaces limpias.
+  2. Inserciones concurrentes de coordenadas GPS y bitácora de auditoría se realizan atómicamente sin bloqueos de UI ni excepciones `SQLiteDatabaseLockedException`.
+  3. Búfer de telemetría garantiza retención de al menos 10.000 puntos locales sin degradar la memoria del dispositivo.
+  4. Flujos reactivos de datos emiten exclusivamente modelos inmutables bajo corrutinas controladas en `Dispatchers.IO`.
+- **Estado:** Pendiente.
 
 ### [ ] TASK-009 — Generador criptográfico de HMAC encadenado en Android
 - **Identificador:** `TASK-009`
@@ -191,7 +267,7 @@
 - **Identificador:** `TASK-012`
 - **Nombre:** Supabase Edge Function `sync-jornada` con validación HMAC e idempotencia
 - **Descripción:** Desarrollar en Deno/TypeScript la Edge Function `sync-jornada` que recibe lotes de telemetría, visitas y eventos, valida el JWT, recalcula la cadena de hashes HMAC-SHA256 y persiste de forma idempotente (`ON CONFLICT (id) DO NOTHING`) en PostgreSQL.
-- **Dependencias:** `TASK-004`, `TASK-009`.
+- **Dependencias:** `TASK-004`, `TASK-005`, `TASK-009`.
 - **Archivos Involucrados:**
   - `supabase/functions/sync-jornada/index.ts`
   - `supabase/functions/sync-jornada/schema.ts`
@@ -250,7 +326,7 @@
 - **Identificador:** `TASK-016`
 - **Nombre:** Vista de histórico de rutas, polilíneas y detección espacial de desvíos en PostGIS
 - **Descripción:** Implementar en `web-admin` la vista `/routes` con selector de vendedor y fecha para renderizar la polilínea completa de la jornada, calculando visualmente y mediante consulta PostGIS los segmentos con desviaciones no autorizadas superiores a 300 metros.
-- **Dependencias:** `TASK-014`, `TASK-004`.
+- **Dependencias:** `TASK-007`, `TASK-014`.
 - **Archivos Involucrados:**
   - `web-admin/src/app/(dashboard)/routes/page.tsx`
   - `web-admin/src/components/map/RoutePolyline.tsx`
