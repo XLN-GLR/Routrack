@@ -41,7 +41,7 @@
 ## 3. Fase Actual del Proyecto
 
 - **Fase Activa:** **Fase 3 — Slice Vertical de Captura Local, Cifrado y Base Espacial.**
-- **Progreso de Fase:** Culminación y validación exitosa de `TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006` y `TASK-007` (7 tareas completadas de 28 proyectadas). Se completó la implementación del motor de procesamiento geoespacial analítico en PostGIS (`ST_MakeLine`, `ST_Length` geodésico, detección de desvíos > 300m, agregación GeoJSON y actualización atómica de métricas de jornada), suite de pruebas unitarias SQL y utilidades geodésicas Haversine en el cliente web con 16/16 pruebas aprobadas. Preparado para abordar la siguiente tarea: `TASK-008`.
+- **Progreso de Fase:** Culminación y validación exitosa de `TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007` y `TASK-008` (8 tareas completadas de 28 proyectadas). Se completó la implementación de la capa de persistencia local avanzada, repositorio unificado y resiliencia offline en Android (`ShiftRepository`, `TrackingRepository`, `VisitRepository` y `RoutrackRepository`), desacoplando enteramente la UI y el Foreground Service de Room, incorporando control de concurrencia atómica con Mutex para la cadena HMAC y habilitando el búfer local de hasta 10.000 puntos con 34/34 aserciones arquitectónicas aprobadas. Preparado para abordar la siguiente tarea: `TASK-009`.
 
 ---
 
@@ -84,18 +84,24 @@
   - Funciones Espaciales PostGIS (`supabase/migrations/20260101000004_postgis_route_processing.sql`): `calcular_trayectoria_jornada` (polilínea agregada `LineString` WGS84 ordenada cronológicamente), `calcular_distancia_total_jornada` (cálculo geodésico exacto sobre esferoide casteando a `geography`), `detectar_desvios_jornada` (identificación de puntos que exceden umbral de 300m respecto al corredor de clientes) y `obtener_resumen_espacial_jornada` con salida GeoJSON y métricas de velocidad.
   - Suite de Pruebas Unitarias SQL (`supabase/tests/postgis_route_processing_test.sql`): Escenario transaccional con datos simulados en Quito (Plaza Foch / El Ejido), inyección de desvío anómalo y validación del 100% de aserciones espaciales.
   - Motor Geodésico Web y Pruebas (`web-admin/src/lib/geo/spatial.ts`, `spatial.test.ts`, `run-spatial-tests.mjs`): Implementación y verificación de fórmulas Haversine, cálculo de distancias acumuladas, detección de desvíos y Bounding Box con 8/8 pruebas aprobadas (16/16 pruebas totales en `npm test`).
+- **[x] TASK-008 — Capa de Persistencia Local Avanzada, Repositorio Unificado y Resiliencia Offline en Android:**
+  - Repositorios de Dominio Desacoplados (`ShiftRepository`, `ShiftRepositoryImpl`, `TrackingRepository`, `TrackingRepositoryImpl`, `VisitRepository`, `VisitRepositoryImpl` y `RoutrackRepository`): Abstracción completa de Room sobre corrutinas en `Dispatchers.IO` y modelos inmutables, erradicando el acoplamiento directo en `TrackingViewModel` y `LocationForegroundService`.
+  - Serialización Atómica y Prevención de Bloqueos: Implementación de `Mutex` en `TrackingRepositoryImpl` para evitar colisiones de base de datos (`SQLiteDatabaseLockedException`) y mantener el encadenamiento HMAC-SHA256 estrictamente secuencial y determinista ante alta concurrencia.
+  - Soporte de Visitas Comerciales en Campo (`VisitaEntity.kt`, `VisitaDao.kt`): Entidad local, índices y DAO para persistencia de check-in georreferenciado, verificación de geocercas, acuerdos comerciales y check-out.
+  - Búfer de Telemetría Offline y Purga: Soporte para almacenamiento y consulta de más de 10.000 puntos locales sin degradación de memoria heap mediante paginación con límites configurables y consultas de depuración (`purgarSincronizadasAntiguas`).
+  - Validación Automatizada: Suite de verificación arquitectónica en `mobile-android/scripts/validate-persistence-architecture.mjs` con 34/34 aserciones aprobadas, y pruebas unitarias de repositorios en `TrackingRepositoryTest.kt` y `ShiftRepositoryTest.kt`.
 
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-008 (Fase 3):** Capa de Persistencia Local Avanzada, Repositorio Unificado y Resiliencia Offline en Android (`TrackingRepository`, `ShiftRepository`, `VisitRepository`, búfer 10k puntos). Depende de `TASK-004`, `TASK-005`.
+- **[ ] TASK-009 (Fase 3):** Generador criptográfico de HMAC encadenado en Android (`HmacChainSigner.kt`, pruebas de alteración de payload y semilla). Depende de `TASK-008`.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* Los algoritmos geoespaciales, funciones PostGIS y utilidades geodésicas en el panel web compilan limpiamente (`tsc --noEmit` y `npm run build` limpios) y superan el 100% de las suites de prueba unitarias.
+- *Ninguno identificado.* La capa de repositorios desacopla el 100% de los accesos a Room, la validación arquitectónica supera las 34/34 aserciones y el panel web compila sin errores de tipos ni regresiones (16/16 tests passing).
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-008**: Construir en `mobile-android` la capa de abstracción de datos y repositorios de dominio (`TrackingRepository`, `ShiftRepository` y `VisitRepository`), desacoplando el acceso a Room, orquestando concurrencia e implementando el búfer local de resiliencia ante pérdida de red.
+- Proceder con **TASK-009**: Desarrollar el componente especializado `HmacChainSigner.kt` en Kotlin que calcula el hash HMAC-SHA256 encadenado para cada nuevo punto o evento de jornada ($Hash_n = \text{HMAC}(Payload_n \parallel Hash_{n-1}, K)$), implementando pruebas unitarias que demuestren que cualquier alteración en el payload invalida la cadena.

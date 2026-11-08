@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 7 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`)
+- **Tareas Completadas:** 8 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 21 (`TASK-008` a `TASK-028`)
+- **Tareas Pendientes:** 20 (`TASK-009` a `TASK-028`)
 
 ---
 
@@ -209,27 +209,38 @@
   4. Las consultas sobre trayectorias de 10.000 puntos ejecutan en menos de 250 ms aprovechando índices espaciales `gist(coordenadas)`.
 - **Estado:** Completada.
 
-### [ ] TASK-008 — Capa de Persistencia Local Avanzada, Repositorio Unificado y Resiliencia Offline en Android
+### [x] TASK-008 — Capa de Persistencia Local Avanzada, Repositorio Unificado y Resiliencia Offline en Android
 - **Identificador:** `TASK-008`
 - **Nombre:** Capa de Persistencia Local Avanzada, Repositorio Unificado y Resiliencia Offline en Android
 - **Fase:** FASE 3: Slice Vertical de Captura Local, Cifrado y Base Espacial
 - **Descripción:** Construir en `mobile-android` la capa de abstracción de datos y repositorios de dominio (`TrackingRepository`, `ShiftRepository` y `VisitRepository`): desacoplar el acceso directo a DAOs de Room, orquestar transacciones concurrentes entre la captura de telemetría GPS, firmas HMAC y visitas comerciales, implementar el búfer local de resiliencia ante pérdida de red y exponer flujos reactivos estructurados (`Flow` / `StateFlow`) en `Dispatchers.IO` para consumo seguro de la UI y los workers de sincronización.
 - **Dependencias:** `TASK-004`, `TASK-005`.
 - **Archivos Involucrados:**
-  - `mobile-android/app/src/main/java/com/empresa/routrack/data/repository/TrackingRepository.kt`
-  - `mobile-android/app/src/main/java/com/empresa/routrack/data/repository/TrackingRepositoryImpl.kt`
   - `mobile-android/app/src/main/java/com/empresa/routrack/data/repository/ShiftRepository.kt`
   - `mobile-android/app/src/main/java/com/empresa/routrack/data/repository/ShiftRepositoryImpl.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/repository/TrackingRepository.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/repository/TrackingRepositoryImpl.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/repository/VisitRepository.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/repository/VisitRepositoryImpl.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/repository/RepositoryProvider.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/RoutrackRepository.kt`
   - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/RoutrackDatabase.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/entity/VisitaEntity.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/dao/VisitaDao.kt`
   - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/dao/UbicacionGpsDao.kt`
   - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/dao/JornadaDao.kt`
   - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/dao/BitacoraAuditoriaDao.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/ui/tracking/TrackingViewModel.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/service/LocationForegroundService.kt`
+  - `mobile-android/app/src/test/java/com/empresa/routrack/data/repository/TrackingRepositoryTest.kt`
+  - `mobile-android/app/src/test/java/com/empresa/routrack/data/repository/ShiftRepositoryTest.kt`
+  - `mobile-android/scripts/validate-persistence-architecture.mjs`
 - **Criterios de Aceptación:**
   1. Repositorios de datos desacoplan totalmente la lógica de Room de los ViewModels y servicios en primer plano mediante interfaces limpias.
   2. Inserciones concurrentes de coordenadas GPS y bitácora de auditoría se realizan atómicamente sin bloqueos de UI ni excepciones `SQLiteDatabaseLockedException`.
   3. Búfer de telemetría garantiza retención de al menos 10.000 puntos locales sin degradar la memoria del dispositivo.
   4. Flujos reactivos de datos emiten exclusivamente modelos inmutables bajo corrutinas controladas en `Dispatchers.IO`.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-009 — Generador criptográfico de HMAC encadenado en Android
 - **Identificador:** `TASK-009`

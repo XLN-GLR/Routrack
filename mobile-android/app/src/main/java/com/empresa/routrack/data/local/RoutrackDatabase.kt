@@ -7,24 +7,27 @@ import androidx.room.RoomDatabase
 import com.empresa.routrack.data.local.dao.BitacoraAuditoriaDao
 import com.empresa.routrack.data.local.dao.JornadaDao
 import com.empresa.routrack.data.local.dao.UbicacionGpsDao
+import com.empresa.routrack.data.local.dao.VisitaDao
 import com.empresa.routrack.data.local.entity.BitacoraAuditoriaEntity
 import com.empresa.routrack.data.local.entity.JornadaEntity
 import com.empresa.routrack.data.local.entity.UbicacionGpsEntity
+import com.empresa.routrack.data.local.entity.VisitaEntity
 import net.zetetic.database.sqlcipher.SupportFactory
 
 /**
  * Base de datos principal Room para la persistencia local cifrada en ROUTRACK.
  *
  * Integra SQLCipher mediante SupportFactory y la clave maestra resguardada en Android Keystore,
- * garantizando el cifrado en reposo (AES-256) de toda la telemetría, turnos y bitácora de auditoría.
+ * garantizando el cifrado en reposo (AES-256) de toda la telemetría, turnos, visitas y bitácora de auditoría.
  */
 @Database(
     entities = [
         JornadaEntity::class,
         UbicacionGpsEntity::class,
-        BitacoraAuditoriaEntity::class
+        BitacoraAuditoriaEntity::class,
+        VisitaEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class RoutrackDatabase : RoomDatabase() {
@@ -32,6 +35,7 @@ abstract class RoutrackDatabase : RoomDatabase() {
     abstract fun jornadaDao(): JornadaDao
     abstract fun ubicacionGpsDao(): UbicacionGpsDao
     abstract fun bitacoraAuditoriaDao(): BitacoraAuditoriaDao
+    abstract fun visitaDao(): VisitaDao
 
     companion object {
         private const val DATABASE_NAME = "routrack_secure.db"

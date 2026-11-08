@@ -148,3 +148,4 @@ assert(
 
 console.log(`\nRESUMEN FINAL: ${passed} pruebas aprobadas, ${failed} pruebas falladas.`);
 if (failed > 0) process.exit(1);
+

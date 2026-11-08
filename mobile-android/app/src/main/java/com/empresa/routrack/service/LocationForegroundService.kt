@@ -13,11 +13,9 @@ import android.os.Build
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
-import com.empresa.routrack.data.crypto.AuditChainManager
-import com.empresa.routrack.data.crypto.KeyStoreManager
-import com.empresa.routrack.data.local.RoutrackDatabase
 import com.empresa.routrack.data.local.entity.BitacoraAuditoriaEntity
-import com.empresa.routrack.data.local.entity.UbicacionGpsEntity
+import com.empresa.routrack.data.repository.RepositoryProvider
+import com.empresa.routrack.data.repository.TrackingRepository
 import com.empresa.routrack.ui.MainActivity
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationAvailability
@@ -33,7 +31,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.util.UUID
 
 /**
  * Servicio en Primer Plano persistente para la captura de geolocalización continua.
@@ -41,7 +38,7 @@ import java.util.UUID
  * Cumplimiento Normativo (LOPDP Ecuador y Políticas de Android):
  * - Mantiene una notificación fija y transparente en la barra de estado indicando el monitoreo activo.
  * - Solo recolecta coordenadas mientras el turno está formalmente en curso.
- * - Registra cada coordenada en Room y asegura la integridad con la cadena HMAC-SHA256.
+ * - Desacoplado de Room mediante TrackingRepository para inserción atómica y resiliencia offline.
  */
 class LocationForegroundService : Service() {
 
@@ -88,8 +85,7 @@ class LocationForegroundService : Service() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private lateinit var database: RoutrackDatabase
-    private lateinit var keyStoreManager: KeyStoreManager
+    private lateinit var trackingRepository: TrackingRepository
     private var currentJornadaId: String = ""
     private var currentVendedorId: String = ""
 
@@ -112,13 +108,7 @@ class LocationForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        keyStoreManager = KeyStoreManager.getInstance(applicationContext)
-        val passphrase = try {
-            keyStoreManager.getDatabasePassphrase()
-        } catch (_: Exception) {
-            null
-        }
-        database = RoutrackDatabase.getInstance(applicationContext, passphrase)
+        trackingRepository = RepositoryProvider.getTrackingRepository(applicationContext)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         createNotificationChannel()
     }
@@ -161,7 +151,7 @@ class LocationForegroundService : Service() {
 
         _isTracking.value = true
 
-        // Registrar evento SERVICE_STARTED en la bitácora
+        // Registrar evento SERVICE_STARTED en la bitácora mediante TrackingRepository
         recordAuditEvent(
             tipoEvento = BitacoraAuditoriaEntity.EVENTO_SERVICE_STARTED,
             metadataJson = "{\"action\":\"START\",\"vendedorId\":\"$currentVendedorId\"}"
@@ -180,7 +170,7 @@ class LocationForegroundService : Service() {
                 locationCallback,
                 Looper.getMainLooper()
             )
-        } catch (e: SecurityException) {
+        } catch (_: SecurityException) {
             // Manejado si se revoca el permiso durante la ejecución
         }
     }
@@ -211,7 +201,6 @@ class LocationForegroundService : Service() {
         _lastLocation.value = location
 
         serviceScope.launch {
-            val locationId = UUID.randomUUID().toString()
             val isMock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 location.isMock
             } else {
@@ -219,34 +208,15 @@ class LocationForegroundService : Service() {
                 location.isFromMockProvider
             }
 
-            val entity = UbicacionGpsEntity(
-                id = locationId,
-                jornadaId = currentJornadaId,
+            trackingRepository.recordLocation(
+                shiftId = currentJornadaId,
                 latitud = location.latitude,
                 longitud = location.longitude,
-                altitud = if (location.hasAltitude()) location.altitude else null,
                 precision = location.accuracy,
+                altitud = if (location.hasAltitude()) location.altitude else null,
                 velocidad = if (location.hasSpeed()) location.speed else null,
-                timestampCaptura = location.time,
-                sincronizado = false
-            )
-
-            // 1. Guardar coordenada en Room
-            database.ubicacionGpsDao().insert(entity)
-
-            // 2. Encadenar evento en bitácora de auditoría
-            val metadata = buildString {
-                append("{\"lat\":").append(location.latitude)
-                append(",\"lng\":").append(location.longitude)
-                append(",\"accuracy\":").append(location.accuracy)
-                append(",\"isMock\":").append(isMock)
-                append("}")
-            }
-
-            recordAuditEvent(
-                tipoEvento = BitacoraAuditoriaEntity.EVENTO_CAPTURA_GPS,
-                metadataJson = metadata,
-                customTimestamp = location.time
+                timestamp = location.time,
+                isMock = isMock
             )
         }
     }
@@ -259,40 +229,12 @@ class LocationForegroundService : Service() {
         if (currentJornadaId.isEmpty()) return
 
         serviceScope.launch {
-            val secretKey = getAuditSecretKey()
-            val ultimoEvento = database.bitacoraAuditoriaDao().getUltimoEventoPorJornada(currentJornadaId)
-
-            val hashPrevio = ultimoEvento?.hashActual
-                ?: AuditChainManager.calculateInitialHash(currentJornadaId, secretKey)
-
-            val hashActual = AuditChainManager.calculateHash(
-                tipoEvento = tipoEvento,
-                timestampEvento = customTimestamp,
+            trackingRepository.recordAuditEvent(
+                shiftId = currentJornadaId,
+                eventType = tipoEvento,
                 metadataJson = metadataJson,
-                hashPrevio = hashPrevio,
-                secretKey = secretKey
+                timestamp = customTimestamp
             )
-
-            val auditEntity = BitacoraAuditoriaEntity(
-                id = UUID.randomUUID().toString(),
-                jornadaId = currentJornadaId,
-                tipoEvento = tipoEvento,
-                metadataJson = metadataJson,
-                timestampEvento = customTimestamp,
-                hashPrevio = hashPrevio,
-                hashActual = hashActual,
-                sincronizado = false
-            )
-
-            database.bitacoraAuditoriaDao().insert(auditEntity)
-        }
-    }
-
-    private fun getAuditSecretKey(): ByteArray {
-        return try {
-            keyStoreManager.getDatabasePassphrase()
-        } catch (_: Exception) {
-            "ROUTRACK_LOCAL_DEFAULT_SECRET_KEY".toByteArray()
         }
     }
 

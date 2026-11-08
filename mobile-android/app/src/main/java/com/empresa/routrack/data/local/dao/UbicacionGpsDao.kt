@@ -40,14 +40,26 @@ interface UbicacionGpsDao {
     @Query("SELECT COUNT(*) FROM ubicaciones_gps WHERE jornadaId = :jornadaId")
     suspend fun countPorJornada(jornadaId: String): Int
 
+    @Query("SELECT COUNT(*) FROM ubicaciones_gps")
+    suspend fun countTotal(): Int
+
     @Query("SELECT * FROM ubicaciones_gps WHERE sincronizado = 0 ORDER BY timestampCaptura ASC")
     suspend fun getPendientesSincronizacion(): List<UbicacionGpsEntity>
+
+    @Query("SELECT * FROM ubicaciones_gps WHERE sincronizado = 0 ORDER BY timestampCaptura ASC LIMIT :limite")
+    suspend fun getPendientesSincronizacion(limite: Int): List<UbicacionGpsEntity>
 
     @Query("SELECT * FROM ubicaciones_gps WHERE jornadaId = :jornadaId AND sincronizado = 0 ORDER BY timestampCaptura ASC")
     suspend fun getPendientesPorJornada(jornadaId: String): List<UbicacionGpsEntity>
 
+    @Query("SELECT * FROM ubicaciones_gps WHERE jornadaId = :jornadaId AND sincronizado = 0 ORDER BY timestampCaptura ASC LIMIT :limite")
+    suspend fun getPendientesPorJornada(jornadaId: String, limite: Int): List<UbicacionGpsEntity>
+
     @Query("UPDATE ubicaciones_gps SET sincronizado = 1 WHERE id IN (:ids)")
     suspend fun marcarSincronizadas(ids: List<String>)
+
+    @Query("DELETE FROM ubicaciones_gps WHERE sincronizado = 1 AND timestampCaptura < :umbralTimestamp")
+    suspend fun purgarSincronizadasAntiguas(umbralTimestamp: Long): Int
 
     @Query("DELETE FROM ubicaciones_gps WHERE jornadaId = :jornadaId")
     suspend fun deletePorJornada(jornadaId: String)

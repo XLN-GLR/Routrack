@@ -34,8 +34,14 @@ interface BitacoraAuditoriaDao {
     @Query("SELECT * FROM bitacora_auditoria WHERE sincronizado = 0 ORDER BY timestampEvento ASC")
     suspend fun getPendientesSincronizacion(): List<BitacoraAuditoriaEntity>
 
+    @Query("SELECT * FROM bitacora_auditoria WHERE sincronizado = 0 ORDER BY timestampEvento ASC LIMIT :limite")
+    suspend fun getPendientesSincronizacion(limite: Int): List<BitacoraAuditoriaEntity>
+
     @Query("SELECT * FROM bitacora_auditoria WHERE jornadaId = :jornadaId AND sincronizado = 0 ORDER BY timestampEvento ASC")
     suspend fun getPendientesPorJornada(jornadaId: String): List<BitacoraAuditoriaEntity>
+
+    @Query("SELECT * FROM bitacora_auditoria WHERE jornadaId = :jornadaId AND sincronizado = 0 ORDER BY timestampEvento ASC LIMIT :limite")
+    suspend fun getPendientesPorJornada(jornadaId: String, limite: Int): List<BitacoraAuditoriaEntity>
 
     @Query("UPDATE bitacora_auditoria SET sincronizado = 1 WHERE id IN (:ids)")
     suspend fun marcarSincronizados(ids: List<String>)

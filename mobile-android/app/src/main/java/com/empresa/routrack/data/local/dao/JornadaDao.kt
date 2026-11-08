@@ -32,6 +32,9 @@ interface JornadaDao {
     @Query("SELECT * FROM jornadas WHERE sincronizado = 0 ORDER BY fecha ASC")
     suspend fun getJornadasPendientesSincronizacion(): List<JornadaEntity>
 
+    @Query("SELECT * FROM jornadas WHERE sincronizado = 0 ORDER BY fecha ASC LIMIT :limite")
+    suspend fun getPendientesSincronizacion(limite: Int = 100): List<JornadaEntity>
+
     @Query("UPDATE jornadas SET horaFin = :horaFin, estado = :estado WHERE id = :id")
     suspend fun finalizarJornada(
         id: String,
