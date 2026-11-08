@@ -4,19 +4,20 @@
 **Documento:** Plan de Pruebas (Test Plan) y Criterios de Aceptación  
 **Versión:** 1.0.0  
 **Fecha:** Noviembre 2026  
-**Estado:** Base Oficial  
+**Estado:** Documento Fundacional Oficial (Aprobado)  
+**Autor:** Senior Software Engineer, Cloud/Mobile Solutions Architect & Technical Lead  
 
 ---
 
-## 1. Estrategia General de Pruebas
+## 1. Estrategia de Pruebas en Pirámide
 
-La calidad de ROUTRACK se asegura mediante una estrategia de **pirámide de pruebas adaptada a ecosistemas híbridos (Web + Mobile + BaaS)**. Dado que la plataforma opera con datos geoespaciales críticos, telemetría continua y sincronización offline, cada capa del sistema debe validarse de forma aislada y en conjunto:
+La confiabilidad operativa de ROUTRACK se fundamenta en una **pirámide de pruebas adaptada a ecosistemas móviles y cloud geoespaciales**. Cada estrato tiene un objetivo de verificación aislado y riguroso:
 
 ```mermaid
 flowchart TD
-    E2E["Pruebas E2E (Playwright en Web) & UI Android Tests"]
-    Integration["Pruebas de Integración (Políticas RLS en PostgreSQL, Room DAOs, Sincronización)"]
-    Unit["Pruebas Unitarias (Cálculos Geodésicos, Lógica de Dominio, ViewModels, Reducers)"]
+    E2E["Pruebas End-to-End (E2E)\nPlaywright en Navegadores Reales (Web Admin)\nFlujos Críticos de Negocio y Cartografía"]
+    Integration["Pruebas de Integración\nSupabase Edge Functions (sync-jornada)\nQueries Espaciales PostGIS (ST_DWithin, GiST)\nPolíticas RLS Multi-Tenant & Room DB + SQLCipher"]
+    Unit["Pruebas Unitarias\nCálculo Criptográfico HMAC-SHA256 (Hash Chaining)\nFórmulas Geodésicas Haversine en Cliente\nValidadores Zod & ViewModels / Casos de Uso Kotlin"]
 
     Unit --> Integration
     Integration --> E2E
@@ -24,136 +25,122 @@ flowchart TD
 
 ---
 
-## 2. Pruebas Unitarias
+## 2. Estratos de la Pirámide de Pruebas
 
-### 2.1. Panel Web (Next.js / TypeScript)
-- **Herramientas:** Vitest o Jest + React Testing Library.
-- **Alcance:**
-  - Funciones puras de cálculo geográfico (conversión de formatos de coordenadas, cálculo de distancias aproximadas en el cliente).
-  - Transformadores de datos de telemetría para el renderizado de mapas Leaflet (generación de polilíneas, filtros de velocidad).
-  - Validadores de esquemas de formularios con Zod (validación de datos de clientes, coordenadas válidas entre -90/90 y -180/180).
-  - Formateadores de fecha, hora y métricas de kilometraje/batería.
+### 2.1. Pruebas Unitarias
 
-### 2.2. Aplicación Móvil Android (Kotlin)
-- **Herramientas:** JUnit 5, MockK, Coroutines Test (`kotlinx-coroutines-test`), Turbine (para testing de Flows).
+#### 2.1.1. Verificación Criptográfica y Cadena de Custodia (HMAC-SHA256)
+- **Objetivo:** Garantizar que el cálculo del hash encadenado sea determinista, reproducible y seguro ante cualquier mutación de un solo bit en la carga útil.
 - **Alcance:**
-  - ViewModels y máquinas de estado de UI (`ShiftViewModel`, `VisitViewModel`).
-  - Lógica de cálculo local de proximidad a clientes mediante fórmula de Haversine.
-  - Mapeadores entre entidades de Room (`LocalTrackingPointEntity`) y modelos de dominio / DTOs de red.
-  - Lógica de detección de Mock Location y proveedores simulados.
+  - Pruebas en Kotlin para `HmacChainSigner.kt` y en TypeScript para `verify-hmac.ts` en la Edge Function.
+  - Caso de prueba de consistencia: Dado un payload $P_1$ y hash previo $H_0$, el resultado $H_1 = \text{HMAC}(P_1 + H_0, K)$ debe ser idéntico en Android y en Deno.
+  - Caso de prueba de anti-manipulación: Alterar un solo carácter en las notas de la visita debe romper de inmediato la validación de la firma en la Edge Function.
+
+#### 2.1.2. Lógica de Dominio y Validación de Esquemas (Zod / Kotlin Domain)
+- **Alcance:**
+  - Validación de esquemas Zod en `web-admin` y `supabase/functions`: coordenadas de latitud en rango $[-90, 90]$, longitud en $[-180, 180]$, radio de geocerca $> 0$, y formato de identificación fiscal (RUC ecuatoriano de 13 dígitos numéricos).
+  - Casos de uso de inicio y cierre de jornada laboral en Android, asegurando que no se pueda iniciar un turno si ya existe uno con estado `OPEN`.
 
 ---
 
-## 3. Pruebas de Integración
+### 2.2. Pruebas de Integración
 
-### 3.1. Backend Supabase y Políticas RLS
-- **Herramientas:** Supabase CLI local + pgTAP / scripts de prueba con `@supabase/supabase-js`.
-- **Casos Obligatorios:**
-  - **Aislamiento Multi-Tenant:** Verificar que un token JWT perteneciente a la Organización A reciba cero filas al consultar `clients`, `work_shifts` o `tracking_points` pertenecientes a la Organización B.
-  - **Restricción de Rol de Vendedor:** Verificar que un usuario con rol `seller` solo pueda insertar y consultar sus propios `tracking_points` y `work_shifts`, y que no pueda modificar registros de auditoría ni alterar perfiles de otros vendedores.
-  - **Permisos de Supervisor:** Validar que un supervisor pueda consultar los vendedores y visitas de su organización pero no pueda alterar registros de organizaciones ajenas.
-  - **Cálculo Espacial en PostGIS:** Validar que la función espacial de proximidad devuelva distancias en metros idénticas a los valores de referencia geodésica.
+#### 2.2.1. Consultas Espaciales en PostGIS y Rendimiento GiST
+- **Herramientas:** pgTAP / scripts Node.js contra instancia local de Supabase (`supabase test db`).
+- **Casos de Prueba:**
+  1. **Precisión de Geocerca con `ST_DWithin`:**
+     - Punto a 48 metros de las coordenadas del cliente $\rightarrow$ clasificado como `VERIFIED`.
+     - Punto a 52 metros de las coordenadas del cliente (radio de 50m) $\rightarrow$ clasificado como `OUT_OF_RANGE`.
+  2. **Detección de Desvíos de Ruta:**
+     - Simulación de un corredor de clientes a lo largo de una avenida. Inserción de un punto a 400m del trazado $\rightarrow$ identificado correctamente por la consulta de desvío espacial.
+  3. **Rendimiento de Índices GiST:**
+     - Verificación del plan de ejecución (`EXPLAIN ANALYZE`) comprobando que las consultas de proximidad ejecutan un *Index Scan* sobre `idx_clients_location` y no un *Seq Scan*.
 
-### 3.2. Base de Datos Local Android (Room)
-- **Herramientas:** Room In-Memory Database (`Room.inMemoryDatabaseBuilder`).
+#### 2.2.2. Aislamiento Multi-Tenant con Row Level Security (RLS)
 - **Casos Obligatorios:**
-  - Inserción y recuperación cronológica de lotes de puntos GPS.
-  - Actualización atómica de estados de sincronización (`pending` -> `synced`).
-  - Eliminación segura de puntos antiguos (retención de 7 días).
+  1. Un token JWT perteneciente a `Empresa A` intenta consultar registros de `Empresa B` en `clients`, `work_shifts` o `tracking_points`. La base de datos debe devolver 0 filas.
+  2. Un usuario con rol `VENDEDOR` intenta modificar un registro de `audit_logs` o actualizar el perfil de otro vendedor. La operación debe ser denegada con error de permisos RLS.
+
+#### 2.2.3. Edge Function `sync-jornada`
+- Enviar un lote de 50 puntos de telemetría y 2 visitas en formato JSON.
+- Comprobar que la respuesta retorne HTTP 200 con el resumen de filas persistidas.
+- Reenviar el mismo lote exactamente: comprobar que el servidor responda HTTP 200 reportando filas ignoradas por conflicto (`tracking_points_ignored_conflict = 50`) sin generar duplicados.
 
 ---
 
-## 4. Pruebas End-to-End (E2E) con Playwright
+### 2.3. Pruebas End-to-End (E2E) con Playwright
 
-Las pruebas E2E automatizan los flujos de usuario completos en el panel web sobre navegadores reales (Chromium, Firefox, WebKit):
+Las pruebas E2E automatizan los flujos de usuario completos sobre navegadores reales en `web-admin`:
 
-| ID Prueba | Flujo E2E | Criterio de Éxito |
+| ID de Prueba | Flujo de Negocio Evaluado | Condición de Aprobación |
 | :--- | :--- | :--- |
-| **E2E-01** | Inicio de sesión válido e inválido | Acceso concedido redirigiendo a dashboard con token válido; mensaje de error claro ante credenciales erróneas. |
-| **E2E-02** | Filtrado y visualización de mapa | Al seleccionar un vendedor activo, el mapa centra su posición y dibuja el marcador con los metadatos correctos. |
-| **E2E-03** | Trazado histórico de recorrido | Al escoger una fecha pasada y un vendedor, se carga la polilínea completa en el mapa con los marcadores de parada y visitas. |
-| **E2E-04** | Creación y georreferenciación de cliente | Creación de cliente con formulario y selección en mapa; persistencia verificada y visible en la lista. |
-| **E2E-05** | Exportación de reporte | Descarga de archivo CSV de jornada conteniendo las columnas requeridas (fecha, vendedor, kilómetros, visitas totales, verificadas). |
+| **E2E-01** | Autenticación y Control de Acceso | Login exitoso redirige a `/live`; login fallido muestra banner de error; rutas protegidas bloquean navegación anónima. |
+| **E2E-02** | Visor de Monitoreo en Vivo | El mapa interactivo Leaflet carga teselas OSM, renderiza los marcadores de vendedores activos y abre popups con datos operativos al hacer clic. |
+| **E2E-03** | Análisis Histórico de Recorrido | Selección de vendedor y fecha; renderizado de la polilínea continua y visualización de la lista de visitas comerciales asociadas. |
+| **E2E-04** | Creación y Georreferenciación de Cliente | Formulario de nuevo cliente con selección de coordenadas en mapa; persistencia exitosa reflejada en el directorio. |
+| **E2E-05** | Auditoría y Exportación de Reporte | Filtrado de jornadas del día y descarga de archivo CSV, validando que el archivo contenga cabeceras UTF-8 BOM y datos correctos. |
 
 ---
 
-## 5. Pruebas Específicas de Android
+## 3. Pruebas Especializadas para Android Nativo
 
-### 5.1. Ciclo de Vida del Foreground Service
-- Comprobar que al iniciar la jornada se invoque `startForegroundService` y se enlace una notificación persistente de prioridad `IMPORTANCE_LOW` o `IMPORTANCE_DEFAULT`.
-- Verificar que la app no sea eliminada por el sistema ante escenarios de baja memoria (simulación de *Low Memory Killer* con `am send-trim-memory`).
-- Validar que al pulsar "Finalizar Jornada", el servicio se detenga de forma limpia y la notificación desaparezca de inmediato.
+Dadas las restricciones de hardware y sistema operativo, el módulo móvil `mobile-android` se somete a validaciones especializadas:
 
-### 5.2. Pruebas de Interfaz Móvil (Compose UI)
-- Pruebas automatizadas de renderizado de pantallas con `createComposeRule`.
-- Verificación de botones grandes accesibles para interacción rápida en campo.
-- Diálogo de confirmación obligatorio antes de finalizar jornada para evitar cierres accidentales.
+```mermaid
+flowchart LR
+    A[Pruebas Android] --> B[Ciclo de Vida del Foreground Service]
+    A --> C[Persistencia Room + SQLCipher]
+    A --> D[Transiciones de Conectividad]
+    A --> E[Mitigación de Spoofing y Reloj]
+```
 
----
+### 3.1. Ciclo de Vida del Foreground Service
+- **Persistencia bajo Presión de Memoria:** Simulación de estrés de RAM mediante comandos ADB (`am send-trim-memory com.routrack.mobile COMPLETE`). El `TrackingForegroundService` debe permanecer activo sin ser terminado por el sistema.
+- **Notificación Obligatoria:** Verificación de que la notificación persistente permanezca visible en la barra de estado con la etiqueta obligatoria de seguimiento mientras el turno esté abierto.
+- **Destrucción Inmediata:** Al invocar el caso de uso `FinalizarJornada`, comprobar que el servicio invoque `stopForeground(STOP_FOREGROUND_REMOVE)` y `stopSelf()`, liberando inmediatamente todos los listeners del GPS.
 
-## 6. Pruebas de Sincronización y Conectividad (Offline-First)
+### 3.2. Almacenamiento Room Cifrado con SQLCipher
+- Inicialización de `Room.databaseBuilder` integrando `SupportFactory(masterKeyPassphrase)`.
+- Verificación empírica de cifrado: Extraer el archivo `.db` del dispositivo mediante ADB e intentar abrirlo con un visor SQLite genérico; el archivo debe ser ilegible (`file is not a database`).
 
-Este conjunto de pruebas garantiza que ROUTRACK soporte las condiciones de campo más adversas:
+### 3.3. Transiciones de Conectividad (Offline $\rightarrow$ Online Batch Flush)
+1. Iniciar jornada en dispositivo físico o emulador.
+2. Activar "Modo Avión" mediante ADB (`adb shell cmd connectivity airplane-mode enable`).
+3. Simular la captura de 40 puntos GPS y 2 visitas en terreno. Todos los registros deben almacenarse en Room con estado `PENDING`.
+4. Desactivar "Modo Avión".
+5. WorkManager debe disparar automáticamente el `SyncJornadaWorker` bajo la restricción `NetworkType.CONNECTED`.
+6. Validar que la totalidad de los 42 registros se transmitan a la Edge Function de Supabase y pasen al estado `SYNCED` localmente sin intervención del usuario.
 
-1. **Simulación de Modo Avión (Offline Prolongado):**
-   - Se inicia jornada en el dispositivo móvil y se activa el Modo Avión.
-   - Se simulan 100 actualizaciones de ubicación y el registro de 3 visitas comerciales.
-   - **Validación:** Los 103 registros deben encontrarse almacenados en SQLite/Room con `sync_status = 'pending'`. La UI debe seguir funcionando normalmente sin bloqueos.
-2. **Reconexión y Descarga de Lote:**
-   - Se desactiva el Modo Avión restaurando la conexión Wi-Fi/móvil.
-   - WorkManager detecta conectividad y ejecuta el `SyncWorker`.
-   - **Validación:** Los 103 registros se envían a Supabase en lotes de tamaño óptimo; el estado local pasa a `synced`; ninguna fila se pierde ni se duplica en el servidor.
-3. **Fallas Intermitentes y Backoff:**
-   - Simular corte de conexión en medio de una transmisión de lote.
-   - **Validación:** El worker debe reintentar siguiendo la política de backoff exponencial, sin bloquear la interfaz de usuario.
+### 3.4. Mitigación de Spoofing Horario y Mock Locations
 
----
+```mermaid
+flowchart TD
+    Coord[Coordenada Recibida] --> CheckMock{¿isFromMockProvider?}
+    CheckMock -->|Sí| AlertMock[Registrar is_mock = TRUE\nEmitir Alerta de Auditoría]
+    CheckMock -->|No| CheckTime{¿Desajuste Tiempo Reloj > 60s?}
+    CheckTime -->|Sí| AlertTime[Registrar Anomalia Reloj\nUsar SystemClock.elapsedRealtime]
+    CheckTime -->|No| ValidPoint[Punto Válido para Ingesta]
+```
 
-## 7. Pruebas de Permisos y Hardware
-
-1. **Flujo de Permisos de Ubicación:**
-   - Comprobar el manejo cuando el usuario concede `ACCESS_FINE_LOCATION`.
-   - Comprobar la degradación controlada si solo concede `ACCESS_COARSE_LOCATION` (mostrar aviso explicando que se requiere alta precisión para validar visitas comerciales).
-   - Comprobar solicitud y manejo de `ACCESS_BACKGROUND_LOCATION` y `POST_NOTIFICATIONS` en Android 13+.
-2. **Servicio de GPS Desactivado por el Usuario:**
-   - Si el vendedor apaga el GPS durante la jornada activa, la app debe mostrar una alerta de advertencia y registrar un evento de telemetría indicando `provider_disabled`.
-
----
-
-## 8. Pruebas de Seguridad y Cumplimiento
-
-1. **Intento de Acceso No Autorizado (RLS Bypass Test):**
-   - Ejecutar peticiones HTTP directas con Postman o curl usando un JWT válido de la Organización A contra registros de la Organización B.
-   - **Resultado Esperado:** Código HTTP 200 con array vacío `[]` o error 403 Forbidden; nunca retornar datos cruzados.
-2. **Detección de Ubicaciones Simuladas (Mock Location):**
-   - Utilizar aplicaciones de "Fake GPS" en dispositivos de prueba con opciones de desarrollador activadas.
-   - **Resultado Esperado:** La app debe identificar la bandera `location.isFromMockProvider()` (o `location.isMock()`) y registrar el punto con `is_mock = true`, generando una alerta visible en el panel de auditoría web.
-3. **Auditoría de Secretos y Variables de Entorno:**
-   - Verificación estática con herramientas de análisis de código para garantizar que `SUPABASE_SERVICE_ROLE_KEY` o contraseñas de base de datos no estén presentes en el bundle web del cliente ni en el APK compilado de Android.
+1. **Detección de Ubicación Simulada (*Mock Location*):**
+   - Ejecución de pruebas con aplicaciones de Fake GPS en dispositivos con "Opciones de Desarrollador" habilitadas.
+   - La aplicación debe inspeccionar `location.isFromMockProvider()` (en API < 31) o `location.isMock()` (en API 31+). Todo punto simulado debe persistirse con la bandera `is_mock = true` y generar un evento crítico en `audit_logs`.
+2. **Mitigación de Spoofing Horario (Alteración de Fecha/Hora Local):**
+   - Si un vendedor adelanta o atrasa manualmente el reloj de su teléfono para simular visitas a horas indebidas, el sistema debe contrastar `System.currentTimeMillis()` contra `SystemClock.elapsedRealtime()` (tiempo transcurrido desde el encendido del hardware, inmune a cambios del reloj del sistema) y con la marca de tiempo de red satelital GPS (`location.time`).
+   - Si se detecta una desviación superior a 60 segundos entre el reloj local y la hora de red/satelital, se etiqueta la anomalía en el payload y se ajusta la marca temporal basada en el tiempo monotónico del sistema.
 
 ---
 
-## 9. Criterios de Aprobación por Fase (Quality Gates)
+## 4. Matriz de Aceptación y Definición de Terminado (DoD)
 
-Para que el proyecto avance entre fases de desarrollo, deben cumplirse rigurosamente los siguientes umbrales:
+Para declarar formalmente completada cualquier tarea del plan de trabajo (`TASKS.md`), deben satisfacerse el 100% de las siguientes condiciones:
 
-| Nivel de Calidad | Criterio de Aprobación |
-| :--- | :--- |
-| **Pruebas Unitarias** | 100% de tests aprobados; cobertura mínima del 80% en lógica de negocio y cálculos geográficos. |
-| **Pruebas de Integración** | Cero fallas en pruebas de políticas RLS y cero inconsistencias en migraciones de base de datos. |
-| **Pruebas E2E** | Ejecución verde (exitosa) de todos los flujos críticos de supervisión en Playwright sin tests inestables (*flaky tests*). |
-| **Pruebas de Seguridad** | Cero vulnerabilidades críticas o altas reportadas en dependencias (`npm audit` / análisis de dependencias de Gradle). |
-| **Verificación de Rastreo** | Confirmación empírica de cese inmediato de rastreo al finalizar jornada. |
-
----
-
-## 10. Definición de Terminado (Definition of Done - DoD)
-
-Una tarea de desarrollo (TASK-xxx) se considerará terminada **únicamente** cuando cumpla con todos los siguientes puntos:
-
-1. **Código Fuente:** Implementado de acuerdo con las especificaciones del PRD y la Arquitectura, sin añadir funcionalidades fuera del alcance.
-2. **Tipado Estricto:** En el proyecto web, compilación exitosa sin errores con TypeScript en modo estricto (`tsc --noEmit`). En Android, compilación limpia de Gradle sin advertencias críticas.
-3. **Pruebas Automatizadas:** Pruebas unitarias o de integración escritas y ejecutadas exitosamente que respalden los cambios implementados.
-4. **Verificación de Seguridad:** Validación de que ninguna credencial, clave de servicio o secreto haya sido expuesta.
-5. **No Regresiones:** El resto de las pruebas existentes del sistema continúan ejecutándose con resultado exitoso.
-6. **Documentación y Trazabilidad:** Actualización inmediata de los archivos `TASKS.md` y `docs/MEMORY.md`, reflejando con exactitud el estado final verificado.
+| Criterio | Estándar Exigido | Método de Validación |
+| :--- | :--- | :--- |
+| **Apego al Alcance** | Cero código o funcionalidades no especificadas en el PRD. | Revisión de código y diff de Git. |
+| **Tipado Estricto Web** | Cero errores de compilación con TypeScript estricto (`strict: true`). Cero uso de `any`. | Ejecución exitosa de `npx tsc --noEmit`. |
+| **Calidad de Código Android** | Compilación limpia sin advertencias de Gradle en Kotlin. | Ejecución de `./gradlew assembleDebug test`. |
+| **Seguridad de Secretos** | Ninguna clave privada, contraseña ni `SUPABASE_SERVICE_ROLE_KEY` en commits o clientes. | Análisis estático de strings y escaneo de git staged. |
+| **Aislamiento RLS** | Toda tabla creada o alterada cuenta con políticas RLS obligatorias. | Verificación en migraciones SQL y tests de integración. |
+| **Pruebas Automatizadas** | Pruebas unitarias o de integración escritas y pasando exitosamente. | Ejecución del runner de pruebas correspondiente. |
+| **Sincronización Documental**| `TASKS.md` y `docs/MEMORY.md` actualizados inmediatamente tras la verificación. | Comprobación de casillas `[x]` y fechas en documentos. |

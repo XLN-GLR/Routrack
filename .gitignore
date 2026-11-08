@@ -1,5 +1,5 @@
 # ==============================================================================
-# ROUTRACK — .gitignore Unificado (Android + Next.js + Supabase)
+# ROUTRACK — .gitignore Unificado para Monorepo (Android + Next.js + Supabase)
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -20,7 +20,7 @@
 *.keystore
 
 # ------------------------------------------------------------------------------
-# 2. Node.js, Next.js y TypeScript
+# 2. Node.js, Next.js y TypeScript (web-admin)
 # ------------------------------------------------------------------------------
 node_modules/
 .next/
@@ -39,7 +39,7 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # ------------------------------------------------------------------------------
-# 3. Android y Gradle
+# 3. Android y Gradle (mobile-android)
 # ------------------------------------------------------------------------------
 .gradle/
 **/build/
@@ -48,7 +48,7 @@ captures/
 .cxx/
 local.properties
 
-# Archivos de empaquetado Android
+# Archivos de empaquetado y compilación Android
 *.apk
 *.ap_
 *.aab

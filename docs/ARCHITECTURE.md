@@ -1,357 +1,525 @@
 # Arquitectura del Sistema — ROUTRACK
 
 **Proyecto:** ROUTRACK  
-**Documento:** Especificación de Arquitectura de Software  
+**Documento:** Especificación Técnica de Arquitectura de Software  
 **Versión:** 1.0.0  
 **Fecha:** Noviembre 2026  
-**Estado:** Base Oficial  
+**Estado:** Documento Fundacional Oficial (Aprobado)  
+**Autor:** Senior Software Engineer, Cloud/Mobile Solutions Architect & Technical Lead  
 
 ---
 
-## 1. Arquitectura General
+## 1. Arquitectura General Desacoplada
 
-ROUTRACK está estructurado bajo una **arquitectura desacoplada, orientada a eventos y con soporte nativo *Offline-First***. El núcleo de la infraestructura se basa en los servicios gestionados de **Supabase** (BaaS) sobre una base de datos relacional y geoespacial PostgreSQL con la extensión PostGIS activada. 
+ROUTRACK está diseñado bajo una **arquitectura en capas desacoplada, orientada a servicios serverless y con soporte nativo Offline-First**. 
 
-El ecosistema se divide en tres niveles fundamentales:
-1. **Capa Móvil (Cliente en Campo):** Aplicación Android nativa desarrollada en Kotlin y Jetpack Compose. Implementa Clean Architecture (UI / Dominio / Datos) con persistencia local en SQLite (Room Database), tareas diferidas tolerantes a fallos (WorkManager) y captura continua de telemetría mediante un Android Foreground Service respaldado por el Fused Location Provider.
-2. **Capa Backend y Persistencia (Supabase):** Plataforma integral que provee autenticación de usuarios (Supabase Auth), almacenamiento relacional y espacial (PostgreSQL + PostGIS), almacenamiento de archivos multimedia (Supabase Storage), suscripciones en tiempo real (Supabase Realtime) y lógica de servidor ligera (Supabase Edge Functions en Deno/TypeScript). La seguridad y el aislamiento multi-tenant se aplican estrictamente en el motor de datos mediante Row Level Security (RLS).
-3. **Capa Web (Panel de Supervisión y Auditoría):** Aplicación moderna desarrollada en Next.js (App Router) con TypeScript estricto y Tailwind CSS. Utiliza Server Components para renderizado eficiente del lado del servidor, Client Components para la interactividad de mapas con Leaflet y llamadas seguras autenticadas hacia Supabase.
+El flujo de procesamiento sigue una secuencia estricta de extremo a extremo:
+$$\text{Android Client} \longrightarrow \text{Supabase Edge Functions} \longrightarrow \text{PostgreSQL + PostGIS} \longrightarrow \text{Panel Web Administrativo}$$
 
 ```mermaid
-flowchart TD
-    subgraph "Dispositivos Móviles (Vendedores)"
-        A[Android App / Kotlin Compose] -->|Persistencia Local| B[(Room DB Local / SQLite)]
-        A -->|Servicio de Telemetría| C[Android Foreground Service + Fused Location]
-        B -->|Sincronización por Lotes| D[WorkManager Worker]
+flowchart LR
+    subgraph ClientLayer ["1. Capa Móvil (Campo)"]
+        A["Android Client\n(Kotlin + Compose)"]
+        B[("Búfer Local Cifrado\nRoom + SQLCipher")]
+        C["Foreground Service\nFused Location"]
+        D["WorkManager\nBatch Sync"]
+        A <--> B
+        C --> B
+        B --> D
     end
 
-    subgraph "Backend Cloud (Supabase)"
-        D -->|HTTPS / REST API / JWT| E[Supabase API Gateway / PostgREST]
-        E -->|Políticas RLS Multi-Tenant| F[(PostgreSQL 15+ & PostGIS)]
-        G[Supabase Auth] -->|Emisión de JWT con Claims| A
-        G -->|Emisión de JWT con Claims| H[Next.js Web App]
-        I[Supabase Edge Functions] -->|Procesamiento Batch & Auditoría| F
-        J[Supabase Realtime] -->|WebSockets / Eventos en Vivo| H
-        K[Supabase Storage] -->|Imágenes de Evidencias| F
+    subgraph EdgeLayer ["2. Capa Servidor Ligero"]
+        E["Supabase Edge Functions\n(sync-jornada / Deno TS)"]
+        D -->|HTTPS TLS 1.3 / JWT\nLotes JSON Idempotentes| E
     end
 
-    subgraph "Panel de Supervisión (Supervisores y Auditores)"
-        H -->|Leaflet / Tiles Configurable| L[Mapas y Polilíneas en Tiempo Real]
-        H -->|Consultas Seguras con RLS| E
-        H -->|Suscripción en Vivo| J
+    subgraph DataLayer ["3. Capa Persistencia y Motor Espacial"]
+        F[("PostgreSQL 15+\n+ PostGIS")]
+        G["Supabase Auth\n(JWT Claims RBAC)"]
+        H["Row Level Security\n(RLS por org_id)"]
+        E -->|Validación HMAC & RLS| F
+        G -.->|Tokens con Claims| A
+        G -.->|Tokens con Claims| I
+        F --- H
+    end
+
+    subgraph WebLayer ["4. Capa Web Administrativa"]
+        I["Panel Web Administrativo\n(Next.js App Router)"]
+        J["Visor Cartográfico\n(Leaflet + OSM)"]
+        I <-->|Consultas Seguras RLS\nServer Actions / SWR| F
+        I --- J
     end
 ```
 
----
-
-## 2. Tecnologías Seleccionadas
-
-| Capa / Módulo | Tecnología | Versión / Especificación | Justificación Técnica |
-| :--- | :--- | :--- | :--- |
-| **Entorno de Desarrollo** | Google Antigravity | Última estable | IDE asistido por IA para desarrollo ágil y consistente. |
-| **Repositorio y VCS** | Git + GitHub | Git 2.40+ | Versionamiento seguro, trazabilidad y control de ramas en repositorio privado. |
-| **App Móvil (UI)** | Kotlin + Jetpack Compose | Kotlin 1.9+ / Compose BOM | Estándar moderno oficial de Google para UI declarativa reactiva en Android. |
-| **Persistencia Local Móvil** | Room Database | SQLite moderno | Abstracción tipada, segura y reactiva sobre SQLite con soporte de corrutinas. |
-| **Tareas en Segundo Plano** | Android WorkManager | API 26+ | Garantiza la ejecución diferida de sincronización incluso si la app se cierra o el SO reinicia. |
-| **Telemetría y Rastreo** | Fused Location Provider | Google Play Services Location | Optimización inteligente de consumo de batería combinando GPS, Wi-Fi y redes móviles. |
-| **Servicio de Ejecución** | Android Foreground Service | Notificación persistente | Evita que el sistema operativo mate el proceso de rastreo en segundo plano. |
-| **Cifrado Local Móvil** | Android Keystore | AES-256-GCM | Almacenamiento seguro de llaves criptográficas a nivel de hardware/TEE. |
-| **Panel Web (Frontend)** | Next.js + React | Next.js 14+ (App Router) | Alto rendimiento, Server Components para SSR rápido y rutas API integradas. |
-| **Lenguaje Web** | TypeScript | Modo Estricto (`strict: true`) | Prevención de errores en tiempo de compilación y tipado unificado. |
-| **Estilos Web** | Tailwind CSS | Tailwind v3+ | Diseño modular, responsive, ágil y sin sobrecarga de runtime CSS. |
-| **Mapas Web** | Leaflet + React-Leaflet | OpenStreetMap / Tiles configurables | Biblioteca ligera, extensible y sin dependencia obligatoria de APIs de pago. |
-| **Backend / Base de Datos** | Supabase (PostgreSQL 15+) | Cloud / Local CLI | Backend unificado con escalabilidad automática y soporte de migraciones declarativas. |
-| **Capacidades Geoespaciales**| Extensión PostGIS | PostGIS 3.3+ | Soporte nativo para tipos `geography(Point, 4326)` y cálculo espacial preciso. |
-| **Autenticación** | Supabase Auth | Basado en JWT | Manejo de sesiones, tokens de refresco y claims personalizados de organización y rol. |
-| **Seguridad de Datos** | Row Level Security (RLS) | Motor nativo PostgreSQL | Protección inquebrantable a nivel de fila directamente en el motor de la base de datos. |
-| **Lógica Serverless** | Supabase Edge Functions | Deno / TypeScript | Lógica ligera sin servidor para validaciones avanzadas o procesamiento batch pesado. |
-| **Pruebas Web** | Playwright | Playwright Test Suite | Pruebas E2E completas y confiables en múltiples navegadores. |
-| **Despliegue Web** | Vercel | Plataforma Serverless | Despliegue global instantáneo, optimizado para Next.js con CI/CD automático. |
-
-> **Nota Arquitectónica Crucial:** No se incorporará un backend independiente en FastAPI ni Express. Supabase actúa como el backend unificado inicial para simplificar la arquitectura, reducir la superficie de mantenimiento y garantizar la aplicación directa de RLS.
+### 1.1. Separación Estricta de Capas
+1. **Regla de Oro:** La interfaz de usuario (sea Android Compose o React en el panel web) **nunca accede directamente a las tablas de la base de datos sin mediación de capas de autorización o validación**.
+2. **Capa Móvil:** La UI interactúa exclusivamente con la capa de dominio y repositorios locales. La base de datos local SQLite (Room) actúa como la única fuente de verdad inmediata en el teléfono.
+3. **Capa de Ingesta Backend (Supabase Edge Functions):** Toda ingesta masiva de telemetría y eventos de jornada proveniente de los dispositivos móviles es recibida por la Edge Function `sync-jornada`. Dicha función:
+   - Valida el token JWT del usuario.
+   - Verifica la firma criptográfica HMAC-SHA256 del lote para certificar la cadena de custodia.
+   - Aplica validaciones de esquema estricto (Zod).
+   - Ejecuta la persistencia idempotente en PostgreSQL mediante transacciones atómicas.
+4. **Capa de Datos (PostgreSQL + PostGIS):** Alberga la lógica de integridad geoespacial (cálculo de geocercas con `ST_DWithin`, detección de desvíos espaciales) y el aislamiento estricto entre organizaciones mediante políticas de Row Level Security (RLS).
+5. **Capa Web Administrativa:** La aplicación Next.js ejecuta sus consultas de lectura principalmente del lado del servidor mediante Server Components y Server Actions, utilizando el cliente `@supabase/ssr` con cookies HttpOnly seguras y respetando las políticas RLS.
 
 ---
 
-## 3. Comunicación entre Android, Panel Web y Supabase
+## 2. Estructura del Monorepo
 
-### 3.1. Cliente Android ⇄ Supabase
-- **Protocolo:** HTTPS con TLS 1.3 forzado.
-- **Autenticación:** Cada petición incluye en la cabecera `Authorization: Bearer <access_token>`. El token es emitido por Supabase Auth durante el login y se renueva automáticamente mediante el refresh token almacenado en Android Keystore.
-- **Sincronización por Lotes (Batch Ingestion):** La app Android no envía cada punto GPS en una petición aislada (lo cual agotaría la batería y consumiría exceso de datos móviles). En su lugar, acumula puntos en Room y ejecuta envíos en lotes de 50 a 100 puntos hacia una función RPC de Supabase o mutación directa sobre `tracking_points`.
-
-### 3.2. Panel Web (Next.js) ⇄ Supabase
-- **Operaciones de Servidor (SSR / Server Actions):** Para lecturas iniciales y renderizado en servidor, Next.js usa el cliente `@supabase/ssr` con cookies seguras (`HttpOnly`, `SameSite=Lax`, `Secure`).
-- **Operaciones de Cliente (Mapas y Suscripciones):** Los componentes de mapa y telemetría en vivo se suscriben mediante WebSockets a Supabase Realtime para recibir las últimas ubicaciones de vendedores de su organización sin requerir refresco manual de la página.
-
----
-
-## 4. Flujo de Datos
-
-### 4.1. Flujo de Inicio de Jornada y Rastreo Continuo
-1. El vendedor inicia sesión en la app Android y pulsa **"Iniciar Jornada"**.
-2. La app valida permisos de ubicación y crea un registro en la tabla `work_shifts` con estado `open` y hora actual.
-3. Se inicia el `TrackingForegroundService`, desplegando una notificación permanente en la barra de estado de Android.
-4. El `FusedLocationProviderClient` solicita actualizaciones periódicas de ubicación (ej. cada 3 minutos o ante desplazamiento significativo de 50 metros).
-5. Cada coordenada recibida se inserta en la base de datos local SQLite (`Room`) en la tabla `local_tracking_points` con estado `pending`.
-6. De forma paralela, `WorkManager` programa un worker periódico o basado en restricciones de red (`NetworkType.CONNECTED`) para empaquetar los registros pendientes y subirlos a Supabase.
-7. Al completar la sincronización, los puntos locales se marcan como `synced`.
-
-### 4.2. Flujo de Registro y Verificación de Visita Comercial
-1. El vendedor arriba al local de un cliente y pulsa **"Registrar Visita"**.
-2. La app captura la ubicación GPS actual en alta precisión (`PRIORITY_HIGH_ACCURACY`).
-3. Se calcula de forma preliminar la distancia geodésica contra la posición registrada del cliente.
-4. El registro de visita se almacena localmente y se transmite a Supabase (`visit_records`).
-5. En Supabase, una consulta o función calcula la distancia exacta mediante PostGIS (`ST_Distance` sobre `geography` en metros). Si la distancia es menor o igual al radio de tolerancia del cliente (ej. 50 metros), el estado se marca como `verified`; de lo contrario, se clasifica como `out_of_range`.
-6. El panel web del supervisor refleja de inmediato la visita con su respectivo estado de verificación y distancia en metros.
-
-### 4.3. Flujo de Cierre de Jornada
-1. El vendedor presiona **"Finalizar Jornada"** y confirma la acción en un diálogo.
-2. La app envía la actualización a `work_shifts` (cerrando la jornada con `end_time`).
-3. El servicio `TrackingForegroundService` se detiene por completo y se cancelan los listeners de ubicación.
-4. Se ejecuta una última tarea de sincronización forzada en WorkManager para enviar cualquier punto o visita pendiente en la base local.
-
----
-
-## 5. Responsabilidades de Cada Componente
-
-```mermaid
-classDiagram
-    class AndroidApp {
-        +Autenticación local
-        +Foreground Service de Ubicación
-        +Almacenamiento Offline en Room
-        +Sincronización tolerante a fallos
-        +Detección de Mock Locations
-    }
-    class SupabaseBackend {
-        +Supabase Auth con RBAC
-        +Base de Datos PostgreSQL + PostGIS
-        +Políticas RLS por Organización
-        +Edge Functions para validación
-        +Storage para imágenes de visitas
-    }
-    class NextJsWebApp {
-        +Dashboard Administrativo
-        +Mapas Interactivos con Leaflet
-        +Gestión de Clientes y Vendedores
-        +Visualización de Rutas y Telemetría
-        +Auditoría y Exportación CSV
-    }
-    AndroidApp --> SupabaseBackend : Ingesta de Telemetría y Visitas (JWT)
-    NextJsWebApp --> SupabaseBackend : Consultas RLS y Realtime (JWT)
-```
-
-- **Android App:** Responsable de la experiencia móvil, captura fidedigna de telemetría bajo consumo mínimo de recursos, protección de llaves con Keystore y operación autónoma sin conectividad.
-- **Supabase Backend:** Responsable de la integridad de datos, aislamiento multi-tenant sin fugas, validación espacial PostGIS y servicio de API seguro y escalable.
-- **Next.js Web App:** Responsable de la administración, visualización cartográfica ágil, análisis de métricas de supervisión y control de auditoría.
-
----
-
-## 6. Estructura de Carpetas Propuesta
-
-La arquitectura del proyecto está organizada en un monorepo lógico y limpio:
+El repositorio está organizado en un monorepo modular limpio, desacoplado y tipado:
 
 ```text
 routrack/
-├── .agent/                    # Reglas y configuraciones para agentes de IA
+├── .agent/                    # Reglas operativas para agentes IA (Google Antigravity)
 │   └── rules/
-│       └── rules.md           # Reglas permanentes del agente
-├── docs/                      # Documentación fundacional del sistema
-│   ├── PRD.md                 # Requisitos del producto
-│   ├── ARCHITECTURE.md        # Arquitectura técnica y datos
-│   ├── DESIGN.md              # Sistema de diseño e identidad visual
-│   ├── TEST_PLAN.md           # Estrategia integral de pruebas
-│   ├── SECURITY.md            # Políticas de seguridad y LOPDP
-│   ├── DECISIONS.md           # Architectural Decision Records (ADRs)
-│   └── MEMORY.md              # Estado vivo del proyecto
-├── apps/
-│   ├── web/                   # Aplicación Web Next.js (App Router + TypeScript)
+│       └── rules.md
+├── .agents/                   # Espejo de compatibilidad para descubrimiento jerárquico
+│   └── rules/
+│       └── rules.md
+├── docs/                      # Documentación fundacional técnica (Single Source of Truth)
+│   ├── PRD.md                 # Product Requirement Document y alcance MVP
+│   ├── ARCHITECTURE.md        # Arquitectura del sistema, esquema PostGIS y contratos
+│   ├── DESIGN.md              # Sistema de diseño, paleta semántica y componentes UI
+│   ├── TEST_PLAN.md           # Plan de pruebas, mitigación de spoofing y pirámide
+│   ├── SECURITY.md            # Modelo de amenazas, RLS, SQLCipher y LOPDP Ecuador
+│   ├── DECISIONS.md           # Architectural Decision Records (ADR-001 a ADR-008)
+│   └── MEMORY.md              # Bitácora viva del estado y sincronización del proyecto
+├── mobile-android/            # Aplicación Móvil Android Nativa (Kotlin + Jetpack Compose)
+│   ├── app/
 │   │   ├── src/
-│   │   │   ├── app/           # Rutas y páginas de Next.js
-│   │   │   ├── components/    # Componentes UI, Mapas (Leaflet), Tablas, Formularios
-│   │   │   ├── lib/           # Clientes Supabase, utilidades y formatters
-│   │   │   ├── types/         # Definiciones de TypeScript estricto
-│   │   │   └── hooks/         # Custom React hooks
-│   │   ├── public/            # Recursos estáticos
-│   │   ├── package.json
-│   │   ├── tsconfig.json
-│   │   └── tailwind.config.ts
-│   └── android/               # Aplicación Móvil Android (Kotlin + Jetpack Compose)
-│       ├── app/
-│       │   ├── src/
-│       │   │   ├── main/
-│       │   │   │   ├── java/com/routrack/app/
-│       │   │   │   │   ├── data/        # Room DB, DAOs, Repositorios, Supabase Client
-│       │   │   │   │   ├── domain/      # Casos de uso, Modelos de dominio
-│       │   │   │   │   ├── presentation/# Pantallas Compose, ViewModels, UI State
-│       │   │   │   │   ├── services/    # TrackingForegroundService
-│       │   │   │   │   ├── workers/     # SyncWorker (WorkManager)
-│       │   │   │   │   └── security/    # KeystoreHelper, MockDetector
-│       │   │   │   ├── res/             # Recursos de Android (Drawables, Strings)
-│       │   │   │   └── AndroidManifest.xml
-│       │   ├── build.gradle.kts
-│       │   └── proguard-rules.pro
-│       ├── build.gradle.kts
-│       └── settings.gradle.kts
-├── supabase/                  # Configuración y código backend de Supabase
-│   ├── migrations/            # Migraciones SQL declarativas y versionadas
+│   │   │   ├── main/
+│   │   │   │   ├── java/com/routrack/mobile/
+│   │   │   │   │   ├── core/          # Utilidades, dispatchers, constantes
+│   │   │   │   │   ├── data/          # Room DB, SQLCipher, DAOs, Repositorios
+│   │   │   │   │   ├── domain/        # Casos de uso, modelos puros de negocio
+│   │   │   │   │   ├── presentation/  # UI Jetpack Compose, ViewModels, UI States
+│   │   │   │   │   ├── security/      # KeystoreManager, HmacSigner, AntiSpoofing
+│   │   │   │   │   ├── services/      # TrackingForegroundService
+│   │   │   │   │   └── workers/       # SyncJornadaWorker (WorkManager)
+│   │   │   │   ├── res/               # Drawables, layouts mínimos, strings, themes
+│   │   │   │   └── AndroidManifest.xml
+│   │   │   └── test/                  # Pruebas unitarias de JUnit y MockK
+│   │   └── build.gradle.kts
+│   ├── gradle/
+│   ├── build.gradle.kts
+│   └── settings.gradle.kts
+├── supabase/                  # Backend Unificado Serverless en Supabase
+│   ├── config.toml            # Configuración local de Supabase CLI
 │   ├── functions/             # Supabase Edge Functions (Deno / TypeScript)
-│   ├── seed.sql               # Datos semilla para desarrollo y pruebas
-│   └── config.toml            # Configuración local de Supabase CLI
-├── .env.example               # Plantilla de variables de entorno sin secretos
-├── .gitignore                 # Exclusiones de Git para Android, Node, Next.js y secretos
-├── AGENTS.md                  # Reglas del agente para Antigravity
+│   │   └── sync-jornada/      # Ingesta por lotes, verificación HMAC e idempotencia
+│   │       ├── index.ts
+│   │       └── schema.ts
+│   ├── migrations/            # Migraciones SQL declarativas y versionadas
+│   │   ├── 20261106000000_enable_extensions.sql
+│   │   ├── 20261106000001_create_core_tables.sql
+│   │   ├── 20261106000002_postgis_spatial_indices.sql
+│   │   └── 20261106000003_rls_security_policies.sql
+│   └── seed.sql               # Datos de prueba para desarrollo local
+├── web-admin/                 # Panel Web Administrativo (Next.js App Router + TypeScript)
+│   ├── public/                # Recursos estáticos, iconos y marcadores de mapa
+│   ├── src/
+│   │   ├── app/               # Rutas del App Router (layout, auth, dashboard)
+│   │   │   ├── (auth)/login/
+│   │   │   ├── (dashboard)/
+│   │   │   │   ├── live/      # Monitoreo en vivo con Leaflet
+│   │   │   │   ├── routes/    # Histórico de trayectorias y desvíos
+│   │   │   │   ├── visits/    # Auditoría de visitas comerciales
+│   │   │   │   ├── clients/   # Georreferenciación de clientes
+│   │   │   │   └── audit/     # Bitácora inmutable de eventos
+│   │   │   └── api/           # Endpoints auxiliares Next.js (si aplican)
+│   │   ├── components/        # Componentes UI modulares (Mapas, Tablas, Skeletons)
+│   │   ├── hooks/             # Custom React hooks (useRealtimeTracking)
+│   │   ├── lib/               # Clientes Supabase SSR, formateadores, geocalc
+│   │   └── types/             # Interfaces TypeScript estrictas
+│   ├── package.json
+│   ├── tailwind.config.ts
+│   └── tsconfig.json
+├── .env.example               # Plantilla de variables de entorno seguras (sin secretos)
+├── .gitignore                 # Exclusiones de Git unificadas para monorepo
+├── AGENTS.md                  # Reglas del agente para Google Antigravity (estándar raíz)
 ├── GEMINI.md                  # Reglas de Antigravity (estándar de directorio)
-├── TASKS.md                   # Plan de tareas por fases y estados
-└── README.md                  # Resumen ejecutivo y guía del proyecto
+├── README.md                  # Resumen ejecutivo y guía de incorporación
+└── TASKS.md                   # Mapa de ruta secuencial estructurado por Vertical Slices
 ```
 
 ---
 
-## 7. Diseño Inicial de la Base de Datos (PostgreSQL + PostGIS)
+## 3. Flujo de Datos Offline-First
 
-A continuación se detalla el esquema entidad-relación inicial que se desplegará en Supabase:
+El cliente móvil Android opera como un sistema autónomo de captura y buffering, diseñado para tolerar desconexiones prolongadas sin degradar la experiencia de usuario.
 
-### 7.1. Tabla `organizations`
-Entidad principal para multi-tenancy.
-- `id` (UUID, PK, default `gen_random_uuid()`)
-- `name` (TEXT, NOT NULL)
-- `tax_id` (TEXT, NOT NULL) — RUC o identificación tributaria
-- `is_active` (BOOLEAN, DEFAULT TRUE)
-- `created_at` (TIMESTAMPTZ, DEFAULT NOW())
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Sen as Sensores GPS / Activity
+    participant FGS as Foreground Service
+    participant Room as Room DB + SQLCipher
+    participant WM as WorkManager (SyncWorker)
+    participant Edge as Edge Function (sync-jornada)
+    participant DB as PostgreSQL + PostGIS
 
-### 7.2. Tabla `profiles`
-Extensión del usuario autenticado en `auth.users`.
-- `id` (UUID, PK, REFERENCES `auth.users(id)` ON DELETE CASCADE)
-- `organization_id` (UUID, NOT NULL, REFERENCES `organizations(id)` ON DELETE CASCADE)
-- `role` (TEXT, NOT NULL CHECK (`role` IN ('super_admin', 'supervisor', 'seller', 'auditor')))
-- `full_name` (TEXT, NOT NULL)
-- `email` (TEXT, NOT NULL)
-- `phone` (TEXT)
-- `is_active` (BOOLEAN, DEFAULT TRUE)
-- `created_at` (TIMESTAMPTZ, DEFAULT NOW())
-- `updated_at` (TIMESTAMPTZ, DEFAULT NOW())
+    Note over FGS,Room: Captura y Almacenamiento Local Cifrado
+    Sen->>FGS: Coordenadas GPS (Lat, Lng, Acc, Spd)
+    FGS->>FGS: Generar Hash HMAC encadenado (Hash_n)
+    FGS->>Room: Insertar punto (sync_status = 'PENDING')
 
-### 7.3. Tabla `clients`
-Puntos de venta o clientes comerciales a visitar.
-- `id` (UUID, PK, default `gen_random_uuid()`)
-- `organization_id` (UUID, NOT NULL, REFERENCES `organizations(id)` ON DELETE CASCADE)
-- `name` (TEXT, NOT NULL)
-- `commercial_name` (TEXT)
-- `tax_id` (TEXT)
-- `address` (TEXT, NOT NULL)
-- `phone` (TEXT)
-- `location` (GEOGRAPHY(POINT, 4326), NOT NULL) — Coordenadas PostGIS (SRID 4326)
-- `tolerance_radius_meters` (INTEGER, DEFAULT 50, NOT NULL) — Geocerca en metros
-- `created_at` (TIMESTAMPTZ, DEFAULT NOW())
+    Note over WM,Edge: Sincronización Tolerante a Fallos
+    WM->>WM: Gatillado por conectividad disponible
+    WM->>Room: Consultar lote pendiente (hasta 100 registros)
+    WM->>Edge: POST /functions/v1/sync-jornada (Lote JSON + HMAC + JWT)
+    
+    alt Sincronización Exitosa (HTTP 200)
+        Edge->>DB: Inserción Atómica con ON CONFLICT (id) DO NOTHING
+        DB-->>Edge: Confirmación de filas persistidas
+        Edge-->>WM: 200 OK { synced_ids: [...], next_expected_hash: "..." }
+        WM->>Room: Actualizar estado a 'SYNCED'
+    else Fallo de Red o Error 5xx
+        Edge--xWM: Timeout o Error HTTP
+        WM->>WM: Programar reintento con Backoff Exponencial
+        Note over Room: Los datos se conservan íntegros en local
+    end
+```
 
-### 7.4. Tabla `work_shifts`
-Jornadas laborales de los vendedores.
-- `id` (UUID, PK, default `gen_random_uuid()`)
-- `organization_id` (UUID, NOT NULL, REFERENCES `organizations(id)` ON DELETE CASCADE)
-- `seller_id` (UUID, NOT NULL, REFERENCES `profiles(id)` ON DELETE CASCADE)
-- `start_time` (TIMESTAMPTZ, NOT NULL, DEFAULT NOW())
-- `end_time` (TIMESTAMPTZ) — NULL mientras esté activa
-- `status` (TEXT, NOT NULL DEFAULT 'open' CHECK (`status` IN ('open', 'closed', 'aborted')))
-- `total_distance_km` (NUMERIC(8,2), DEFAULT 0)
-- `battery_start` (INTEGER)
-- `battery_end` (INTEGER)
-- `created_at` (TIMESTAMPTZ, DEFAULT NOW())
-
-### 7.5. Tabla `tracking_points`
-Puntos de telemetría GPS recolectados periódicamente.
-- `id` (BIGSERIAL, PK)
-- `organization_id` (UUID, NOT NULL, REFERENCES `organizations(id)` ON DELETE CASCADE)
-- `shift_id` (UUID, NOT NULL, REFERENCES `work_shifts(id)` ON DELETE CASCADE)
-- `seller_id` (UUID, NOT NULL, REFERENCES `profiles(id)` ON DELETE CASCADE)
-- `location` (GEOGRAPHY(POINT, 4326), NOT NULL) — Latitud y longitud
-- `accuracy` (REAL, NOT NULL) — Precisión horizontal en metros
-- `speed` (REAL) — Velocidad en m/s
-- `altitude` (REAL)
-- `battery_level` (SMALLINT)
-- `is_mock` (BOOLEAN, DEFAULT FALSE, NOT NULL)
-- `recorded_at` (TIMESTAMPTZ, NOT NULL)
-- `created_at` (TIMESTAMPTZ, DEFAULT NOW())
-
-### 7.6. Tabla `visit_records`
-Visitas comerciales ejecutadas durante una jornada.
-- `id` (UUID, PK, default `gen_random_uuid()`)
-- `organization_id` (UUID, NOT NULL, REFERENCES `organizations(id)` ON DELETE CASCADE)
-- `shift_id` (UUID, NOT NULL, REFERENCES `work_shifts(id)` ON DELETE CASCADE)
-- `client_id` (UUID, NOT NULL, REFERENCES `clients(id)` ON DELETE CASCADE)
-- `seller_id` (UUID, NOT NULL, REFERENCES `profiles(id)` ON DELETE CASCADE)
-- `check_in_time` (TIMESTAMPTZ, NOT NULL)
-- `check_out_time` (TIMESTAMPTZ)
-- `check_in_location` (GEOGRAPHY(POINT, 4326), NOT NULL)
-- `check_out_location` (GEOGRAPHY(POINT, 4326))
-- `distance_to_client_meters` (REAL, NOT NULL)
-- `status` (TEXT, NOT NULL CHECK (`status` IN ('verified', 'out_of_range', 'cancelled')))
-- `notes` (TEXT)
-- `photo_url` (TEXT)
-- `created_at` (TIMESTAMPTZ, DEFAULT NOW())
-
-### 7.7. Tabla `audit_logs`
-Bitácora de seguridad y eventos de auditoría inmutables.
-- `id` (BIGSERIAL, PK)
-- `organization_id` (UUID, NOT NULL, REFERENCES `organizations(id)` ON DELETE CASCADE)
-- `user_id` (UUID, REFERENCES `profiles(id)`)
-- `action` (TEXT, NOT NULL)
-- `entity` (TEXT, NOT NULL)
-- `entity_id` (TEXT)
-- `payload` (JSONB)
-- `ip_address` (TEXT)
-- `created_at` (TIMESTAMPTZ, DEFAULT NOW())
+### 3.1. Detalle del Flujo de Sincronización
+1. **Captura Local Inmediata:** Ninguna interacción o punto GPS espera respuesta de la red. Toda coordenada recibida del `FusedLocationProviderClient` se persiste de forma síncrona en SQLite/Room bajo cifrado SQLCipher.
+2. **Encadenamiento Criptográfico en Origen:** Antes de insertar el registro en Room, el módulo de seguridad calcula el hash HMAC-SHA256 utilizando la llave privada custodiada en el Android Keystore, vinculando el punto al hash del registro inmediatamente precedente.
+3. **Empaquetado por Lotes (Batching):** El `SyncJornadaWorker` selecciona hasta 100 registros en estado `PENDING`. Empaquetar en lotes reduce dramáticamente el uso de la antena de radio celular, optimizando el consumo de batería y datos móviles en comparación con transmisiones punto a punto.
+4. **Política de Reintentos Exponenciales:** Si la transmisión falla por falta de señal, el `WorkManager` aplica una política `BackoffPolicy.EXPONENTIAL` con un retardo inicial de 30 segundos, incrementándose progresivamente hasta un máximo configurado de 5 horas.
+5. **Idempotencia Garantizada:** Cada punto de telemetría y visita posee un `UUID v4` generado en el cliente móvil al momento de su captura física. La función de ingesta en backend utiliza la cláusula `ON CONFLICT (id) DO NOTHING`. De este modo, ante retransmisiones duplicadas causadas por caídas abruptas de red, la base de datos ignora los registros repetidos sin corromper la bitácora ni duplicar distancias.
 
 ---
 
-## 8. Relaciones entre Entidades
+## 4. Modelo de Datos y Diseño Geoespacial en PostGIS
+
+ROUTRACK utiliza PostgreSQL 15+ con la extensión **PostGIS 3.3+**, adoptando el estándar de geometrías espaciales `GEOMETRY(Point, 4326)` bajo el sistema de referencia de coordenadas elipsoidal WGS 84 (SRID 4326).
 
 ```mermaid
 erDiagram
-    organizations ||--o{ profiles : "pertenecen"
-    organizations ||--o{ clients : "poseen"
-    organizations ||--o{ work_shifts : "registran"
-    organizations ||--o{ audit_logs : "auditan"
-    profiles ||--o{ work_shifts : "ejecutan (seller)"
-    work_shifts ||--o{ tracking_points : "contiene puntos"
-    work_shifts ||--o{ visit_records : "contiene visitas"
-    clients ||--o{ visit_records : "reciben visitas"
-    profiles ||--o{ visit_records : "registran visitas"
+    ORGANIZATIONS ||--o{ PROFILES : "posee"
+    ORGANIZATIONS ||--o{ CLIENTS : "gestiona"
+    ORGANIZATIONS ||--o{ WORK_SHIFTS : "registra"
+    ORGANIZATIONS ||--o{ AUDIT_LOGS : "audita"
+    PROFILES ||--o{ WORK_SHIFTS : "ejecuta (vendedor)"
+    WORK_SHIFTS ||--o{ TRACKING_POINTS : "contiene telemetría"
+    WORK_SHIFTS ||--o{ VISIT_RECORDS : "contiene visitas"
+    CLIENTS ||--o{ VISIT_RECORDS : "es visitado"
+    PROFILES ||--o{ VISIT_RECORDS : "registra visita"
+```
+
+### 4.1. Definición de Tablas Principales
+
+#### 4.1.1. Tabla `organizations` (Inquilinos Multi-Tenant)
+```sql
+CREATE TABLE public.organizations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    tax_id TEXT NOT NULL UNIQUE, -- RUC en Ecuador (13 dígitos)
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+#### 4.1.2. Tabla `profiles` (Usuarios y Roles RBAC)
+```sql
+CREATE TABLE public.profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK (role IN ('ADMIN', 'SUPERVISOR', 'VENDEDOR')),
+    full_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    phone TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+#### 4.1.3. Tabla `clients` (Puntos de Venta y Geocercas)
+```sql
+CREATE TABLE public.clients (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    commercial_name TEXT,
+    tax_id TEXT,
+    address TEXT NOT NULL,
+    phone TEXT,
+    location GEOMETRY(Point, 4326) NOT NULL,
+    tolerance_radius_meters INTEGER NOT NULL DEFAULT 50 CHECK (tolerance_radius_meters > 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Índice espacial GiST para búsquedas de proximidad aceleradas
+CREATE INDEX idx_clients_location ON public.clients USING GIST (location);
+CREATE INDEX idx_clients_org_id ON public.clients (organization_id);
+```
+
+#### 4.1.4. Tabla `work_shifts` (Jornadas Laborales)
+```sql
+CREATE TABLE public.work_shifts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+    seller_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    start_time TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    end_time TIMESTAMPTZ,
+    status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'CLOSED', 'ABORTED')),
+    start_location GEOMETRY(Point, 4326) NOT NULL,
+    end_location GEOMETRY(Point, 4326),
+    total_distance_km NUMERIC(8, 2) NOT NULL DEFAULT 0.00,
+    battery_level_start INTEGER CHECK (battery_level_start BETWEEN 0 AND 100),
+    battery_level_end INTEGER CHECK (battery_level_end BETWEEN 0 AND 100),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_work_shifts_org_seller ON public.work_shifts (organization_id, seller_id, start_time DESC);
+```
+
+#### 4.1.5. Tabla `tracking_points` (Telemetría GPS Histórica)
+```sql
+CREATE TABLE public.tracking_points (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+    shift_id UUID NOT NULL REFERENCES public.work_shifts(id) ON DELETE CASCADE,
+    seller_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    location GEOMETRY(Point, 4326) NOT NULL,
+    accuracy_meters REAL NOT NULL,
+    speed_ms REAL,
+    altitude_meters REAL,
+    bearing_degrees REAL,
+    battery_level INTEGER CHECK (battery_level BETWEEN 0 AND 100),
+    is_mock BOOLEAN NOT NULL DEFAULT FALSE,
+    hmac_hash TEXT NOT NULL,
+    previous_hash TEXT NOT NULL,
+    recorded_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Índice GiST para análisis espacial de polilíneas y desvíos
+CREATE INDEX idx_tracking_points_location ON public.tracking_points USING GIST (location);
+CREATE INDEX idx_tracking_points_shift_time ON public.tracking_points (shift_id, recorded_at ASC);
+CREATE INDEX idx_tracking_points_org_id ON public.tracking_points (organization_id);
+```
+
+#### 4.1.6. Tabla `visit_records` (Visitas Comerciales y Acuerdos)
+```sql
+CREATE TABLE public.visit_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+    shift_id UUID NOT NULL REFERENCES public.work_shifts(id) ON DELETE CASCADE,
+    client_id UUID NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
+    seller_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    check_in_time TIMESTAMPTZ NOT NULL,
+    check_out_time TIMESTAMPTZ,
+    check_in_location GEOMETRY(Point, 4326) NOT NULL,
+    check_out_location GEOMETRY(Point, 4326),
+    distance_to_client_meters REAL NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('VERIFIED', 'OUT_OF_RANGE', 'CANCELLED')),
+    observations TEXT,
+    agreed_prices_commitments JSONB, -- Estructura de compromisos comerciales y precios pactados
+    hmac_hash TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_visit_records_client ON public.visit_records (client_id);
+CREATE INDEX idx_visit_records_shift ON public.visit_records (shift_id);
+CREATE INDEX idx_visit_records_org ON public.visit_records (organization_id);
+```
+
+#### 4.1.7. Tabla `audit_logs` (Bitácora Inmutable de Eventos)
+```sql
+CREATE TABLE public.audit_logs (
+    id BIGSERIAL PRIMARY KEY,
+    organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    event_type TEXT NOT NULL, -- GPS_DISABLED, SIGNAL_LOST, MOCK_LOCATION_DETECTED, SHIFT_OPENED, SHIFT_CLOSED
+    event_severity TEXT NOT NULL CHECK (event_severity IN ('INFO', 'WARNING', 'CRITICAL')),
+    metadata JSONB NOT NULL DEFAULT '{}'::JSONB,
+    location GEOMETRY(Point, 4326),
+    hmac_hash TEXT NOT NULL,
+    previous_hash TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_audit_logs_org_time ON public.audit_logs (organization_id, created_at DESC);
+```
+
+### 4.2. Consultas Geoespaciales Clave en PostGIS
+
+#### 4.2.1. Validación de Geocerca de Visita (`ST_DWithin`)
+Dado que las coordenadas residen en `GEOMETRY(Point, 4326)`, para medir distancias métricas exactas sobre la superficie terrestre se castea la geometría a `geography`:
+```sql
+-- Función de validación de geocerca en check-in
+SELECT 
+    c.id AS client_id,
+    c.name,
+    c.tolerance_radius_meters,
+    ST_Distance(c.location::geography, ST_SetSRID(ST_MakePoint(:vendedor_lng, :vendedor_lat), 4326)::geography) AS distancia_metros,
+    ST_DWithin(
+        c.location::geography,
+        ST_SetSRID(ST_MakePoint(:vendedor_lng, :vendedor_lat), 4326)::geography,
+        c.tolerance_radius_meters
+    ) AS esta_en_rango
+FROM public.clients c
+WHERE c.id = :target_client_id
+  AND c.organization_id = :user_org_id;
+```
+
+#### 4.2.2. Detección de Desviación de Ruta Planificada
+Para determinar si un punto GPS de telemetría se ha desviado respecto a la ruta planificada (modelada como un `LineString` o corredor entre los clientes asignados del día):
+```sql
+-- Detección de desvío: distancia del punto a la línea óptima de ruta superior al umbral permitido (ej. 300 metros)
+SELECT 
+    tp.id AS point_id,
+    tp.recorded_at,
+    ST_Distance(
+        tp.location::geography,
+        route_corridor.geom::geography
+    ) AS desviacion_metros
+FROM public.tracking_points tp
+CROSS JOIN (
+    SELECT ST_MakeLine(location ORDER BY planned_order ASC) AS geom
+    FROM daily_route_stops
+    WHERE shift_id = :target_shift_id
+) route_corridor
+WHERE tp.shift_id = :target_shift_id
+  AND NOT ST_DWithin(
+      tp.location::geography,
+      route_corridor.geom::geography,
+      300 -- Umbral de tolerancia de desvío en metros
+  );
 ```
 
 ---
 
-## 9. Estrategia de Sincronización y Tolerancia a Fallos
+## 5. Contratos e Interfaces Conceptuales JSON
 
-1. **Inserción Local Obligatoria:** Ningún dato capturado en la app móvil depende de que el servidor responda de inmediato. Toda coordenada GPS y todo check-in de visita se guarda primero en la base de datos Room (`local_tracking_points`).
-2. **Cola de Tareas con WorkManager:**
-   - La sincronización se delega a un `PeriodicWorkRequest` de WorkManager con un intervalo mínimo estándar de 15 minutos, complementado con un `OneTimeWorkRequest` acelerado tras eventos clave (ej. inicio de jornada, registro de visita o finalización de jornada).
-   - Política de reintento: `BackoffPolicy.EXPONENTIAL`, iniciando en 30 segundos hasta un máximo configurable ante fallos de red persistentes.
-3. **Manejo de Lotes (Batching):** Se seleccionan hasta 100 registros con estado `sync_status = 'pending'`, se ordenan cronológicamente y se envían en una sola transacción hacia Supabase.
-4. **Idempotencia:** Cada registro local posee un UUID determinista generado en el cliente, permitiendo el uso de cláusulas `ON CONFLICT (id) DO NOTHING` para evitar duplicación ante reintentos de red.
-5. **Política de Purgado Local:** Los puntos GPS sincronizados exitosamente se conservan durante 7 días en el dispositivo para consulta del historial local y luego se eliminan de Room para mantener bajo control el almacenamiento del teléfono.
+A continuación se definen los contratos formales para el intercambio de información entre el cliente Android y la Supabase Edge Function `sync-jornada`:
 
----
+### 5.1. Contrato de Sincronización por Lotes (Batch Payload Android $\rightarrow$ Edge Function)
+**Endpoint:** `POST /functions/v1/sync-jornada`  
+**Headers:**
+```http
+Authorization: Bearer <SUPABASE_JWT_ACCESS_TOKEN>
+Content-Type: application/json
+X-Client-Device-Id: "a3f5b89c-01de-4e78-9a45-67890abcdef1"
+X-Client-App-Version: "1.0.0"
+```
 
-## 10. Integraciones Externas
+**Payload JSON:**
+```json
+{
+  "sync_batch_id": "7b8e1f54-8e39-4d22-9642-123456789abc",
+  "shift_id": "c1a2b3c4-d5e6-47a8-9b0c-112233445566",
+  "organization_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "seller_id": "99e1a2b3-c4d5-4e6f-a7b8-c9d0e1f2a3b4",
+  "batch_timestamp": "2026-11-06T13:45:00.000Z",
+  "tracking_points": [
+    {
+      "id": "11111111-2222-3333-4444-555555555555",
+      "latitude": -0.180653,
+      "longitude": -78.467834,
+      "accuracy_meters": 4.5,
+      "speed_ms": 12.3,
+      "altitude_meters": 2815.0,
+      "bearing_degrees": 182.5,
+      "battery_level": 84,
+      "is_mock": false,
+      "recorded_at": "2026-11-06T13:40:00.000Z",
+      "previous_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "hmac_hash": "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e"
+    },
+    {
+      "id": "22222222-3333-4444-5555-666666666666",
+      "latitude": -0.182410,
+      "longitude": -78.468920,
+      "accuracy_meters": 3.8,
+      "speed_ms": 8.1,
+      "altitude_meters": 2814.2,
+      "bearing_degrees": 190.0,
+      "battery_level": 83,
+      "is_mock": false,
+      "recorded_at": "2026-11-06T13:43:00.000Z",
+      "previous_hash": "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e",
+      "hmac_hash": "c89b7f52093a8d423985bf8a25c7423e8f192b9b788a1b621e289c03fae12089"
+    }
+  ],
+  "visit_records": [
+    {
+      "id": "33333333-4444-5555-6666-777777777777",
+      "client_id": "8a7b6c5d-4e3f-2a1b-0c9d-8e7f6a5b4c3d",
+      "check_in_time": "2026-11-06T13:15:00.000Z",
+      "check_out_time": "2026-11-06T13:35:00.000Z",
+      "check_in_location": {
+        "latitude": -0.180550,
+        "longitude": -78.467710
+      },
+      "check_out_location": {
+        "latitude": -0.180555,
+        "longitude": -78.467715
+      },
+      "observations": "Cliente solicita reposición urgente de producto categoría A. Local con afluencia normal.",
+      "agreed_prices_commitments": {
+        "agreed_discount_pct": 5.0,
+        "promised_delivery_date": "2026-11-08",
+        "order_intent_units": 150,
+        "unit_price_pactado": 12.50
+      },
+      "hmac_hash": "5d41402abc4b2a76b9719d911017c5926c4592a2a095a8946764516335a90d8a"
+    }
+  ],
+  "system_events": [
+    {
+      "event_type": "GPS_DISABLED",
+      "event_severity": "WARNING",
+      "occurred_at": "2026-11-06T13:20:15.000Z",
+      "metadata": {
+        "reason": "USER_ACTION_SETTINGS_TOGGLED",
+        "battery_pct": 84
+      },
+      "previous_hash": "c89b7f52093a8d423985bf8a25c7423e8f192b9b788a1b621e289c03fae12089",
+      "hmac_hash": "7a38b1d9236a287b4699fb42e126a1b24f5a31e138a3901bcae0350d738f615e"
+    }
+  ]
+}
+```
 
-1. **Proveedores de Mapas en Leaflet:**
-   - Para el entorno base y desarrollo, se utilizan tiles vectoriales o raster de **OpenStreetMap** (`https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`) y **CartoDB Positron**.
-   - La arquitectura desacopla el proveedor mediante variables de entorno (`NEXT_PUBLIC_MAP_TILE_PROVIDER_URL`), permitiendo cambiar a Mapbox o Stadia Maps de forma transparente sin alterar el código de los componentes.
-2. **Servicios de Ubicación de Android:**
-   - Integración nativa con **Google Play Services Location (Fused Location Provider)** para obtención balanceada de coordenadas.
-3. **Supabase Storage:**
-   - Almacenamiento tipo S3 gestionado para la subida de fotografías de evidencia capturadas durante las visitas a clientes.
+### 5.2. Contrato de Respuesta del Servidor (Edge Function $\rightarrow$ Android Client)
+**Respuesta:** `200 OK`
+```json
+{
+  "status": "SUCCESS",
+  "sync_batch_id": "7b8e1f54-8e39-4d22-9642-123456789abc",
+  "processed_at": "2026-11-06T13:45:01.120Z",
+  "summary": {
+    "tracking_points_persisted": 2,
+    "tracking_points_ignored_conflict": 0,
+    "visit_records_persisted": 1,
+    "audit_events_persisted": 1
+  },
+  "chain_state": {
+    "last_verified_hash": "7a38b1d9236a287b4699fb42e126a1b24f5a31e138a3901bcae0350d738f615e",
+    "chain_integrity_valid": true
+  },
+  "visits_evaluation": [
+    {
+      "visit_id": "33333333-4444-5555-6666-777777777777",
+      "evaluated_status": "VERIFIED",
+      "distance_to_client_meters": 18.2,
+      "tolerance_meters": 50
+    }
+  ]
+}
+```
 
----
-
-## 11. Consideraciones de Escalabilidad
-
-1. **Índices Espaciales GiST en PostgreSQL:**
-   - Creación de índices espaciales `USING GIST (location)` en `clients`, `tracking_points` y `visit_records`, garantizando que los cálculos de distancia (`ST_DWithin` y `ST_Distance`) se ejecuten en milisegundos incluso con millones de registros.
-2. **Particionado de Tabla de Telemetría:**
-   - La tabla `tracking_points` está diseñada para soportar particionado por rango mensual (`PARTITION BY RANGE (recorded_at)`), permitiendo purgas históricas eficientes y optimización del planificador de consultas de PostgreSQL.
-3. **Aislamiento Multi-Tenant con RLS Indexado:**
-   - Cada consulta incorpora implícitamente `organization_id`. Todos los índices compuestos principales comienzan con `(organization_id, ...)`, evitando el escaneo innecesario de tablas cruzadas entre diferentes empresas.
-4. **Compresión y Agregación de Rutas:**
-   - Al cerrar la jornada (`work_shifts`), una Edge Function procesará los puntos continuos para simplificar la polilínea (algoritmo Ramer-Douglas-Peucker) y almacenar una versión aligerada en formato GeoJSON para consultas históricas instantáneas en el panel web.
+**Respuesta de Error de Validación:** `400 Bad Request`
+```json
+{
+  "status": "ERROR",
+  "error_code": "HMAC_CHAIN_TAMPERED",
+  "message": "La verificación criptográfica del hash encadenado no coincide con el payload recibido.",
+  "failed_entity_id": "22222222-3333-4444-5555-666666666666",
+  "timestamp": "2026-11-06T13:45:01.200Z"
+}
+```

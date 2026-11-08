@@ -1,345 +1,455 @@
 # Plan Maestro de Tareas y Desarrollo — ROUTRACK
 
 **Proyecto:** ROUTRACK  
-**Documento:** Backlog de Tareas por Fases (Task Plan)  
+**Documento:** Backlog Secuencial por Rebanadas Verticales (Vertical Slices)  
 **Versión:** 1.0.0  
 **Fecha:** Noviembre 2026  
 **Metodología:** Desarrollo guiado por IA (Vibe Coding) mediante Vertical Slices  
+**Estado:** Activo  
 
 ---
 
 ## Resumen del Estado de Tareas
 
-- **Tareas Totales:** 30
-- **Tareas Completadas:** 1 (TASK-001)
+- **Tareas Totales:** 28
+- **Tareas Completadas:** 1 (`TASK-001`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 29
+- **Tareas Pendientes:** 27
 
 ---
 
 ## FASE 0: Investigación y Documentación Fundacional
 
 ### [x] TASK-001 — Crear documentación fundacional de ROUTRACK y publicarla en GitHub
-- **Descripción:** Redactar todos los documentos base del sistema (PRD, Arquitectura, Diseño, Plan de Pruebas, Seguridad, ADRs, Memoria, Tareas, Reglas de Antigravity, README, .env.example y .gitignore) garantizando coherencia técnica total y publicarlos en el repositorio GitHub.
+- **Identificador:** `TASK-001`
+- **Nombre:** Crear documentación fundacional de ROUTRACK y publicarla en GitHub
+- **Descripción:** Redactar de forma exhaustiva y técnica la documentación fundacional en `docs/` (`PRD.md`, `ARCHITECTURE.md`, `DESIGN.md`, `TEST_PLAN.md`, `SECURITY.md`, `DECISIONS.md`, `MEMORY.md`), definir el plan secuencial de tareas por rebanadas verticales en `TASKS.md`, configurar las reglas operativas de Google Antigravity y generar los archivos de configuración raíz (`README.md`, `.env.example`, `.gitignore`). Publicar los cambios en la rama `main` del repositorio remoto.
 - **Dependencias:** Ninguna.
-- **Archivos Involucrados:** `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/DESIGN.md`, `docs/TEST_PLAN.md`, `docs/SECURITY.md`, `docs/DECISIONS.md`, `docs/MEMORY.md`, `TASKS.md`, `README.md`, `.env.example`, `.gitignore`, `GEMINI.md`, `AGENTS.md`, `.agent/rules/rules.md`.
+- **Archivos Involucrados:**
+  - `docs/PRD.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/DESIGN.md`
+  - `docs/TEST_PLAN.md`
+  - `docs/SECURITY.md`
+  - `docs/DECISIONS.md`
+  - `docs/MEMORY.md`
+  - `TASKS.md`
+  - `README.md`
+  - `.env.example`
+  - `.gitignore`
+  - `GEMINI.md`
+  - `AGENTS.md`
+  - `.agent/rules/rules.md`
+  - `.agents/rules/rules.md`
 - **Criterios de Aceptación:**
-  1. Todos los documentos existen y contienen los apartados exigidos.
-  2. Coherencia estricta en el stack: Supabase, Next.js + TS, Kotlin + Compose, Leaflet, Playwright, Vercel.
-  3. No hay contradicciones entre requerimientos y diseño.
-  4. Reglas de Antigravity configuradas en las rutas reconocidas.
-  5. Commit realizado y cambios publicados exitosamente en la rama `main` del repositorio remoto.
+  1. Todos los archivos requeridos existen en sus rutas exactas sin placeholders ni comentarios TODO.
+  2. `docs/PRD.md` responde las 5 preguntas clave, los 4 RFs, los 3 RNFs y delimita el alcance del MVP.
+  3. `docs/ARCHITECTURE.md` detalla el flujo desacoplado, esquemas PostGIS y contratos JSON de sincronización.
+  4. `docs/SECURITY.md` formula matemáticamente el encadenamiento HMAC y las políticas bajo la LOPDP de Ecuador.
+  5. `docs/DESIGN.md` especifica los 5 estados operativos y los 4 estados obligatorios de interfaz.
+  6. Reglas del agente configuradas en el estándar nativo de Antigravity.
+  7. Commit formal generado y cambios publicados exitosamente en GitHub.
 - **Estado:** Completada.
 
 ---
 
-## FASE 1: Configuración del Proyecto y Entornos Base
+## FASE 1: Setup del Monorepo, Entornos y Migraciones SQL Base (PostGIS + RLS)
 
-### [ ] TASK-002 — Configuración de la estructura de directorios del monorepo
-- **Descripción:** Crear la estructura base de carpetas del proyecto (`apps/web`, `apps/android`, `supabase`), configurando archivos de configuración raíz compartidos y scripts base de conveniencia.
-- **Dependencias:** TASK-001.
-- **Archivos Involucrados:** Estructura de directorios, `package.json` raíz (workspaces), `.editorconfig`.
+### [ ] TASK-002 — Setup de la estructura base del Monorepo y herramientas de compilación
+- **Identificador:** `TASK-002`
+- **Nombre:** Setup de la estructura base del Monorepo y herramientas de compilación
+- **Descripción:** Crear las carpetas estructurales del monorepo (`mobile-android/`, `supabase/`, `web-admin/`), configurar `package.json` raíz con scripts de conveniencia, `.editorconfig`, linters y configuración base de TypeScript y Gradle.
+- **Dependencias:** `TASK-001`.
+- **Archivos Involucrados:**
+  - `package.json`
+  - `.editorconfig`
+  - `web-admin/package.json`
+  - `web-admin/tsconfig.json`
+  - `mobile-android/build.gradle.kts`
+  - `mobile-android/settings.gradle.kts`
 - **Criterios de Aceptación:**
-  1. Árbol de carpetas coincide con `docs/ARCHITECTURE.md`.
-  2. Archivos de configuración limpios sin dependencias rotas.
+  1. Estructura de carpetas idéntica a `docs/ARCHITECTURE.md`.
+  2. Scripts raíz de validación configurados y operativos.
 - **Estado:** Pendiente.
 
-### [ ] TASK-003 — Configuración del entorno Supabase local y migraciones base
-- **Descripción:** Inicializar la configuración de Supabase CLI (`supabase init`), configurar Docker para el stack local, activar las extensiones necesarias (PostGIS, uuid-ossp, pgcrypto).
-- **Dependencias:** TASK-002.
-- **Archivos Involucrados:** `supabase/config.toml`, `supabase/migrations/20261106000000_init_extensions.sql`.
+### [ ] TASK-003 — Configuración de Supabase local y migraciones base con extensiones PostGIS
+- **Identificador:** `TASK-003`
+- **Nombre:** Configuración de Supabase local y migraciones base con extensiones PostGIS
+- **Descripción:** Inicializar el entorno local de Supabase CLI (`supabase init`), configurar `supabase/config.toml` y redactar la primera migración SQL que active las extensiones necesarias (`postgis`, `pgcrypto`, `uuid-ossp`).
+- **Dependencias:** `TASK-002`.
+- **Archivos Involucrados:**
+  - `supabase/config.toml`
+  - `supabase/migrations/20261106000000_enable_extensions.sql`
 - **Criterios de Aceptación:**
   1. `supabase start` levanta los contenedores locales sin errores.
-  2. La extensión PostGIS está activa y operativa (`SELECT PostGIS_Version();` exitoso).
+  2. `SELECT PostGIS_Version();` devuelve versión operativa 3.3+.
 - **Estado:** Pendiente.
 
-### [ ] TASK-004 — Configuración inicial de la aplicación web Next.js con Tailwind CSS
-- **Descripción:** Inicializar el proyecto Next.js en `apps/web` con App Router, TypeScript estricto, configuración de Tailwind CSS y utilidades base de diseño.
-- **Dependencias:** TASK-002.
-- **Archivos Involucrados:** `apps/web/package.json`, `apps/web/tsconfig.json`, `apps/web/tailwind.config.ts`, `apps/web/src/app/layout.tsx`.
+### [ ] TASK-004 — Migración del esquema central de base de datos y políticas RLS fundamentales
+- **Identificador:** `TASK-004`
+- **Nombre:** Migración del esquema central de base de datos y políticas RLS fundamentales
+- **Descripción:** Crear las migraciones para las tablas `organizations`, `profiles`, `clients`, `work_shifts`, `tracking_points`, `visit_records` y `audit_logs`, aplicando índices GiST en columnas `GEOMETRY(Point, 4326)` y políticas RLS para aislamiento por `organization_id`.
+- **Dependencias:** `TASK-003`.
+- **Archivos Involucrados:**
+  - `supabase/migrations/20261106000001_create_core_tables.sql`
+  - `supabase/migrations/20261106000002_postgis_spatial_indices.sql`
+  - `supabase/migrations/20261106000003_rls_security_policies.sql`
+  - `supabase/seed.sql`
 - **Criterios de Aceptación:**
-  1. `npm run dev` en `apps/web` inicia sin errores en puerto 3000.
-  2. `tsc --noEmit` compila en modo estricto con cero advertencias.
-  3. Estilos de Tailwind funcionales según `docs/DESIGN.md`.
-- **Estado:** Pendiente.
-
-### [ ] TASK-005 — Configuración inicial del proyecto Android con Kotlin y Jetpack Compose
-- **Descripción:** Inicializar el proyecto Gradle de Android en `apps/android` con Kotlin DSL (`build.gradle.kts`), configuración de Compose BOM, Room, Coroutines y soporte mínimo para API 26 (Android 8.0).
-- **Dependencias:** TASK-002.
-- **Archivos Involucrados:** `apps/android/build.gradle.kts`, `apps/android/app/build.gradle.kts`, `apps/android/app/src/main/AndroidManifest.xml`.
-- **Criterios de Aceptación:**
-  1. El proyecto compila limpiamente desde línea de comandos con `./gradlew assembleDebug`.
-  2. Dependencias de Compose y Room resueltas correctamente.
+  1. Esquema SQL coincide exactamente con `docs/ARCHITECTURE.md`.
+  2. RLS habilitado en el 100% de tablas públicas.
+  3. Pruebas de consulta cruzada entre organizaciones devuelven cero filas.
 - **Estado:** Pendiente.
 
 ---
 
-## FASE 2: Autenticación, Organizaciones y Usuarios
+## FASE 2: Slice Vertical de Autenticación y Perfiles (Supabase Auth + Web Login + Android Login)
 
-### [ ] TASK-006 — Esquema SQL de organizaciones, perfiles y políticas RLS iniciales
-- **Descripción:** Crear la migración SQL para las tablas `organizations` y `profiles` (vinculada a `auth.users`), junto con los triggers para la creación automática de perfiles y las políticas RLS multi-tenant iniciales.
-- **Dependencias:** TASK-003.
-- **Archivos Involucrados:** `supabase/migrations/20261106000001_create_orgs_and_profiles.sql`, `supabase/seed.sql`.
+### [ ] TASK-005 — Configuración de Supabase Auth, roles RBAC y triggers de perfil
+- **Identificador:** `TASK-005`
+- **Nombre:** Configuración de Supabase Auth, roles RBAC y triggers de perfil
+- **Descripción:** Configurar los triggers en PostgreSQL (`on_auth_user_created`) para sincronizar automáticamente usuarios de `auth.users` hacia `public.profiles` con validación de roles (`ADMIN`, `SUPERVISOR`, `VENDEDOR`) e inyección de `organization_id` en los claims del JWT.
+- **Dependencias:** `TASK-004`.
+- **Archivos Involucrados:**
+  - `supabase/migrations/20261106000004_auth_triggers.sql`
 - **Criterios de Aceptación:**
-  1. Tablas creadas con claves foráneas e integridad referencial.
-  2. Trigger `on_auth_user_created` sincroniza datos en `profiles`.
-  3. Pruebas de políticas RLS impiden acceso entre diferentes organizaciones.
+  1. Al registrar un usuario en Auth se crea automáticamente su tupla en `profiles`.
+  2. El JWT emitido incluye los metadatos de organización y rol.
 - **Estado:** Pendiente.
 
-### [ ] TASK-007 — Flujo de autenticación en panel web Next.js
-- **Descripción:** Implementar las páginas de inicio de sesión, recuperación de contraseña y middleware de protección de rutas en Next.js usando `@supabase/ssr`.
-- **Dependencias:** TASK-004, TASK-006.
-- **Archivos Involucrados:** `apps/web/src/app/(auth)/login/page.tsx`, `apps/web/src/middleware.ts`, `apps/web/src/lib/supabase/`.
+### [ ] TASK-006 — Módulo web de login, sesión y protección de rutas en Next.js
+- **Identificador:** `TASK-006`
+- **Nombre:** Módulo web de login, sesión y protección de rutas en Next.js
+- **Descripción:** Desarrollar en `web-admin` la pantalla de inicio de sesión con Tailwind CSS, validación de formularios con Zod, middleware de protección de rutas y persistencia de sesión con cookies HttpOnly mediante `@supabase/ssr`.
+- **Dependencias:** `TASK-002`, `TASK-005`.
+- **Archivos Involucrados:**
+  - `web-admin/src/app/(auth)/login/page.tsx`
+  - `web-admin/src/middleware.ts`
+  - `web-admin/src/lib/supabase/client.ts`
+  - `web-admin/src/lib/supabase/server.ts`
 - **Criterios de Aceptación:**
-  1. Formulario de login valida campos con Zod.
-  2. Sesión guardada en cookies seguras (`HttpOnly`).
-  3. Redirección automática de rutas no autenticadas hacia `/login`.
-  4. Redirección de usuarios autenticados hacia el dashboard principal.
+  1. Formulario valida formato de correo y contraseña según NIST.
+  2. Usuario autenticado con rol `ADMIN` o `SUPERVISOR` es redirigido a `/live`.
+  3. Intentos de navegación no autorizada se redirigen a `/login`.
 - **Estado:** Pendiente.
 
-### [ ] TASK-008 — Flujo de autenticación en Android y almacenamiento seguro de sesión
-- **Descripción:** Implementar la pantalla de inicio de sesión en Compose y el servicio de autenticación móvil, almacenando el token de sesión de forma cifrada mediante Android Keystore (EncryptedSharedPreferences).
-- **Dependencias:** TASK-005, TASK-006.
-- **Archivos Involucrados:** `apps/android/app/src/main/java/com/routrack/app/presentation/auth/`, `apps/android/app/src/main/java/com/routrack/app/security/KeystoreManager.kt`.
+### [ ] TASK-007 — Módulo móvil de login y almacenamiento seguro de tokens en Android
+- **Identificador:** `TASK-007`
+- **Nombre:** Módulo móvil de login y almacenamiento seguro de tokens en Android
+- **Descripción:** Implementar en `mobile-android` la pantalla de login con Jetpack Compose (Material 3), el caso de uso de autenticación contra Supabase Auth y el almacenamiento seguro del access token y refresh token mediante `EncryptedSharedPreferences` respaldado por Android Keystore (AES-256-GCM).
+- **Dependencias:** `TASK-002`, `TASK-005`.
+- **Archivos Involucrados:**
+  - `mobile-android/app/src/main/java/com/routrack/mobile/presentation/auth/LoginScreen.kt`
+  - `mobile-android/app/src/main/java/com/routrack/mobile/presentation/auth/LoginViewModel.kt`
+  - `mobile-android/app/src/main/java/com/routrack/mobile/security/KeystoreManager.kt`
+  - `mobile-android/app/src/main/java/com/routrack/mobile/data/remote/AuthService.kt`
 - **Criterios de Aceptación:**
-  1. Login exitoso contra Supabase Auth mediante API REST.
-  2. Token JWT y refresh token almacenados de forma segura con cifrado AES-256-GCM.
-  3. La app recuerda la sesión al reiniciarse sin solicitar credenciales nuevamente.
-- **Estado:** Pendiente.
-
----
-
-## FASE 3: Gestión de Clientes y Vendedores
-
-### [ ] TASK-009 — Esquema SQL de clientes con soporte geoespacial PostGIS
-- **Descripción:** Crear la migración SQL para la tabla `clients` con columna `location GEOGRAPHY(POINT, 4326)`, índice GiST y políticas RLS por organización.
-- **Dependencias:** TASK-006.
-- **Archivos Involucrados:** `supabase/migrations/20261106000002_create_clients.sql`.
-- **Criterios de Aceptación:**
-  1. Tabla `clients` creada con índice `USING GIST (location)`.
-  2. Restricción de radio de tolerancia positivo (`tolerance_radius_meters > 0`).
-  3. RLS restringe lectura y escritura a la organización activa.
-- **Estado:** Pendiente.
-
-### [ ] TASK-010 — Módulo web de administración de clientes y georreferenciación
-- **Descripción:** Desarrollar el CRUD de clientes en el panel web de Next.js, permitiendo ingresar coordenadas manualmente o marcando el punto sobre un mapa Leaflet selector.
-- **Dependencias:** TASK-007, TASK-009.
-- **Archivos Involucrados:** `apps/web/src/app/(dashboard)/clients/`, `apps/web/src/components/clients/`.
-- **Criterios de Aceptación:**
-  1. Listado paginado de clientes con búsqueda por nombre y RUC.
-  2. Modal de creación y edición con validación de coordenadas.
-  3. Selector de ubicación en mapa funcional e interactivo.
-- **Estado:** Pendiente.
-
-### [ ] TASK-011 — Módulo web de administración de vendedores y asignación
-- **Descripción:** Desarrollar la gestión de perfiles de vendedores en el panel web, permitiendo registrar nuevos asesores comerciales y asignarles su rol y supervisor correspondiente.
-- **Dependencias:** TASK-007, TASK-009.
-- **Archivos Involucrados:** `apps/web/src/app/(dashboard)/sellers/`, `apps/web/src/components/sellers/`.
-- **Criterios de Aceptación:**
-  1. Listado de vendedores pertenecientes a la organización.
-  2. Asignación de credenciales iniciales e invitación de acceso.
-  3. Modificación del estado activo/inactivo del vendedor.
+  1. Login exitoso contra Supabase devuelve JWT válido.
+  2. Los tokens se almacenan en hardware seguro sin exponer contraseñas en texto plano.
+  3. Al reiniciar la app se restaura la sesión activa automáticamente.
 - **Estado:** Pendiente.
 
 ---
 
-## FASE 4: Jornadas Laborales y Ubicación en Android
+## FASE 3: Slice Vertical de Captura Local y Cifrado (Foreground Service + Room + SQLCipher + HMAC)
 
-### [ ] TASK-012 — Esquema SQL de jornadas y puntos de telemetría GPS
-- **Descripción:** Crear migraciones para `work_shifts` y `tracking_points` con índices GiST, validaciones de integridad temporal y políticas RLS restrictivas para vendedores y supervisores.
-- **Dependencias:** TASK-006.
-- **Archivos Involucrados:** `supabase/migrations/20261106000003_create_shifts_and_tracking.sql`.
+### [ ] TASK-008 — Base de datos Room cifrada con SQLCipher y DAOs locales
+- **Identificador:** `TASK-008`
+- **Nombre:** Base de datos Room cifrada con SQLCipher y DAOs locales
+- **Descripción:** Implementar la base de datos Room (`AppDatabase`) en `mobile-android` integrando `SQLCipher` con la frase de paso resguardada en Android Keystore. Definir entidades locales `LocalTrackingPointEntity`, `LocalWorkShiftEntity`, `LocalVisitEntity` y `LocalAuditEventEntity` con estados de sincronización (`PENDING`, `SYNCED`).
+- **Dependencias:** `TASK-007`.
+- **Archivos Involucrados:**
+  - `mobile-android/app/src/main/java/com/routrack/mobile/data/local/AppDatabase.kt`
+  - `mobile-android/app/src/main/java/com/routrack/mobile/data/local/entities/`
+  - `mobile-android/app/src/main/java/com/routrack/mobile/data/local/dao/`
 - **Criterios de Aceptación:**
-  1. Tablas creadas con claves foráneas hacia `organizations` y `profiles`.
-  2. Índice espacial en `tracking_points.location`.
-  3. RLS garantiza que un vendedor solo puede insertar puntos para su propio usuario y jornada.
+  1. El archivo de base de datos en almacenamiento privado resulta ilegible para herramientas SQLite estándar.
+  2. Pruebas unitarias en memoria validan inserción y recuperación cronológica de registros.
 - **Estado:** Pendiente.
 
-### [ ] TASK-013 — Base de datos Room local y DAOs para jornadas y telemetría en Android
-- **Descripción:** Implementar la base de datos local SQLite con Room (`AppDatabase`), definiendo entidades locales `LocalWorkShiftEntity` y `LocalTrackingPointEntity` con sus respectivos DAOs.
-- **Dependencias:** TASK-005, TASK-012.
-- **Archivos Involucrados:** `apps/android/app/src/main/java/com/routrack/app/data/local/`.
+### [ ] TASK-009 — Generador criptográfico de HMAC encadenado en Android
+- **Identificador:** `TASK-009`
+- **Nombre:** Generador criptográfico de HMAC encadenado en Android
+- **Descripción:** Desarrollar el componente `HmacChainSigner.kt` en Kotlin que calcula el hash HMAC-SHA256 encadenado para cada nuevo punto o evento de jornada ($Hash_n = \text{HMAC}(Payload_n + Hash_{n-1}, K)$).
+- **Dependencias:** `TASK-008`.
+- **Archivos Involucrados:**
+  - `mobile-android/app/src/main/java/com/routrack/mobile/security/HmacChainSigner.kt`
+  - `mobile-android/app/src/test/java/com/routrack/mobile/security/HmacChainSignerTest.kt`
 - **Criterios de Aceptación:**
-  1. Pruebas unitarias en memoria validan inserción y recuperación cronológica de puntos.
-  2. Estados de sincronización (`pending`, `synced`) manejados limpiamente.
+  1. Generación determinista y reproducible de firmas HMAC-SHA256.
+  2. Pruebas unitarias demuestran que cualquier alteración en el payload invalida la cadena.
 - **Estado:** Pendiente.
 
-### [ ] TASK-014 — Foreground Service de rastreo con Fused Location Provider
-- **Descripción:** Implementar el `TrackingForegroundService` en Android que solicita ubicaciones al `FusedLocationProviderClient`, mantiene una notificación visible y persistente en la barra de estado y almacena las coordenadas en Room.
-- **Dependencias:** TASK-008, TASK-013.
-- **Archivos Involucrados:** `apps/android/app/src/main/java/com/routrack/app/services/TrackingForegroundService.kt`, `apps/android/app/src/main/AndroidManifest.xml`.
+### [ ] TASK-010 — Android Foreground Service de captura adaptativa con Fused Location y Activity Recognition
+- **Identificador:** `TASK-010`
+- **Nombre:** Android Foreground Service de captura adaptativa con Fused Location y Activity Recognition
+- **Descripción:** Implementar `TrackingForegroundService.kt` con notificación permanente visible en barra de estado, integración con `FusedLocationProviderClient` y `ActivityRecognitionClient` para adaptar la frecuencia de muestreo de acuerdo con el movimiento del vendedor (reducción de consumo de batería), persistiendo los puntos con su firma HMAC en Room.
+- **Dependencias:** `TASK-008`, `TASK-009`.
+- **Archivos Involucrados:**
+  - `mobile-android/app/src/main/java/com/routrack/mobile/services/TrackingForegroundService.kt`
+  - `mobile-android/app/src/main/java/com/routrack/mobile/services/ActivityTransitionReceiver.kt`
+  - `mobile-android/app/src/main/AndroidManifest.xml`
 - **Criterios de Aceptación:**
-  1. Al iniciar jornada se muestra la notificación no descartable con aviso visible.
-  2. Puntos GPS capturados a intervalos configurados y persistidos en Room.
-  3. Al presionar "Finalizar Jornada", el servicio se destruye por completo y cesa el rastreo.
+  1. Notificación persistente se muestra de inmediato al iniciar el servicio.
+  2. Coordenadas persistidas en Room con metadatos completos y hash HMAC.
+  3. Cese inmediato de recolección al invocar la parada del servicio.
 - **Estado:** Pendiente.
 
-### [ ] TASK-015 — Sincronización en segundo plano con WorkManager
-- **Descripción:** Implementar el `SyncWorker` en WorkManager que procesa los puntos y jornadas pendientes en Room, los empaqueta en lotes y los sincroniza hacia Supabase vía HTTPS.
-- **Dependencias:** TASK-013, TASK-014.
-- **Archivos Involucrados:** `apps/android/app/src/main/java/com/routrack/app/workers/SyncWorker.kt`.
+### [ ] TASK-011 — Detección de Mock Locations y anomalías de tiempo en Android
+- **Identificador:** `TASK-011`
+- **Nombre:** Detección de Mock Locations y anomalías de tiempo en Android
+- **Descripción:** Implementar `AntiTamperingManager.kt` para detectar proveedores de ubicación simulada (`Location.isFromMockProvider` / `isMock`) y desajustes de reloj mediante comparación de `SystemClock.elapsedRealtime()` vs tiempo de red/GPS, etiquetando anomalías en los eventos del sistema.
+- **Dependencias:** `TASK-010`.
+- **Archivos Involucrados:**
+  - `mobile-android/app/src/main/java/com/routrack/mobile/security/AntiTamperingManager.kt`
 - **Criterios de Aceptación:**
-  1. Los puntos guardados en modo offline se transmiten automáticamente al volver a tener red.
-  2. Reintentos con política de backoff exponencial ante fallos temporales.
-  3. Ningún punto se pierde ni se duplica en el servidor.
-- **Estado:** Pendiente.
-
-### [ ] TASK-016 — Detección de Mock Locations y anomalías de hardware
-- **Descripción:** Incorporar mecanismos de validación de telemetría en Android para detectar si una coordenada proviene de un proveedor simulado (`Location.isFromMockProvider()` o `Location.isMock()`) y registrar la bandera `is_mock`.
-- **Dependencias:** TASK-014.
-- **Archivos Involucrados:** `apps/android/app/src/main/java/com/routrack/app/security/MockLocationDetector.kt`.
-- **Criterios de Aceptación:**
-  1. Coordenadas inyectadas por apps de Fake GPS se marcan inequívocamente con `is_mock = true`.
-  2. La bandera se persiste en Room y se transmite a Supabase para auditoría.
-- **Estado:** Pendiente.
-
----
-
-## FASE 5: Rutas y Mapas en Panel Web
-
-### [ ] TASK-017 — Integración del visor de mapa Leaflet configurable en Next.js
-- **Descripción:** Implementar el componente base de mapa interactivo con React-Leaflet (`dynamic import` con `ssr: false`), permitiendo configurar la URL del proveedor de tiles mediante variables de entorno.
-- **Dependencias:** TASK-004.
-- **Archivos Involucrados:** `apps/web/src/components/map/MapView.tsx`, `apps/web/src/components/map/`.
-- **Criterios de Aceptación:**
-  1. Mapa carga fluidamente sin errores de renderizado en servidor.
-  2. Controles de zoom y escala integrados según el sistema de diseño (`docs/DESIGN.md`).
-  3. Proveedor de tiles cambia transparentemente según `.env`.
-- **Estado:** Pendiente.
-
-### [ ] TASK-018 — Monitoreo en tiempo real de vendedores activos
-- **Descripción:** Integrar el mapa con Supabase Realtime para desplegar la última posición conocida de los vendedores con jornada abierta, mostrando marcadores diferenciados con sus metadatos.
-- **Dependencias:** TASK-012, TASK-017.
-- **Archivos Involucrados:** `apps/web/src/app/(dashboard)/live/page.tsx`, `apps/web/src/components/map/SellerMarker.tsx`.
-- **Criterios de Aceptación:**
-  1. Marcador azul con orientación de avance para vendedores en movimiento.
-  2. Marcador ámbar para vendedores en parada.
-  3. Actualización automática de la posición ante nuevos puntos de telemetría.
-- **Estado:** Pendiente.
-
-### [ ] TASK-019 — Visualización de histórico de recorridos y polilíneas
-- **Descripción:** Implementar el módulo de consulta histórica que permite seleccionar un vendedor y una fecha para renderizar la polilínea completa de la jornada, puntos de inicio/fin y paradas registradas.
-- **Dependencias:** TASK-012, TASK-017.
-- **Archivos Involucrados:** `apps/web/src/app/(dashboard)/routes/page.tsx`, `apps/web/src/components/map/RoutePolyline.tsx`.
-- **Criterios de Aceptación:**
-  1. Trazado nítido de la polilínea georreferenciada.
-  2. Cálculo de métricas visuales: distancia total recorrida, tiempo en movimiento y paradas.
-  3. Filtro por fecha y vendedor sin sobrecargar la memoria del navegador.
+  1. Ubicaciones inyectadas por apps de Fake GPS se marcan inequívocamente con `is_mock = true`.
+  2. Desvíos de reloj > 60s generan un evento de auditoría advertencia.
 - **Estado:** Pendiente.
 
 ---
 
-## FASE 6: Visitas Comerciales y Verificación Espacial
+## FASE 4: Slice Vertical de Sincronización Offline-First (WorkManager + Edge Function `sync-jornada` + Idempotencia)
 
-### [ ] TASK-020 — Esquema SQL de visitas comerciales y validación espacial
-- **Descripción:** Crear la migración para `visit_records` e implementar la función SQL o trigger que utiliza PostGIS `ST_Distance` para contrastar las coordenadas del check-in contra el cliente, asignando el estado `verified` o `out_of_range`.
-- **Dependencias:** TASK-009, TASK-012.
-- **Archivos Involucrados:** `supabase/migrations/20261106000004_create_visit_records.sql`.
+### [ ] TASK-012 — Supabase Edge Function `sync-jornada` con validación HMAC e idempotencia
+- **Identificador:** `TASK-012`
+- **Nombre:** Supabase Edge Function `sync-jornada` con validación HMAC e idempotencia
+- **Descripción:** Desarrollar en Deno/TypeScript la Edge Function `sync-jornada` que recibe lotes de telemetría, visitas y eventos, valida el JWT, recalcula la cadena de hashes HMAC-SHA256 y persiste de forma idempotente (`ON CONFLICT (id) DO NOTHING`) en PostgreSQL.
+- **Dependencias:** `TASK-004`, `TASK-009`.
+- **Archivos Involucrados:**
+  - `supabase/functions/sync-jornada/index.ts`
+  - `supabase/functions/sync-jornada/schema.ts`
+  - `supabase/functions/sync-jornada/verify-hmac.ts`
 - **Criterios de Aceptación:**
-  1. Distancia calculada con precisión esferoidal en metros.
-  2. Visitas dentro del radio de tolerancia se clasifican automáticamente como `verified`.
-  3. Visitas fuera del radio se etiquetan como `out_of_range`.
+  1. Lotes válidos se insertan atómicamente retornando HTTP 200 con resumen.
+  2. Lotes con firma manipulada se rechazan con HTTP 400 y se registra alerta en `audit_logs`.
+  3. Retransmisiones duplicadas son ignoradas sin error.
 - **Estado:** Pendiente.
 
-### [ ] TASK-021 — Módulo móvil Android para check-in y check-out de visitas
-- **Descripción:** Desarrollar las pantallas y componentes en Compose para que el vendedor visualice sus clientes asignados y registre su llegada y salida con un solo toque, capturando coordenadas y notas.
-- **Dependencias:** TASK-014, TASK-020.
-- **Archivos Involucrados:** `apps/android/app/src/main/java/com/routrack/app/presentation/visits/`.
+### [ ] TASK-013 — Worker de sincronización en segundo plano con WorkManager en Android
+- **Identificador:** `TASK-013`
+- **Nombre:** Worker de sincronización en segundo plano con WorkManager en Android
+- **Descripción:** Implementar `SyncJornadaWorker.kt` que empaqueta en lotes de hasta 100 registros pendientes en Room y los transmite mediante HTTP POST seguro a la Edge Function `sync-jornada` bajo la restricción `NetworkType.CONNECTED` y con política de reintentos exponenciales.
+- **Dependencias:** `TASK-010`, `TASK-012`.
+- **Archivos Involucrados:**
+  - `mobile-android/app/src/main/java/com/routrack/mobile/workers/SyncJornadaWorker.kt`
+  - `mobile-android/app/src/main/java/com/routrack/mobile/data/repository/SyncRepositoryImpl.kt`
 - **Criterios de Aceptación:**
-  1. Interfaz intuitiva y rápida para registrar check-in de visita.
-  2. Almacenamiento local offline en Room si no hay cobertura de datos.
-  3. Captura obligatoria de hora y coordenadas exactas al momento del registro.
-- **Estado:** Pendiente.
-
-### [ ] TASK-022 — Carga de evidencias fotográficas opcionales a Supabase Storage
-- **Descripción:** Implementar la captura de foto con la cámara del dispositivo móvil, compresión local de imagen y subida hacia Supabase Storage asociada al `visit_record`.
-- **Dependencias:** TASK-021.
-- **Archivos Involucrados:** `apps/android/app/src/main/java/com/routrack/app/presentation/visits/PhotoCaptureHelper.kt`.
-- **Criterios de Aceptación:**
-  1. Imagen comprimida a tamaño óptimo (< 500 KB) antes de enviar.
-  2. Subida segura hacia el bucket privado de Supabase Storage.
-  3. URL de la evidencia guardada en el registro de visita.
-- **Estado:** Pendiente.
-
-### [ ] TASK-023 — Módulo web de supervisión y auditoría de visitas realizadas
-- **Descripción:** Crear la vista en el panel web donde el supervisor puede auditar la lista de visitas del día, visualizando el estado de proximidad, fotos de evidencia y notas ingresadas por el vendedor.
-- **Dependencias:** TASK-007, TASK-020.
-- **Archivos Involucrados:** `apps/web/src/app/(dashboard)/visits/page.tsx`, `apps/web/src/components/visits/`.
-- **Criterios de Aceptación:**
-  1. Badges semánticos (verde: verificada / ámbar: fuera de radio).
-  2. Indicador numérico de distancia a la que se registró el check-in (ej. "a 18 metros del local").
-  3. Modal con visor de foto de evidencia y notas comerciales.
+  1. Registros en estado `PENDING` cambian a `SYNCED` tras confirmación HTTP 200.
+  2. Fallos de red disparan reintento con backoff sin perder datos en local.
 - **Estado:** Pendiente.
 
 ---
 
-## FASE 7: Auditoría y Reportes Operativos
+## FASE 5: Slice Vertical de Monitoreo Web y Mapas (Leaflet + Trazado de Rutas + Detección de Desvíos PostGIS)
 
-### [ ] TASK-024 — Detección de discrepancias y alertas de auditoría
-- **Descripción:** Implementar algoritmos de detección de anomalías (intentos de mock location, visitas con tiempos inferiores a 2 minutos, saltos de ubicación geográficamente imposibles).
-- **Dependencias:** TASK-016, TASK-020.
-- **Archivos Involucrados:** `apps/web/src/app/(dashboard)/audit/`, `supabase/functions/audit-detector/`.
+### [ ] TASK-014 — Componente base de visor de mapas interactivo con Leaflet y OpenStreetMap
+- **Identificador:** `TASK-014`
+- **Nombre:** Componente base de visor de mapas interactivo con Leaflet y OpenStreetMap
+- **Descripción:** Desarrollar en `web-admin` el componente modular `MapView.tsx` utilizando React-Leaflet con carga dinámica (`ssr: false`), tiles de OpenStreetMap configurables vía variables de entorno y controles de zoom y centrado.
+- **Dependencias:** `TASK-006`.
+- **Archivos Involucrados:**
+  - `web-admin/src/components/map/MapView.tsx`
+  - `web-admin/src/components/map/MapContainerWrapper.tsx`
 - **Criterios de Aceptación:**
-  1. Panel de alertas operativas con lista de incidentes priorizados.
-  2. Resaltado en mapa de los puntos donde se detectó simulación de GPS.
+  1. Renderizado fluido sin errores de hidratación de Next.js en servidor.
+  2. Proveedor de teselas responde a `NEXT_PUBLIC_MAP_TILE_PROVIDER_URL`.
 - **Estado:** Pendiente.
 
-### [ ] TASK-025 — Generador y exportador de reportes operativos (CSV / PDF)
-- **Descripción:** Desarrollar la funcionalidad de exportación de métricas de cumplimiento de jornadas, visitas y kilometraje en formato CSV estructurado para análisis en Excel u hojas de cálculo.
-- **Dependencias:** TASK-007, TASK-019, TASK-023.
-- **Archivos Involucrados:** `apps/web/src/app/(dashboard)/reports/page.tsx`, `apps/web/src/lib/reports/exportCsv.ts`.
+### [ ] TASK-015 — Vista de monitoreo en vivo con marcadores de estados operativos
+- **Identificador:** `TASK-015`
+- **Nombre:** Vista de monitoreo en vivo con marcadores de estados operativos
+- **Descripción:** Desarrollar la vista `/live` en `web-admin` suscrita a la última posición de vendedores activos, renderizando marcadores diferenciados con los 5 estados operativos definidos en `docs/DESIGN.md` (En Ruta, Detenido, Visita Validada, Desviación, Sin Conexión).
+- **Dependencias:** `TASK-014`, `TASK-004`.
+- **Archivos Involucrados:**
+  - `web-admin/src/app/(dashboard)/live/page.tsx`
+  - `web-admin/src/components/map/SellerMarker.tsx`
+  - `web-admin/src/components/map/SellerPopup.tsx`
 - **Criterios de Aceptación:**
-  1. Descarga de archivo `.csv` con codificación UTF-8 con BOM para correcta apertura en Excel.
-  2. Filtros por rango de fechas, supervisor y vendedor.
-  3. Cero inconsistencias en sumatorias de distancias y conteo de visitas.
+  1. Marcador azul en movimiento con rumbo (*bearing*), ámbar detenido y rojo en anomalía.
+  2. Popup muestra datos de vendedor, velocidad, batería y última hora de reporte.
 - **Estado:** Pendiente.
 
-### [ ] TASK-026 — Bitácora de auditoría inmutable en `audit_logs`
-- **Descripción:** Crear la migración y los triggers SQL para que toda modificación de usuarios, configuraciones o eventos de seguridad se registre de forma inmutable en `audit_logs`.
-- **Dependencias:** TASK-006.
-- **Archivos Involucrados:** `supabase/migrations/20261106000005_create_audit_logs.sql`.
+### [ ] TASK-016 — Vista de histórico de rutas, polilíneas y detección espacial de desvíos en PostGIS
+- **Identificador:** `TASK-016`
+- **Nombre:** Vista de histórico de rutas, polilíneas y detección espacial de desvíos en PostGIS
+- **Descripción:** Implementar en `web-admin` la vista `/routes` con selector de vendedor y fecha para renderizar la polilínea completa de la jornada, calculando visualmente y mediante consulta PostGIS los segmentos con desviaciones no autorizadas superiores a 300 metros.
+- **Dependencias:** `TASK-014`, `TASK-004`.
+- **Archivos Involucrados:**
+  - `web-admin/src/app/(dashboard)/routes/page.tsx`
+  - `web-admin/src/components/map/RoutePolyline.tsx`
+  - `web-admin/src/lib/geo/deviations.ts`
 - **Criterios de Aceptación:**
-  1. Tabla `audit_logs` con permisos estrictos de `INSERT ONLY`.
-  2. Prohibición absoluta de operaciones `UPDATE` o `DELETE` para cualquier rol.
+  1. Polilínea dibuja cronológicamente el recorrido sin deformaciones espaciales.
+  2. Trazos desviados se destacan en color rojo semitransparente.
+  3. Muestra métricas de distancia total recorrida y duración del turno.
 - **Estado:** Pendiente.
 
 ---
 
-## FASE 8: Pruebas Finales, Seguridad y Despliegue a Producción
+## FASE 6: Slice Vertical de Visitas y Acuerdos Comerciales (Registro Móvil + Geocerca + Reporte Web)
 
-### [ ] TASK-027 — Suite de pruebas E2E automatizadas con Playwright
-- **Descripción:** Implementar y ejecutar la suite completa de pruebas E2E para el panel web cubriendo login, visualización de mapas, gestión de clientes y exportación de reportes.
-- **Dependencias:** TASK-010, TASK-018, TASK-025.
-- **Archivos Involucrados:** `apps/web/e2e/`.
+### [ ] TASK-017 — Módulo de gestión y georreferenciación de clientes en panel web
+- **Identificador:** `TASK-017`
+- **Nombre:** Módulo de gestión y georreferenciación de clientes en panel web
+- **Descripción:** Desarrollar el CRUD de clientes comerciales en `web-admin` permitiendo registrar nombre, RUC, dirección, coordenadas exactas (mediante selector interactivo en mapa Leaflet) y radio de tolerancia en metros.
+- **Dependencias:** `TASK-014`, `TASK-004`.
+- **Archivos Involucrados:**
+  - `web-admin/src/app/(dashboard)/clients/page.tsx`
+  - `web-admin/src/components/clients/ClientModal.tsx`
+  - `web-admin/src/components/clients/ClientLocationPicker.tsx`
 - **Criterios de Aceptación:**
-  1. 100% de las pruebas E2E pasando exitosamente en modo headless y navegadores Chromium/Firefox.
-  2. Cero pruebas intermitentes (*flaky tests*).
+  1. Creación y edición de clientes validada con Zod.
+  2. Coordenadas persistidas en columna PostGIS `GEOMETRY(Point, 4326)`.
 - **Estado:** Pendiente.
 
-### [ ] TASK-028 — Pruebas de integración de sincronización offline en Android
-- **Descripción:** Ejecutar pruebas automatizadas y de campo simulando modo avión prolongado, reinicio del dispositivo en medio de una jornada y sincronización masiva de telemetría.
-- **Dependencias:** TASK-014, TASK-015.
-- **Archivos Involucrados:** `apps/android/app/src/androidTest/`.
+### [ ] TASK-018 — Pantalla y flujo móvil de registro de visita comercial en Android
+- **Identificador:** `TASK-018`
+- **Nombre:** Pantalla y flujo móvil de registro de visita comercial en Android
+- **Descripción:** Desarrollar en `mobile-android` la pantalla de clientes asignados y el flujo de check-in / check-out de visita con captura de coordenadas de alta precisión, campo de observaciones, precios pactados y compromisos comerciales en formato estructurado.
+- **Dependencias:** `TASK-008`, `TASK-010`.
+- **Archivos Involucrados:**
+  - `mobile-android/app/src/main/java/com/routrack/mobile/presentation/visits/VisitCheckInScreen.kt`
+  - `mobile-android/app/src/main/java/com/routrack/mobile/presentation/visits/VisitViewModel.kt`
+- **Criterios de Aceptación:**
+  1. Check-in captura coordenadas actuales y hora sin bloquear la UI.
+  2. Formulario de compromisos comerciales y precios pactados valida montos válidos.
+  3. Persistencia local inmediata en Room con estado `PENDING`.
+- **Estado:** Pendiente.
+
+### [ ] TASK-019 — Validación espacial de geocerca en Supabase (`ST_DWithin`)
+- **Identificador:** `TASK-019`
+- **Nombre:** Validación espacial de geocerca en Supabase (`ST_DWithin`)
+- **Descripción:** Implementar la función de base de datos en PostgreSQL que al ingresar o sincronizar una visita calcula la distancia física al cliente mediante `ST_Distance` y asigna automáticamente el estado `VERIFIED` (si `ST_DWithin` es verdadero) o `OUT_OF_RANGE`.
+- **Dependencias:** `TASK-004`, `TASK-012`.
+- **Archivos Involucrados:**
+  - `supabase/migrations/20261106000005_visit_validation_function.sql`
+- **Criterios de Aceptación:**
+  1. Visitas a distancia $\le$ tolerancia se marcan `VERIFIED`.
+  2. Visitas a distancia $>$ tolerancia se marcan `OUT_OF_RANGE` con la distancia exacta en metros.
+- **Estado:** Pendiente.
+
+### [ ] TASK-020 — Panel web de supervisión y auditoría de visitas comerciales
+- **Identificador:** `TASK-020`
+- **Nombre:** Panel web de supervisión y auditoría de visitas comerciales
+- **Descripción:** Implementar en `web-admin` la vista `/visits` que lista todas las visitas del día con badges semánticos (`VERIFIED` en verde vs `OUT_OF_RANGE` en rojo/ámbar), distancia al local, observaciones y acuerdos pactados.
+- **Dependencias:** `TASK-019`, `TASK-006`.
+- **Archivos Involucrados:**
+  - `web-admin/src/app/(dashboard)/visits/page.tsx`
+  - `web-admin/src/components/visits/VisitTable.tsx`
+  - `web-admin/src/components/visits/VisitDetailModal.tsx`
+- **Criterios de Aceptación:**
+  1. Despliegue de los 4 estados obligatorios de interfaz (Cargando con skeleton, Error con reintento, Vacío, Adaptativo).
+  2. Clic en visita resalta el cliente y el punto del vendedor en mapa.
+- **Estado:** Pendiente.
+
+---
+
+## FASE 7: Slice Vertical de Auditoría, Métricas e Inmutabilidad (Verificación HMAC + Recharts + Exportación)
+
+### [ ] TASK-021 — Módulo web de bitácora inmutable de eventos del sistema
+- **Identificador:** `TASK-021`
+- **Nombre:** Módulo web de bitácora inmutable de eventos del sistema
+- **Descripción:** Desarrollar en `web-admin` la vista `/audit` para inspeccionar la tabla `audit_logs` (eventos de GPS apagado, pérdida de señal, inicios de turno y anomalías de reloj), con visualización del hash HMAC y validador de cadena criptográfica.
+- **Dependencias:** `TASK-004`, `TASK-006`.
+- **Archivos Involucrados:**
+  - `web-admin/src/app/(dashboard)/audit/page.tsx`
+  - `web-admin/src/components/audit/AuditLogTable.tsx`
+- **Criterios de Aceptación:**
+  1. Tabla de eventos con severidad semántica (INFO, WARNING, CRITICAL).
+  2. Indicador visual del estado de integridad de la cadena criptográfica.
+- **Estado:** Pendiente.
+
+### [ ] TASK-022 — Dashboard de métricas operativas y gráficos con Recharts
+- **Identificador:** `TASK-022`
+- **Nombre:** Dashboard de métricas operativas y gráficos con Recharts
+- **Descripción:** Implementar las tarjetas de métricas (KPIs) y gráficos de resumen diario en `web-admin` utilizando Recharts (cobertura de clientes visitados, kilómetros totales recorridos por vendedor y tasa de visitas verificadas).
+- **Dependencias:** `TASK-006`, `TASK-019`.
+- **Archivos Involucrados:**
+  - `web-admin/src/app/(dashboard)/page.tsx`
+  - `web-admin/src/components/dashboard/MetricCards.tsx`
+  - `web-admin/src/components/dashboard/PerformanceChart.tsx`
+- **Criterios de Aceptación:**
+  1. Visualización de métricas en tiempo real con estados de skeleton loader.
+  2. Totalizaciones coincidentes con los registros de base de datos.
+- **Estado:** Pendiente.
+
+### [ ] TASK-023 — Exportación formal de reportes de jornada a formato CSV
+- **Identificador:** `TASK-023`
+- **Nombre:** Exportación formal de reportes de jornada a formato CSV
+- **Descripción:** Implementar la utilidad de exportación en `web-admin` que genera archivos `.csv` estructurados con codificación UTF-8 con BOM para apertura correcta en Microsoft Excel, conteniendo fecha, vendedor, inicio, fin, kilómetros y desglose de visitas.
+- **Dependencias:** `TASK-006`, `TASK-020`.
+- **Archivos Involucrados:**
+  - `web-admin/src/lib/export/exportCsv.ts`
+  - `web-admin/src/app/(dashboard)/reports/page.tsx`
+- **Criterios de Aceptación:**
+  1. Descarga automática con nombre normalizado (`reporte-jornadas-YYYY-MM-DD.csv`).
+  2. Correcta visualización de tildes y caracteres especiales en Excel.
+- **Estado:** Pendiente.
+
+---
+
+## FASE 8: Pruebas E2E (Playwright), Auditoría de Seguridad y Despliegue en Producción
+
+### [ ] TASK-024 — Suite de pruebas End-to-End con Playwright en panel web
+- **Identificador:** `TASK-024`
+- **Nombre:** Suite de pruebas End-to-End con Playwright en panel web
+- **Descripción:** Implementar y ejecutar las pruebas E2E automatizadas con Playwright en `web-admin` para los 5 flujos críticos del sistema (login, mapa interactivo, detalle de trayectorias, creación de clientes y exportación).
+- **Dependencias:** `TASK-006`, `TASK-015`, `TASK-016`, `TASK-017`, `TASK-023`.
+- **Archivos Involucrados:**
+  - `web-admin/e2e/auth.spec.ts`
+  - `web-admin/e2e/live-map.spec.ts`
+  - `web-admin/e2e/reports.spec.ts`
+  - `web-admin/playwright.config.ts`
+- **Criterios de Aceptación:**
+  1. 100% de tests E2E aprobados en navegadores Chromium y Firefox en modo headless.
+  2. Cero fallos intermitentes (*flaky tests*).
+- **Estado:** Pendiente.
+
+### [ ] TASK-025 — Pruebas de integración Android: Simulación de Modo Avión y estrés de memoria
+- **Identificador:** `TASK-025`
+- **Nombre:** Pruebas de integración Android: Simulación de Modo Avión y estrés de memoria
+- **Descripción:** Ejecutar pruebas de integración automatizadas en `mobile-android` simulando pérdida prolongada de red (modo avión), reinicio de aplicación y verificación de ingesta íntegra sin duplicaciones en Supabase.
+- **Dependencias:** `TASK-010`, `TASK-013`.
+- **Archivos Involucrados:**
+  - `mobile-android/app/src/androidTest/java/com/routrack/mobile/OfflineSyncIntegrationTest.kt`
 - **Criterios de Aceptación:**
   1. Cero pérdida de puntos de telemetría tras desconexión forzada.
-  2. Sincronización exitosa en Supabase al restaurar la conectividad.
+  2. Sincronización automática completa al restaurar la conectividad.
 - **Estado:** Pendiente.
 
-### [ ] TASK-029 — Auditoría final de seguridad, RLS y verificación LOPDP
-- **Descripción:** Realizar pruebas de penetración lógica (pentesting), verificación de políticas RLS para evitar fugas multi-tenant, análisis estático de código para evitar exposición de secretos y revisión de políticas de privacidad.
+### [ ] TASK-026 — Auditoría de seguridad estricta, verificación RLS y cumplimiento LOPDP
+- **Identificador:** `TASK-026`
+- **Nombre:** Auditoría de seguridad estricta, verificación RLS y cumplimiento LOPDP
+- **Descripción:** Realizar escaneo de secretos y credenciales en el código fuente, pruebas de penetración lógica contra políticas RLS para certificar la imposibilidad de fuga multi-tenant y validación empírica del cese de recolección GPS al cerrar jornada.
 - **Dependencias:** Todas las tareas previas.
-- **Archivos Involucrados:** Toda la base de código y documentación.
+- **Archivos Involucrados:** Toda la base de código y base de datos.
 - **Criterios de Aceptación:**
-  1. Comprobación de que no existen accesos cruzados entre organizaciones.
-  2. Cero secretos en repositorios o bundles cliente.
-  3. Verificación de que el rastreo GPS es imposible fuera de la jornada activa.
+  1. Comprobación matemática de cero fugas entre organizaciones distintas.
+  2. Cero exposición de claves secretas (`service_role_key`).
+  3. Cese inmediato y total de telemetría fuera de la jornada laboral formal.
 - **Estado:** Pendiente.
 
-### [ ] TASK-030 — Pipeline CI/CD con GitHub Actions y despliegue a producción en Vercel
-- **Descripción:** Configurar los flujos de GitHub Actions para ejecución automática de linters, pruebas de TypeScript y tests en cada Pull Request, configurando el despliegue automático del panel web en Vercel.
-- **Dependencias:** TASK-027, TASK-029.
-- **Archivos Involucrados:** `.github/workflows/ci.yml`, configuración de Vercel.
+### [ ] TASK-027 — Configuración de CI/CD en GitHub Actions
+- **Identificador:** `TASK-027`
+- **Nombre:** Configuración de CI/CD en GitHub Actions
+- **Descripción:** Configurar los flujos de GitHub Actions para ejecución automática de comprobaciones de TypeScript (`tsc --noEmit`), linters, pruebas unitarias de Kotlin y tests de Playwright en cada Pull Request a `main`.
+- **Dependencias:** `TASK-024`, `TASK-025`.
+- **Archivos Involucrados:**
+  - `.github/workflows/ci.yml`
 - **Criterios de Aceptación:**
-  1. Workflow de CI ejecuta exitosamente `tsc`, linters y pruebas en GitHub Actions.
-  2. Despliegue en producción en Vercel activo con HTTPS y variables de entorno configuradas.
+  1. Pipeline de CI verde en GitHub Actions tras pull requests.
+- **Estado:** Pendiente.
+
+### [ ] TASK-028 — Despliegue de producción del panel web en Vercel a coste $0 USD
+- **Identificador:** `TASK-028`
+- **Nombre:** Despliegue de producción del panel web en Vercel a coste $0 USD
+- **Descripción:** Vincular el repositorio con Vercel, configurar las variables de entorno de producción seguras y verificar el correcto funcionamiento del panel web en dominio de producción con HTTPS y certificados SSL automáticos.
+- **Dependencias:** `TASK-026`, `TASK-027`.
+- **Archivos Involucrados:**
+  - Configuración de proyecto en Vercel
+  - `web-admin/next.config.mjs`
+- **Criterios de Aceptación:**
+  1. Despliegue activo y accesible públicamente con HTTPS y carga < 2.0s.
+  2. Conexión segura contra proyecto Supabase en producción.
 - **Estado:** Pendiente.

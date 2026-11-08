@@ -1,184 +1,216 @@
-# Política de Seguridad, Privacidad y Cumplimiento Normativo — ROUTRACK
+# Arquitectura de Seguridad, Criptografía y Privacidad — ROUTRACK
 
 **Proyecto:** ROUTRACK  
-**Documento:** Arquitectura de Seguridad y Privacidad de Datos  
+**Documento:** Política de Seguridad, Privacidad de Datos y Cumplimiento Normativo  
 **Versión:** 1.0.0  
 **Fecha:** Noviembre 2026  
-**Estado:** Base Oficial  
+**Estado:** Documento Fundacional Oficial (Aprobado)  
+**Autor:** Senior Software Engineer, Cloud/Mobile Solutions Architect & Technical Lead  
 
 ---
 
-## 1. Principios Fundamentales de Seguridad
+## 1. Modelo de Amenazas (STRIDE)
 
-La seguridad y la privacidad en ROUTRACK no son características accesorias, sino pilares estructurales del diseño del sistema:
-- **Mínimo Privilegio (PoLP):** Ningún usuario, componente o proceso posee más permisos de los estrictamente necesarios para su función operativa.
-- **Defensa en Profundidad:** La seguridad se aplica en múltiples capas independientes: autenticación a nivel de gateway, autorización en el motor de base de datos con RLS, cifrado en tránsito TLS 1.3 y cifrado en reposo en hardware seguro (Android Keystore).
-- **Transparencia y Ética Laboral:** El monitoreo de ubicación es visible, autorizado y acotado estrictamente al horario laboral. Se descarta cualquier técnica de vigilancia clandestina o invasiva.
+Para salvaguardar la plataforma y los datos de localización de los empleados, ROUTRACK implementa un modelo de análisis de amenazas basado en la metodología **STRIDE**:
 
----
-
-## 2. Autenticación y Autorización
-
-### 2.1. Gestión de Identidades (Supabase Auth)
-- La autenticación se gestiona centralizadamente mediante Supabase Auth utilizando correo electrónico y contraseñas robustas (mínimo 8 caracteres, combinación de mayúsculas, minúsculas, números y símbolos).
-- **Manejo de Tokens JWT:**
-  - `access_token`: Token firmado mediante HMAC-SHA256 con tiempo de vida corto (1 hora), conteniendo en sus *claims* de `app_metadata` el identificador de organización (`organization_id`) y el rol asignado (`role`).
-  - `refresh_token`: Token de larga duración utilizado para renovar el `access_token` de manera transparente y segura sin forzar al vendedor o supervisor a reingresar sus credenciales constantemente.
-
-### 2.2. Roles y Matriz de Permisos (RBAC)
-
-| Rol | Descripción | Permisos Clave |
+| Categoría de Amenaza | Riesgo Identificado en ROUTRACK | Contramedida de Seguridad Aplicada |
 | :--- | :--- | :--- |
-| **super_admin** | Administrador de la organización | Gestión total de usuarios, asignación de roles, configuración de parámetros y consulta de toda la información de su organización. |
-| **supervisor** | Responsable de equipos y rutas | Consulta en vivo de vendedores, asignación de clientes, visualización de rutas y descarga de reportes operativos. |
-| **seller** | Vendedor / Asesor en ruta | Inicio y fin de su propia jornada laboral, captura de sus propios puntos GPS y registro de visitas a clientes. |
-| **auditor** | Analista de cumplimiento | Lectura de reportes, análisis de discrepancias geográficas y consulta de la bitácora inmutable de auditoría. |
+| **Spoofing (Suplantación)** | Un vendedor intenta simular check-ins o telemetría falsificando credenciales o inyectando coordenadas falsas (*Fake GPS*). | Supabase Auth con tokens JWT firmados criptográficamente; detección en Android de proveedores de ubicación simulada (`Location.isFromMockProvider` / `isMock`). |
+| **Tampering (Manipulación)** | Modificación manual del historial de puntos GPS en la base de datos local SQLite o en tránsito para encubrir desvíos. | Base de datos Room cifrada con SQLCipher (AES-256-GCM); cadena de custodia matemática con **HMAC-SHA256 encadenado** en cada punto y evento. |
+| **Repudiation (Repudio)** | Un vendedor o supervisor niega haber registrado un check-in de visita o haber alterado la configuración de un cliente. | Bitácora inmutable en `audit_logs` con permisos estrictos de `INSERT ONLY` protegida con firmas criptográficas no repudiables. |
+| **Information Disclosure (Fuga de Información)** | Acceso no autorizado de una empresa a los datos de ruta, clientes o precios pactados de un competidor en la misma base de datos. | Aislamiento multi-tenant forzado en el 100% de tablas mediante **Row Level Security (RLS)**; comunicaciones 100% cifradas bajo TLS 1.3. |
+| **Denial of Service (Denegación de Servicio)** | Saturación del backend mediante inundación de paquetes GPS individuales desde dispositivos móviles. | Ingesta por lotes (*batching*) en WorkManager; limitación de tasa (*rate limiting*) en Supabase Edge Functions. |
+| **Elevation of Privilege (Elevación de Privilegios)** | Un vendedor manipula tokens de sesión para actuar como supervisor y aprobar visitas fuera de radio. | Validación de claims de rol en JWT evaluados directamente por el motor de PostgreSQL a través de políticas RLS inalterables desde el cliente. |
 
 ---
 
-## 3. Políticas de Seguridad a Nivel de Fila (Row Level Security - RLS)
+## 2. Autenticación y Autorización Basada en Roles (RBAC)
 
-Todas las tablas del sistema en PostgreSQL tienen activado obligatoriamente el modo RLS (`ALTER TABLE ... ENABLE ROW LEVEL SECURITY`). Esto garantiza que, incluso si una consulta web o móvil omite un filtro, la base de datos rechace la devolución o modificación de filas no autorizadas.
+### 2.1. Autenticación JWT vía Supabase Auth
+- Toda interacción con la plataforma requiere autenticación previa mediante correo electrónico corporativo y contraseña con estándar NIST (mínimo 10 caracteres, combinando alfanuméricos y símbolos).
+- **Tokens de Sesión:**
+  - `access_token`: Token JWT de corta duración (60 minutos), firmado con secreto criptográfico HMAC-SHA256 en Supabase Auth.
+  - `refresh_token`: Token de larga duración para renovación automática, almacenado en el hardware seguro del dispositivo Android o en cookies `HttpOnly` y `SameSite=Lax` en el panel web.
 
-### 3.1. Regla Base de Aislamiento Multi-Tenant
-Toda consulta filtra los registros comparando el `organization_id` de la fila con el `organization_id` extraído del JWT del usuario:
+### 2.2. Matriz de Roles (RBAC)
+Los tres roles del sistema están estrictamente delimitados:
+
+```mermaid
+graph TD
+    subgraph RolesPermitidos
+        A[ADMIN] -->|Acceso Total Org| B[Gestión Usuarios, Clientes, Parámetros y Auditoría Global]
+        C[SUPERVISOR] -->|Supervisión Org| D[Monitoreo en Vivo, Rutas Históricas, Validación de Visitas y Reportes]
+        E[VENDEDOR] -->|Operación Campo| F[Inicio/Fin de Turno Propio, Captura GPS Propia y Visitas Propias]
+    end
+```
+
+| Funcionalidad / Entidad | Rol VENDEDOR | Rol SUPERVISOR | Rol ADMIN |
+| :--- | :---: | :---: | :---: |
+| Iniciar / Cerrar Turno Propio | **Sí** | No | No |
+| Registrar Telemetría GPS Propia | **Sí** | No | No |
+| Registrar Visita Comercial Propia | **Sí** | No | No |
+| Ver Mapa de Monitoreo en Vivo | No | **Sí** (su organización) | **Sí** (su organización) |
+| Consultar Histórico de Rutas | No | **Sí** (su organización) | **Sí** (su organización) |
+| Administrar Clientes y Geocercas | No | Solo Lectura | **Sí** (CRUD completo) |
+| Administrar Perfiles y Vendedores | No | No | **Sí** (su organización) |
+| Consultar Bitácora de Auditoría | No | Solo Lectura Operativa | **Sí** (Auditoría Forense) |
+
+---
+
+## 3. Políticas Estrictas de Row Level Security (RLS)
+
+Todas las tablas en PostgreSQL tienen el mecanismo RLS forzado (`ALTER TABLE ... ENABLE ROW LEVEL SECURITY;`). La regla inquebrantable de aislamiento establece que **ninguna fila puede ser consultada, insertada o modificada fuera de la organización del usuario autenticado**.
+
+### 3.1. Funciones Auxiliares de Contexto de Seguridad
 ```sql
--- Función auxiliar para extraer la organización del usuario autenticado
-CREATE OR REPLACE FUNCTION auth.get_user_organization_id()
+-- Extraer el organization_id del token JWT
+CREATE OR REPLACE FUNCTION auth.jwt_organization_id()
 RETURNS UUID AS $$
-  SELECT (auth.jwt() -> 'app_metadata' ->> 'organization_id')::UUID;
+  SELECT NULLIF(current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'organization_id', '')::UUID;
+$$ LANGUAGE SQL STABLE;
+
+-- Extraer el rol del token JWT
+CREATE OR REPLACE FUNCTION auth.jwt_role()
+RETURNS TEXT AS $$
+  SELECT NULLIF(current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'role', '');
 $$ LANGUAGE SQL STABLE;
 ```
 
-### 3.2. Ejemplos de Políticas RLS por Entidad
+### 3.2. Políticas por Entidad (Aislamiento y Roles)
 
 ```sql
--- 1. Tabla clients: Solo usuarios de la misma organización pueden ver sus clientes
-CREATE POLICY "Acceso a clientes por organización"
-ON public.clients
-FOR ALL
-USING (organization_id = auth.get_user_organization_id());
+-- 1. Tabla clients: Solo miembros de la misma organización pueden consultar
+CREATE POLICY "RLS_clients_select" ON public.clients
+FOR SELECT USING (organization_id = auth.jwt_organization_id());
 
--- 2. Tabla work_shifts: Un vendedor solo puede insertar o modificar su propia jornada
-CREATE POLICY "Vendedor gestiona su propia jornada"
-ON public.work_shifts
-FOR ALL
-USING (
-  organization_id = auth.get_user_organization_id() AND
-  seller_id = auth.uid()
-)
-WITH CHECK (
-  organization_id = auth.get_user_organization_id() AND
+CREATE POLICY "RLS_clients_admin_mutate" ON public.clients
+FOR ALL USING (
+  organization_id = auth.jwt_organization_id() AND
+  auth.jwt_role() = 'ADMIN'
+);
+
+-- 2. Tabla work_shifts: Vendedores solo gestionan sus turnos; Supervisores y Admins leen todos
+CREATE POLICY "RLS_shifts_vendedor" ON public.work_shifts
+FOR ALL USING (
+  organization_id = auth.jwt_organization_id() AND
   seller_id = auth.uid()
 );
 
--- 3. Tabla work_shifts: Supervisores pueden leer las jornadas de su organización
-CREATE POLICY "Supervisores consultan jornadas de la organizacion"
-ON public.work_shifts
-FOR SELECT
-USING (
-  organization_id = auth.get_user_organization_id() AND
-  (auth.jwt() -> 'app_metadata' ->> 'role') IN ('supervisor', 'super_admin', 'auditor')
+CREATE POLICY "RLS_shifts_supervision_select" ON public.work_shifts
+FOR SELECT USING (
+  organization_id = auth.jwt_organization_id() AND
+  auth.jwt_role() IN ('SUPERVISOR', 'ADMIN')
 );
 
--- 4. Tabla tracking_points: Vendedor inserta sus puntos; supervisores leen
-CREATE POLICY "Vendedor inserta sus puntos GPS"
-ON public.tracking_points
-FOR INSERT
-WITH CHECK (
-  organization_id = auth.get_user_organization_id() AND
+-- 3. Tabla tracking_points: Vendedor inserta; supervisión consulta
+CREATE POLICY "RLS_tracking_vendedor_insert" ON public.tracking_points
+FOR INSERT WITH CHECK (
+  organization_id = auth.jwt_organization_id() AND
   seller_id = auth.uid()
 );
 
-CREATE POLICY "Lectura de telemetria por supervisores"
-ON public.tracking_points
-FOR SELECT
-USING (
-  organization_id = auth.get_user_organization_id() AND
-  (auth.jwt() -> 'app_metadata' ->> 'role') IN ('supervisor', 'super_admin', 'auditor')
+CREATE POLICY "RLS_tracking_supervision_select" ON public.tracking_points
+FOR SELECT USING (
+  organization_id = auth.jwt_organization_id() AND
+  auth.jwt_role() IN ('SUPERVISOR', 'ADMIN')
+);
+
+-- 4. Tabla audit_logs: SOLO INSERCIÓN. Modificación y eliminación bloqueadas universalmente
+CREATE POLICY "RLS_audit_insert_only" ON public.audit_logs
+FOR INSERT WITH CHECK (organization_id = auth.jwt_organization_id());
+
+CREATE POLICY "RLS_audit_select" ON public.audit_logs
+FOR SELECT USING (
+  organization_id = auth.jwt_organization_id() AND
+  auth.jwt_role() = 'ADMIN'
 );
 ```
 
 ---
 
-## 4. Protección de Credenciales y Variables de Entorno
+## 4. Prohibición Absoluta de Exposición de la `service_role_key`
 
-1. **Separación de Claves Públicas y Secretas:**
-   - `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Son claves públicas diseñadas para interactuar con Supabase respetando siempre las reglas RLS. Son seguras para incluirse en el frontend web y la app móvil.
-   - `SUPABASE_SERVICE_ROLE_KEY`: Clave maestra que **omite todas las políticas RLS**. Está **estrictamente prohibido** utilizar esta clave en el cliente web Next.js, en la aplicación Android o en repositorios de código. Solo se permite su uso en entornos aislados de servidor o Edge Functions debidamente protegidas.
-2. **Archivos de Entorno:**
-   - Los archivos `.env`, `.env.local` y equivalentes están excluidos del repositorio mediante `.gitignore`. Se provee únicamente `.env.example` con valores ficticios y descriptivos.
-
----
-
-## 5. Cifrado y Seguridad en el Dispositivo Android
-
-1. **Android Keystore y Cifrado AES-256-GCM:**
-   - Los tokens de sesión (`access_token`, `refresh_token`) se almacenan utilizando `EncryptedSharedPreferences` respaldado por el **Android Keystore System**.
-   - Las llaves criptográficas se generan en hardware seguro (Trusted Execution Environment - TEE o StrongBox Keymaster), haciendo imposible su extracción del dispositivo incluso ante privilegios de superusuario (*root*).
-2. **Protección de la Base de Datos Local Room:**
-   - La base de datos SQLite local de Room se encuentra aislada en el almacenamiento privado de la aplicación (`data/data/com.routrack.app/databases/`), inaccesible para otras apps instaladas en el teléfono.
-3. **Detección de Manipulación (Mock Location & Anti-Tampering):**
-   - La aplicación detecta si una coordenada proviene de una aplicación de ubicación simulada (*Mock Location*) a través de los métodos oficiales del SDK de Android (`Location.isFromMockProvider()` o `Location.isMock()`).
-   - Los puntos marcados con proveedor simulado se etiquetan como `is_mock = true`, lo cual desencadena alertas inmediatas en el módulo de auditoría.
+1. **Clave Anónima (`anon key`):** Es la única clave autorizada para incluirse en el bundle del panel web o en la app móvil. Opera sujeta al 100% a las políticas RLS.
+2. **Clave de Rol de Servicio (`service_role_key`):**
+   - Esta clave omite todas las políticas de seguridad RLS de PostgreSQL.
+   - **Prohibición Terminante:** Queda estrictamente vetado incorporar la `SUPABASE_SERVICE_ROLE_KEY` en `web-admin` (ni en variables `NEXT_PUBLIC_*` ni en Server Components accesibles al usuario), en `mobile-android` o en repositorios de control de versiones.
+   - Su empleo queda confinado exclusivamente al entorno de ejecución privado de migraciones de base de datos o en Supabase Edge Functions con autenticación restringida.
 
 ---
 
-## 6. Seguridad en las Comunicaciones
+## 5. Cifrado Local en Reposo en Android (Keystore + SQLCipher)
 
-- **HTTPS / TLS 1.3:** Todo el tráfico entre clientes (Web y Móvil) y Supabase viaja forzosamente cifrado mediante TLS 1.3 con suites de cifrado modernas (evitando protocolos obsoletos como SSLv3, TLS 1.0 y TLS 1.1).
-- **Protección de Cabeceras Web:** En Next.js se configuran cabeceras de seguridad estrictas:
-  - `Content-Security-Policy (CSP)`
-  - `X-Frame-Options: DENY` (prevención de Clickjacking)
-  - `X-Content-Type-Options: nosniff`
-  - `Referrer-Policy: strict-origin-when-cross-origin`
-  - `Permissions-Policy: geolocation=(self)`
+La base de datos local del vendedor almacena información sensible de trayectorias y acuerdos comerciales. Para blindarla contra ataques físicos o extracción indebida de archivos:
 
----
+```mermaid
+flowchart LR
+    subgraph HardwareTEE ["Android Hardware Seguro (TEE / StrongBox)"]
+        A["Android Keystore"] -->|Custodia Maestra| B["Key AES-256-GCM\n(Alias: RoutrackMasterKey)"]
+    end
 
-## 7. Validación de Datos y Sanitización
+    subgraph AppSpace ["Espacio de Aplicación Móvil"]
+        B -->|Descifrado de Passphrase en Memoria| C["SupportFactory Passphrase"]
+        C -->|Apertura Cifrada| D[("Room Database\nCifrada con SQLCipher")]
+    end
+```
 
-- **Defensa en Doble Capa:** La validación de datos nunca se delega exclusivamente a la interfaz de usuario.
-  - **Cliente Web y Móvil:** Validación inmediata para mejorar la experiencia de usuario (validación de formatos de correo, coordenadas válidas entre -90 y 90 de latitud y -180 a 180 de longitud).
-  - **Servidor y Base de Datos:** Validación mediante esquemas Zod en Server Actions / Edge Functions y restricciones de integridad física (`CHECK constraints`) en PostgreSQL.
-
----
-
-## 8. Auditoría de Operaciones y Bitácora Inmutable
-
-La tabla `audit_logs` registra permanentemente los eventos críticos para control interno:
-- Inicios de sesión y cierres de sesión sospechosos.
-- Intentos de inserción de puntos con `is_mock = true`.
-- Modificación o eliminación de registros de clientes.
-- Cierres forzados o anormales de jornadas laborales.
-- Las filas de `audit_logs` tienen permisos de **solo inserción** (`INSERT ONLY`); ningún rol, ni siquiera `super_admin`, tiene permitido ejecutar `UPDATE` o `DELETE` sobre la bitácora de auditoría.
+1. **Generación de Clave en Hardware Seguro:**
+   - La aplicación genera un par de claves o clave secreta en el **Android Keystore System** bajo el alias `RoutrackMasterKey`.
+   - Parámetros: `KeyProperties.KEY_ALGORITHM_AES`, `KeyProperties.BLOCK_MODE_GCM`, `KeyProperties.ENCRYPTION_PADDING_NONE`, tamaño de clave de 256 bits (`PURPOSE_ENCRYPT | PURPOSE_DECRYPT`).
+2. **Cifrado de Base de Datos con SQLCipher:**
+   - La base de datos SQLite gestionada por Room no se almacena en texto plano. Se integra con **SQLCipher** mediante `net.zetetic.database.sqlcipher.SupportFactory`.
+   - La frase de paso (*passphrase*) de cifrado se genera aleatoriamente en el primer inicio de la app, se cifra mediante la llave maestra de Keystore y se guarda en `EncryptedSharedPreferences`.
 
 ---
 
-## 9. Protección de Datos Personales y Privacidad Laboral
+## 6. Algoritmo de Integridad y Hash Chaining (Cadena de Custodia)
 
-### 9.1. Transparencia y Consentimiento
-El rastreo GPS en ROUTRACK está regido por los principios de lealtad, proporcionalidad y consentimiento informado:
-- **Rastreo Visible y Notificado:** La app Android informa continuamente al vendedor mediante una notificación fija en la barra de estado del sistema operativo mientras la jornada de trabajo esté en curso.
-- **Límite Temporal Estricto:** La recolección de coordenadas GPS inicia **únicamente** cuando el vendedor presiona el botón "Iniciar Jornada" y cesa de forma total e inmediata cuando presiona "Finalizar Jornada".
-- **Sin Monitoreo en Horas de Descanso:** Fuera del horario de la jornada registrada, ROUTRACK no recolecta, consulta ni transmite ningún dato de ubicación, preservando íntegramente la vida privada del trabajador.
+Para impedir la alteración o inyección retrospectiva de coordenadas GPS o registros de visitas por parte de usuarios o agentes maliciosos, ROUTRACK implementa un algoritmo de **encadenamiento criptográfico HMAC-SHA256**:
 
-### 9.2. Prohibición de Vigilancia Invasiva
-Queda formal y técnicamente prohibida la incorporación de cualquier mecanismo de espionaje o intrusión no autorizada:
-- **NO Keylogger:** CERO registro o intercepción de pulsaciones de teclado o contraseñas.
-- **NO Acceso a Mensajería:** CERO lectura de chats, mensajes SMS, correos electrónicos personales o conversaciones de WhatsApp u otras plataformas de mensajería.
-- **NO Monitoreo de Otras Apps:** CERO inspección de las aplicaciones instaladas o utilizadas por el empleado en su dispositivo móvil.
-- **NO Grabación Oculta:** CERO activación no autorizada de micrófonos, cámaras o grabaciones de pantalla.
+### 6.1. Definición Matemática
+Sea $Payload_n$ la representación canónica serializada en JSON del registro $n$, sea $Hash_{n-1}$ el hash del registro precedente en la jornada, y sea $K$ la clave criptográfica secreta de sesión del vendedor:
+
+$$Hash_0 = \text{HMAC-SHA256}(\text{"ROUTRACK-SHIFT-INIT"} \parallel ShiftID, K)$$
+
+$$Hash_n = \text{HMAC-SHA256}(Payload_n \parallel Hash_{n-1}, K) \quad \text{para } n \ge 1$$
+
+```mermaid
+flowchart LR
+    H0["Hash_0\n(Semilla Turno)"] --> P1["Payload_1\n(Punto GPS 1)"]
+    P1 --> H1["Hash_1 = HMAC(P1 + H0)"]
+    H1 --> P2["Payload_2\n(Punto GPS 2)"]
+    P2 --> H2["Hash_2 = HMAC(P2 + H1)"]
+    H2 --> P3["Payload_3\n(Check-in Visita)"]
+    P3 --> H3["Hash_3 = HMAC(P3 + H2)"]
+```
+
+### 6.2. Verificación en Backend
+Al recibir el lote en la Edge Function `sync-jornada`, el servidor recalcula de forma secuencial la cadena de hashes. Si un solo byte del payload o del orden temporal fue alterado, se rechaza la transacción con código `HMAC_CHAIN_TAMPERED` y se registra una alerta inmediata en `audit_logs`.
 
 ---
 
-## 10. Cumplimiento con la LOPDP de Ecuador
+## 7. Cumplimiento Normativo y Privacidad Laboral (LOPDP Ecuador)
 
-El diseño de ROUTRACK se ajusta a lo estipulado en la **Ley Orgánica de Protección de Datos Personales (LOPDP)** de la República del Ecuador:
+El diseño de ROUTRACK está rigurosamente alineado con la **Ley Orgánica de Protección de Datos Personales (LOPDP)** de la República del Ecuador para el tratamiento de datos de geolocalización de empleados:
 
-1. **Principio de Juridicidad y Finalidad (Art. 10 LOPDP):** Los datos de geolocalización se tratan con la finalidad exclusiva y legítima de optimizar la logística comercial, verificar la ejecución de visitas comerciales y coordinar la seguridad del trabajador en ruta.
-2. **Principio de Proporcionalidad y Minimización:** Solo se capturan los datos indispensables (coordenadas, precisión y marca de tiempo). No se almacenan metadatos innecesarios ni datos sensibles ajenos a la actividad laboral.
-3. **Derechos de los Titulares (Derechos ARCO):** La plataforma facilita mecanismos para que los trabajadores puedan solicitar el acceso a los datos de telemetría registrados durante sus jornadas y la rectificación de datos inexactos.
-4. **Política de Retención y Purgado:**
-   - Los puntos de telemetría detallados (`tracking_points`) tienen una política de retención estándar de **180 días**. Pasado este lapso, los puntos individuales se purgan automáticamente de la base de datos o se agregan en métricas consolidadas (distancia total del día y visitas verificadas), anonimizando el detalle minuto a minuto del recorrido histórico.
-   - Los registros de visitas comerciales (`visit_records`) y facturación se conservan según los requerimientos mercantiles y tributarios vigentes.
+### 7.1. Principio de Finalidad y Proporcionalidad (Art. 10 LOPDP)
+- La recolección de coordenadas GPS tiene como finalidad única y legítima:
+  1. Optimizar la logística y asignación de clientes.
+  2. Verificar la ejecución presencial de visitas comerciales en puntos de venta.
+  3. Velar por la seguridad del trabajador en caso de emergencias en ruta.
+- No se recolectan datos innecesarios ni se efectúa inferencia de perfiles personales ajenos a la actividad laboral.
+
+### 7.2. Seguimiento Transparente y Confinado a la Jornada Formal
+- **Notificación Persistente Obligatoria:** Durante todo el lapso de rastreo, Android muestra una notificación fija no descartable: *"ROUTRACK en servicio — Registrando ruta de jornada laboral"*.
+- **Límite Temporal Infranqueable:** La recolección se inicia únicamente con el clic voluntario de "Iniciar Jornada" y cesa en el milisegundo exacto en que el vendedor pulsa "Finalizar Jornada".
+- **Sin Monitoreo en Descansos:** La app no recolecta coordenadas en horas de almuerzo, fines de semana ni periodos de descanso.
+
+### 7.3. Prohibición Absoluta de Vigilancia Invasiva
+Queda formalmente vetado e impedido en el código:
+- **Cero Keyloggers:** No se capturan pulsaciones de teclado ni contraseñas.
+- **Cero Acceso a Mensajería:** Ninguna lectura de WhatsApp, SMS ni correos personales.
+- **Cero Inspección Externa:** Prohibido sondear qué aplicaciones tiene instaladas o abiertas el trabajador en su teléfono.
+- **Cero Activación Oculta:** Prohibida la activación silenciosa de micrófonos, cámaras o captura de pantalla.
+
+### 7.4. Política de Retención y Purgado
+- La telemetría detallada minuto a minuto (`tracking_points`) se conserva por un plazo máximo de **180 días**, tras el cual se anonimiza y purga de la base de datos, consolidándose únicamente en métricas agregadas de kilometraje total y visitas comerciales verificadas.
