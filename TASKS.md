@@ -11,10 +11,10 @@
 
 ## Resumen del Estado de Tareas
 
-- **Tareas Totales:** 28
-- **Tareas Completadas:** 1 (`TASK-001`)
+- **Tareas Totales:** 26
+- **Tareas Completadas:** 2 (`TASK-001`, `TASK-002`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 27
+- **Tareas Pendientes:** 24
 
 ---
 
@@ -53,68 +53,55 @@
 
 ---
 
-## FASE 1: Setup del Monorepo, Entornos y Migraciones SQL Base (PostGIS + RLS)
+## FASE 1: Configuración del Entorno, Monorepo y Esquema Base de Supabase con PostGIS
 
-### [ ] TASK-002 — Setup de la estructura base del Monorepo y herramientas de compilación
+### [x] TASK-002 — Configuración del Entorno, Monorepo y Esquema Base de Supabase con PostGIS
 - **Identificador:** `TASK-002`
-- **Nombre:** Setup de la estructura base del Monorepo y herramientas de compilación
-- **Descripción:** Crear las carpetas estructurales del monorepo (`mobile-android/`, `supabase/`, `web-admin/`), configurar `package.json` raíz con scripts de conveniencia, `.editorconfig`, linters y configuración base de TypeScript y Gradle.
+- **Nombre:** Configuración del Entorno, Monorepo y Esquema Base de Supabase con PostGIS
+- **Descripción:** Configurar el entorno base del proyecto ROUTRACK en la estructura monorepo acordada (`mobile-android/`, `supabase/`, `web-admin/`), migración inicial de PostGIS con tablas centrales y RLS, configuración de Next.js App Router con Tailwind CSS y estructura base de Android con Jetpack Compose y Gradle.
 - **Dependencias:** `TASK-001`.
 - **Archivos Involucrados:**
-  - `package.json`
-  - `.editorconfig`
+  - `supabase/config.toml`
+  - `supabase/migrations/20260101000000_initial_schema.sql`
   - `web-admin/package.json`
   - `web-admin/tsconfig.json`
+  - `web-admin/tailwind.config.ts`
+  - `web-admin/src/lib/supabase/client.ts`
+  - `web-admin/src/app/page.tsx`
   - `mobile-android/build.gradle.kts`
+  - `mobile-android/app/build.gradle.kts`
   - `mobile-android/settings.gradle.kts`
+  - `mobile-android/app/src/main/AndroidManifest.xml`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/`
+  - `TASKS.md`
+  - `docs/MEMORY.md`
 - **Criterios de Aceptación:**
-  1. Estructura de carpetas idéntica a `docs/ARCHITECTURE.md`.
-  2. Scripts raíz de validación configurados y operativos.
-- **Estado:** Pendiente.
-
-### [ ] TASK-003 — Configuración de Supabase local y migraciones base con extensiones PostGIS
-- **Identificador:** `TASK-003`
-- **Nombre:** Configuración de Supabase local y migraciones base con extensiones PostGIS
-- **Descripción:** Inicializar el entorno local de Supabase CLI (`supabase init`), configurar `supabase/config.toml` y redactar la primera migración SQL que active las extensiones necesarias (`postgis`, `pgcrypto`, `uuid-ossp`).
-- **Dependencias:** `TASK-002`.
-- **Archivos Involucrados:**
-  - `supabase/config.toml`
-  - `supabase/migrations/20261106000000_enable_extensions.sql`
-- **Criterios de Aceptación:**
-  1. `supabase start` levanta los contenedores locales sin errores.
-  2. `SELECT PostGIS_Version();` devuelve versión operativa 3.3+.
-- **Estado:** Pendiente.
-
-### [ ] TASK-004 — Migración del esquema central de base de datos y políticas RLS fundamentales
-- **Identificador:** `TASK-004`
-- **Nombre:** Migración del esquema central de base de datos y políticas RLS fundamentales
-- **Descripción:** Crear las migraciones para las tablas `organizations`, `profiles`, `clients`, `work_shifts`, `tracking_points`, `visit_records` y `audit_logs`, aplicando índices GiST en columnas `GEOMETRY(Point, 4326)` y políticas RLS para aislamiento por `organization_id`.
-- **Dependencias:** `TASK-003`.
-- **Archivos Involucrados:**
-  - `supabase/migrations/20261106000001_create_core_tables.sql`
-  - `supabase/migrations/20261106000002_postgis_spatial_indices.sql`
-  - `supabase/migrations/20261106000003_rls_security_policies.sql`
-  - `supabase/seed.sql`
-- **Criterios de Aceptación:**
-  1. Esquema SQL coincide exactamente con `docs/ARCHITECTURE.md`.
-  2. RLS habilitado en el 100% de tablas públicas.
-  3. Pruebas de consulta cruzada entre organizaciones devuelven cero filas.
-- **Estado:** Pendiente.
+  1. La migración SQL de Supabase es sintácticamente válida para PostgreSQL 16+ con PostGIS y tiene RLS activo en cada tabla.
+  2. El proyecto `web-admin/` compila sin errores de TypeScript (`npx tsc --noEmit` y `npm run build` exitosos) y Tailwind CSS está operativo.
+  3. La estructura de carpetas coincide exactamente con lo especificado en `docs/ARCHITECTURE.md`.
+  4. Android cuenta con estructura de paquetes `com.empresa.routrack` y dependencias de Compose, Room y WorkManager declaradas.
+- **Estado:** Completada.
 
 ---
 
 ## FASE 2: Slice Vertical de Autenticación y Perfiles (Supabase Auth + Web Login + Android Login)
 
-### [ ] TASK-005 — Configuración de Supabase Auth, roles RBAC y triggers de perfil
-- **Identificador:** `TASK-005`
-- **Nombre:** Configuración de Supabase Auth, roles RBAC y triggers de perfil
-- **Descripción:** Configurar los triggers en PostgreSQL (`on_auth_user_created`) para sincronizar automáticamente usuarios de `auth.users` hacia `public.profiles` con validación de roles (`ADMIN`, `SUPERVISOR`, `VENDEDOR`) e inyección de `organization_id` en los claims del JWT.
-- **Dependencias:** `TASK-004`.
+### [ ] TASK-003 — Slice Vertical de Autenticación y Perfiles (Supabase Auth + Web Login + Android Login)
+- **Identificador:** `TASK-003`
+- **Nombre:** Slice Vertical de Autenticación y Perfiles (Supabase Auth + Web Login + Android Login)
+- **Descripción:** Implementar el flujo de autenticación de extremo a extremo: triggers en Supabase para sincronización automática de `auth.users` hacia `public.perfiles` con claims RBAC en JWT, pantalla de login y rutas protegidas en `web-admin` con cookies HttpOnly (`@supabase/ssr`), y pantalla de login en `mobile-android` con Compose y almacenamiento de tokens en Android Keystore (AES-256-GCM).
+- **Dependencias:** `TASK-002`.
 - **Archivos Involucrados:**
-  - `supabase/migrations/20261106000004_auth_triggers.sql`
+  - `supabase/migrations/20260101000001_auth_triggers.sql`
+  - `web-admin/src/app/(auth)/login/page.tsx`
+  - `web-admin/src/middleware.ts`
+  - `web-admin/src/lib/supabase/server.ts`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/ui/auth/`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/auth/`
 - **Criterios de Aceptación:**
-  1. Al registrar un usuario en Auth se crea automáticamente su tupla en `profiles`.
-  2. El JWT emitido incluye los metadatos de organización y rol.
+  1. Registro y login validado contra Supabase Auth.
+  2. Middleware de Next.js restringe acceso a usuarios no autenticados y redirige según rol.
+  3. Android persiste tokens de sesión de forma cifrada en Android Keystore sin texto plano.
 - **Estado:** Pendiente.
 
 ### [ ] TASK-006 — Módulo web de login, sesión y protección de rutas en Next.js

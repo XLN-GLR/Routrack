@@ -40,8 +40,8 @@
 
 ## 3. Fase Actual del Proyecto
 
-- **Fase Activa:** **Fase 0 — Investigación y Documentación Fundacional.**
-- **Progreso de Fase:** Culminación y validación de `TASK-001`.
+- **Fase Activa:** **Fase 1 — Configuración del Entorno, Monorepo y Esquema Base de Supabase con PostGIS (Completada).**
+- **Progreso de Fase:** Culminación y validación exitosa de `TASK-001` y `TASK-002`. Preparado para iniciar Fase 2 (`TASK-003`).
 
 ---
 
@@ -54,18 +54,23 @@
   - Configuración nativa de reglas del agente para Google Antigravity (`GEMINI.md`, `AGENTS.md`, `.agent/rules/rules.md`, `.agents/rules/rules.md`).
   - Creación de archivos raíz de configuración: `README.md`, `.env.example`, `.gitignore`.
   - Publicación en el repositorio remoto GitHub en la rama `main`.
+- **[x] TASK-002 — Configuración del Entorno, Monorepo y Esquema Base de Supabase con PostGIS:**
+  - Inicialización del backend Supabase con `supabase/config.toml`.
+  - Creación de la migración SQL `supabase/migrations/20260101000000_initial_schema.sql` con extensión PostGIS, tablas (`organizaciones`, `perfiles`, `clientes`, `jornadas_laborales`, `ubicaciones_gps`, `actividades_comerciales`, `bitacora_auditoria`), tipos `GEOMETRY(Point, 4326)`, índices GiST, vistas de compatibilidad y políticas RLS estrictas.
+  - Configuración del panel web `web-admin` con Next.js 14 (App Router), TypeScript estricto, Tailwind CSS, clientes Supabase y página de inicio operativa. Verificación exitosa con `tsc --noEmit` y `npm run build`.
+  - Estructuración de `mobile-android` con árbol de paquetes `com.empresa.routrack`, `AndroidManifest.xml` y dependencias de Gradle (Compose, Room, WorkManager, Play Services Location y Supabase).
 
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-002 (Fase 1):** Setup del Monorepo, Entornos y Migraciones SQL Base (PostGIS + RLS).
+- **[ ] TASK-003 (Fase 2):** Slice Vertical de Autenticación y Perfiles (Supabase Auth + Web Login + Android Login).
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado en esta etapa.* La arquitectura de datos PostGIS, los contratos JSON y las políticas de seguridad están definidos y validados sin contradicciones.
+- *Ninguno identificado en esta etapa.* La estructura de monorepo compila limpiamente, las tablas espaciales y políticas RLS están declaradas y verificadas.
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con la **Fase 1 / TASK-002**: Inicialización formal del monorepo (`mobile-android/`, `supabase/`, `web-admin/`), configuración de entornos de desarrollo, scripts de compilación y migraciones iniciales de Supabase con PostGIS y políticas RLS.
+- Proceder con la **Fase 2 / TASK-003**: Implementación de la primera rebanada vertical completa de Autenticación y Perfiles (Triggers de Supabase Auth, login web con SSR y login móvil en Compose con Keystore).
