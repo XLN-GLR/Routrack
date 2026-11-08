@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 5 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`)
+- **Tareas Completadas:** 6 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 23 (`TASK-006` a `TASK-028`)
+- **Tareas Pendientes:** 22 (`TASK-007` a `TASK-028`)
 
 ---
 
@@ -163,7 +163,7 @@
   4. Pruebas de validación de esquemas Zod se ejecutan sin errores con comprobaciones de TypeScript (`tsc --noEmit`).
 - **Estado:** Completada.
 
-### [ ] TASK-006 — Arquitectura Base del Panel Web, Layout de Dashboard y Protección de Rutas RBAC en Next.js
+### [x] TASK-006 — Arquitectura Base del Panel Web, Layout de Dashboard y Protección de Rutas RBAC en Next.js
 - **Identificador:** `TASK-006`
 - **Nombre:** Arquitectura Base del Panel Web, Layout de Dashboard y Protección de Rutas RBAC en Next.js
 - **Fase:** FASE 3: Slice Vertical de Captura Local, Cifrado y Base Espacial
@@ -171,6 +171,13 @@
 - **Dependencias:** `TASK-002`, `TASK-003`.
 - **Archivos Involucrados:**
   - `web-admin/src/app/(dashboard)/layout.tsx`
+  - `web-admin/src/app/(dashboard)/page.tsx`
+  - `web-admin/src/app/(dashboard)/live/page.tsx`
+  - `web-admin/src/app/(dashboard)/routes/page.tsx`
+  - `web-admin/src/app/(dashboard)/clients/page.tsx`
+  - `web-admin/src/app/(dashboard)/visits/page.tsx`
+  - `web-admin/src/app/(dashboard)/audit/page.tsx`
+  - `web-admin/src/app/(dashboard)/reports/page.tsx`
   - `web-admin/src/components/navigation/Sidebar.tsx`
   - `web-admin/src/components/navigation/Header.tsx`
   - `web-admin/src/middleware.ts`
@@ -181,7 +188,7 @@
   2. Middleware intercepta peticiones no autenticadas redirigiendo a `/login` y bloquea accesos no autorizados con código HTTP 403 para usuarios con rol `VENDEDOR`.
   3. Header refleja el nombre completo del usuario autenticado, su rol semántico y botón funcional de cierre de sesión (`logout`).
   4. Despliegue sin errores de compilación (`tsc --noEmit` y `npm run build` limpios) ni desajustes de hidratación en Server Components.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-007 — Procesamiento Geoespacial de Rutas, Distancias y Detección de Desvíos en PostGIS
 - **Identificador:** `TASK-007`

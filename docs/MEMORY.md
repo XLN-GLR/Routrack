@@ -41,7 +41,7 @@
 ## 3. Fase Actual del Proyecto
 
 - **Fase Activa:** **Fase 3 — Slice Vertical de Captura Local, Cifrado y Base Espacial.**
-- **Progreso de Fase:** Culminación y validación exitosa de `TASK-001`, `TASK-002`, `TASK-003`, `TASK-004` y `TASK-005` (5 tareas completadas de 28 proyectadas). Se completó la definición de los contratos de sincronización offline-first con esquemas estrictos Zod, tipos TypeScript, contratos compartidos para Edge Functions y migración SQL de índices de idempotencia y control de lotes (`sync_batches`). Preparado para abordar la siguiente tarea: `TASK-006`.
+- **Progreso de Fase:** Culminación y validación exitosa de `TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005` y `TASK-006` (6 tareas completadas de 28 proyectadas). Se completó la arquitectura base del panel web administrativo con layout responsivo colapsable, barra lateral (`Sidebar.tsx`), cabecera con perfil y rol (`Header.tsx`), middleware RBAC con cookies HttpOnly seguras (`@supabase/ssr`) y vistas base operativas para los módulos de monitoreo en vivo, rutas, clientes, visitas, auditoría y reportes. Preparado para abordar la siguiente tarea: `TASK-007`.
 
 ---
 
@@ -75,9 +75,13 @@
   - Suite de Pruebas Unitarias (`web-admin/src/lib/validation/syncSchemas.test.ts`, `web-admin/scripts/run-sync-tests.mjs`): 8 casos de prueba cuantitativos ejecutados exitosamente al 100% mediante `npm test` y compilación limpia con `tsc --noEmit` y `next build`.
   - Contratos Compartidos Serverless (`supabase/functions/_shared/syncContracts.ts`): Definición de tipos y validadores portables para Edge Functions en runtime Deno.
   - Migración SQL de Idempotencia (`supabase/migrations/20260101000003_idempotency_indexes.sql`): Tabla `sync_batches` con RLS por organización y rol, columna `client_id` e índice único en `bitacora_auditoria (organizacion_id, hmac_hash)`, índices únicos de idempotencia en `ubicaciones_gps` y `actividades_comerciales`, y función RPC `verificar_lote_sincronizado`.
+- **[x] TASK-006 — Arquitectura Base del Panel Web, Layout de Dashboard y Protección de Rutas RBAC en Next.js:**
+  - Layout Unificado y Responsivo (`web-admin/src/app/(dashboard)/layout.tsx`): Estructura adaptativa de escritorio y móvil con barra lateral colapsable (`Sidebar.tsx`) y cabecera persistente (`Header.tsx`).
+  - Protección de Rutas con Middleware (`web-admin/src/middleware.ts`): Intercepción de accesos no autenticados hacia `/login` y bloqueo estricto de usuarios con rol `VENDEDOR` redirigiendo con parámetro de error.
+  - Hook de Sesión en Cliente (`web-admin/src/hooks/useAuth.ts`, `web-admin/src/types/auth.ts`): Estado reactivo de usuario, badge de rol (`ADMIN`, `SUPERVISOR`), prevención de hydration mismatch y cierre de sesión seguro.
+  - Vistas Base de Navegación: Creación y enlazado de módulos operativos para `/` (dashboard), `/live` (monitoreo en vivo), `/routes` (histórico de trayectorias), `/clients` (clientes y geocercas), `/visits` (visitas comerciales), `/audit` (bitácora inmutable) y `/reports` (reportes de jornada), compilando 11/11 rutas estáticas en `next build`.
 
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-006 (Fase 3):** Arquitectura Base del Panel Web, Layout de Dashboard y Protección de Rutas RBAC en Next.js. Depende de `TASK-002`, `TASK-003`.
 - **[ ] TASK-007 (Fase 3):** Procesamiento Geoespacial de Rutas, Distancias y Detección de Desvíos en PostGIS (`ST_MakeLine`, `ST_Length`, corredor de desvío > 300m). Depende de `TASK-002`, `TASK-005`.
 - **[ ] TASK-008 (Fase 3):** Capa de Persistencia Local Avanzada, Repositorio Unificado y Resiliencia Offline en Android (`TrackingRepository`, `ShiftRepository`, `VisitRepository`, búfer 10k puntos). Depende de `TASK-004`, `TASK-005`.
 
@@ -85,10 +89,10 @@
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* Los contratos de sincronización, esquemas Zod, tipos TypeScript y migraciones de idempotencia compilan sin errores y están certificados empíricamente.
+- *Ninguno identificado.* El panel web compila sin errores de TypeScript (`tsc --noEmit`), el build de Next.js genera las 11 rutas estáticas de producción y las pruebas unitarias de Zod están aprobadas al 100%.
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-006**: Desarrollar la arquitectura base del dashboard administrativo en `web-admin`, implementando el layout responsivo (`layout.tsx`), barra lateral (`Sidebar.tsx`), cabecera (`Header.tsx`) y middleware RBAC con `@supabase/ssr`.
+- Proceder con **TASK-007**: Implementar en Supabase/PostgreSQL las funciones espaciales y vistas optimizadas para el procesamiento geoespacial analítico: agregación cronológica de puntos GPS en polilíneas continuas (`ST_MakeLine`), cálculo geodésico exacto de distancias recorridas en metros/kilómetros (`ST_Length` sobre esferoide WGS84) y detección de desvíos espaciales superiores al umbral de 300 metros respecto al corredor de clientes asignados en la jornada.
