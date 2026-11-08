@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 10 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`, `TASK-009`, `TASK-010`)
+- **Tareas Completadas:** 11 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`, `TASK-009`, `TASK-010`, `TASK-011`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 18 (`TASK-011` a `TASK-028`)
+- **Tareas Pendientes:** 17 (`TASK-012` a `TASK-028`)
 
 ---
 
@@ -277,17 +277,22 @@
   3. Cese inmediato de recolección al invocar la parada del servicio.
 - **Estado:** Completada.
 
-### [ ] TASK-011 — Detección de Mock Locations y anomalías de tiempo en Android
+### [x] TASK-011 — Detección de Mock Locations y anomalías de tiempo en Android
 - **Identificador:** `TASK-011`
 - **Nombre:** Detección de Mock Locations y anomalías de tiempo en Android
+- **Fase:** FASE 3: Slice Vertical de Captura Local, Cifrado y Base Espacial
 - **Descripción:** Implementar `AntiTamperingManager.kt` para detectar proveedores de ubicación simulada (`Location.isFromMockProvider` / `isMock`) y desajustes de reloj mediante comparación de `SystemClock.elapsedRealtime()` vs tiempo de red/GPS, etiquetando anomalías en los eventos del sistema.
 - **Dependencias:** `TASK-010`.
 - **Archivos Involucrados:**
   - `mobile-android/app/src/main/java/com/routrack/mobile/security/AntiTamperingManager.kt`
+  - `mobile-android/app/src/test/java/com/routrack/mobile/security/AntiTamperingManagerTest.kt`
+  - `mobile-android/app/src/main/java/com/routrack/mobile/services/TrackingForegroundService.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/service/LocationForegroundService.kt`
+  - `mobile-android/scripts/run-antitampering-tests.mjs`
 - **Criterios de Aceptación:**
   1. Ubicaciones inyectadas por apps de Fake GPS se marcan inequívocamente con `is_mock = true`.
   2. Desvíos de reloj > 60s generan un evento de auditoría advertencia.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ---
 

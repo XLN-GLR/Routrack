@@ -17,6 +17,7 @@ import com.empresa.routrack.data.local.entity.BitacoraAuditoriaEntity
 import com.empresa.routrack.data.repository.RepositoryProvider
 import com.empresa.routrack.data.repository.TrackingRepository
 import com.empresa.routrack.ui.MainActivity
+import com.routrack.mobile.security.AntiTamperingManager
 import com.google.android.gms.location.ActivityRecognition
 import com.google.android.gms.location.ActivityRecognitionClient
 import com.google.android.gms.location.DetectedActivity
@@ -299,14 +300,15 @@ class TrackingForegroundService : Service() {
 
         _lastLocation.value = location
 
-        serviceScope.launch {
-            val isMock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                location.isMock
-            } else {
-                @Suppress("DEPRECATION")
-                location.isFromMockProvider
-            }
+        // Inspección y auditoría de Fake GPS / Desvíos de reloj > 60s (TASK-011)
+        val securityAudit = AntiTamperingManager.inspectAndAuditLocation(
+            location = location,
+            shiftId = currentJornadaId,
+            trackingRepository = trackingRepository,
+            scope = serviceScope
+        )
 
+        serviceScope.launch {
             // Persistencia en Room mediante TrackingRepository con encadenamiento HMAC
             trackingRepository.recordLocation(
                 shiftId = currentJornadaId,
@@ -316,7 +318,7 @@ class TrackingForegroundService : Service() {
                 altitud = if (location.hasAltitude()) location.altitude else null,
                 velocidad = if (location.hasSpeed()) location.speed else null,
                 timestamp = location.time,
-                isMock = isMock
+                isMock = securityAudit.isMock
             )
         }
     }
@@ -415,3 +417,4 @@ class TrackingForegroundService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 }
+

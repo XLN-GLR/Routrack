@@ -40,8 +40,8 @@
 
 ## 3. Fase Actual del Proyecto
 
-- **Fase Activa:** **Fase 3 — Slice Vertical de Captura Local, Cifrado y Base Espacial.**
-- **Progreso de Fase:** Culminación y validación exitosa de `TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`, `TASK-009` y `TASK-010` (10 tareas completadas de 28 proyectadas). Se completó la implementación del servicio en primer plano persistente con captura adaptativa y reconocimiento de actividad (`TrackingForegroundService.kt` y `ActivityTransitionReceiver.kt`), notificación visible no descartable bajo LOPDP, optimización de consumo de batería mediante perfiles dinámicos (STILL, WALKING, IN_VEHICLE), persistencia local con encadenamiento HMAC en Room y cese inmediato de recolección al detener el servicio, con 22/22 aserciones aprobadas. Preparado para abordar la siguiente tarea: `TASK-011`.
+- **Fase Activa:** **Fase 3 — Slice Vertical de Captura Local, Cifrado y Base Espacial (Completada).**
+- **Progreso de Fase:** Culminación y validación exitosa de las 11 tareas que componen la Fase 3 (`TASK-001` a `TASK-011`). Se implementó y verificó el motor completo de seguridad anti-manipulación (`AntiTamperingManager.kt`), con detección y marcado forzado de proveedores de ubicación simulada (`is_mock = true`), detección de anomalías de reloj > 60s mediante `SystemClock.elapsedRealtime()` vs tiempo satelital, propagación a Room y emisión de eventos de advertencia en la bitácora HMAC con 14/14 pruebas aprobadas. Fase 3 culminada al 100%. Preparado para iniciar la Fase 4 con `TASK-012`.
 
 ---
 
@@ -98,18 +98,22 @@
   - Servicio Foreground Adaptativo (`TrackingForegroundService.kt` en `com.routrack.mobile.services`): Servicio persistente (`foregroundServiceType="location"`) con notificación visual obligatoria transparente en barra de estado bajo la LOPDP ("ROUTRACK: Seguimiento de jornada activo", no descartable, canal de baja prioridad sin alertas sonoras invasivas).
   - Optimización Energética (RNF-01) con Activity Recognition (`ActivityTransitionReceiver.kt`): Conmutación dinámica de frecuencia de muestreo según el estado físico del vendedor: modo `STILL` (90s / 25m) para máximo ahorro de batería, modo `WALKING` (20s / 10m) y modo `IN_VEHICLE` (10s / 15m con alta precisión).
   - Persistencia y Cese Inmediato: Integración con `TrackingRepository` para persistencia en Room con metadatos espaciales y encadenamiento HMAC, desvinculación total de sensores al invocar `stopTracking()` y declaración en `AndroidManifest.xml` con 22/22 aserciones aprobadas.
+- **[x] TASK-011 — Detección de Mock Locations y anomalías de tiempo en Android:**
+  - Gestor de Seguridad Anti-Tampering (`AntiTamperingManager.kt` en `com.routrack.mobile.security`): Detección nativa de aplicaciones de Fake GPS (`Location.isMock` / `Location.isFromMockProvider`), garantizando que cualquier punto simulado se marque inequívocamente en Room con `is_mock = true` y genere el evento de auditoría `MOCK_LOCATION_DETECTED`.
+  - Detección de Desvíos de Reloj (> 60 segundos): Mecanismo de control que compara el reloj del sistema (`System.currentTimeMillis()`) frente a la referencia atómica GPS (`location.time`) y el reloj monotónico no alterable (`SystemClock.elapsedRealtime()`). Desvíos superiores a 60 segundos emiten de inmediato el evento de auditoría de advertencia `TIME_ANOMALY_DETECTED`.
+  - Integración en Servicios: Incorporación en `TrackingForegroundService` y `LocationForegroundService` para auditoría continua en tiempo real y suite de pruebas unitarias (`AntiTamperingManagerTest.kt` y `run-antitampering-tests.mjs`) con 14/14 pruebas aprobadas.
 
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-011 (Fase 3):** Detección de Mock Locations y anomalías de tiempo en Android (`AntiTamperingManager.kt`, detección de Fake GPS y desajustes de reloj > 60s). Depende de `TASK-010`.
+- **[ ] TASK-012 (Fase 4):** Supabase Edge Function `sync-jornada` con validación HMAC e idempotencia (`supabase/functions/sync-jornada/index.ts`, `schema.ts`, `verify-hmac.ts`). Depende de `TASK-004`, `TASK-005`, `TASK-009`.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* El Foreground Service adaptativo cumple con los 3 criterios de aceptación y los RNF de batería y LOPDP, todas las pruebas unitarias y validadores pasan al 100% (22/22 en Foreground Service, 13/13 en HMAC, 34/34 en arquitectura de persistencia) y el proyecto web compila con 0 errores.
+- *Ninguno identificado.* La Fase 3 (Captura Local, Cifrado y Base Espacial) ha culminado al 100% (11 de 11 tareas). Todas las suites de prueba de seguridad, geoespaciales, contratos Zod y arquitectura pasan con éxito total y el panel web compila sin errores (`tsc --noEmit`).
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-011**: Implementar `AntiTamperingManager.kt` para detectar proveedores de ubicación simulada (`Location.isFromMockProvider` / `isMock`) y desajustes de reloj mediante comparación de `SystemClock.elapsedRealtime()` vs tiempo de red/GPS, etiquetando anomalías en los eventos del sistema.
+- Proceder con **TASK-012**: Desarrollar en Deno/TypeScript la Supabase Edge Function `sync-jornada` que recibe lotes de telemetría, visitas y eventos, valida el JWT y rol de usuario, recalcula la cadena de hashes HMAC-SHA256 y persiste de forma idempotente (`ON CONFLICT (id) DO NOTHING`) en PostgreSQL.

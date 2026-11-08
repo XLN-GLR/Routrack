@@ -71,3 +71,4 @@ class TrackingForegroundServiceTest {
         assertEquals(DetectedActivity.STILL, ActivityTransitionReceiver.currentActivityType.value)
     }
 }
+

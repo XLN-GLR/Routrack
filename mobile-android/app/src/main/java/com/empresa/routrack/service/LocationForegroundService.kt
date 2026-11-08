@@ -17,6 +17,7 @@ import com.empresa.routrack.data.local.entity.BitacoraAuditoriaEntity
 import com.empresa.routrack.data.repository.RepositoryProvider
 import com.empresa.routrack.data.repository.TrackingRepository
 import com.empresa.routrack.ui.MainActivity
+import com.routrack.mobile.security.AntiTamperingManager
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationAvailability
 import com.google.android.gms.location.LocationCallback
@@ -200,14 +201,14 @@ class LocationForegroundService : Service() {
 
         _lastLocation.value = location
 
-        serviceScope.launch {
-            val isMock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                location.isMock
-            } else {
-                @Suppress("DEPRECATION")
-                location.isFromMockProvider
-            }
+        val securityAudit = AntiTamperingManager.inspectAndAuditLocation(
+            location = location,
+            shiftId = currentJornadaId,
+            trackingRepository = trackingRepository,
+            scope = serviceScope
+        )
 
+        serviceScope.launch {
             trackingRepository.recordLocation(
                 shiftId = currentJornadaId,
                 latitud = location.latitude,
@@ -216,7 +217,7 @@ class LocationForegroundService : Service() {
                 altitud = if (location.hasAltitude()) location.altitude else null,
                 velocidad = if (location.hasSpeed()) location.speed else null,
                 timestamp = location.time,
-                isMock = isMock
+                isMock = securityAudit.isMock
             )
         }
     }
