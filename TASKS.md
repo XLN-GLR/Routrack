@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 6 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`)
+- **Tareas Completadas:** 7 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 22 (`TASK-007` a `TASK-028`)
+- **Tareas Pendientes:** 21 (`TASK-008` a `TASK-028`)
 
 ---
 
@@ -190,7 +190,7 @@
   4. Despliegue sin errores de compilación (`tsc --noEmit` y `npm run build` limpios) ni desajustes de hidratación en Server Components.
 - **Estado:** Completada.
 
-### [ ] TASK-007 — Procesamiento Geoespacial de Rutas, Distancias y Detección de Desvíos en PostGIS
+### [x] TASK-007 — Procesamiento Geoespacial de Rutas, Distancias y Detección de Desvíos en PostGIS
 - **Identificador:** `TASK-007`
 - **Nombre:** Procesamiento Geoespacial de Rutas, Distancias y Detección de Desvíos en PostGIS
 - **Fase:** FASE 3: Slice Vertical de Captura Local, Cifrado y Base Espacial
@@ -199,12 +199,15 @@
 - **Archivos Involucrados:**
   - `supabase/migrations/20260101000004_postgis_route_processing.sql`
   - `supabase/tests/postgis_route_processing_test.sql`
+  - `web-admin/src/lib/geo/spatial.ts`
+  - `web-admin/src/lib/geo/spatial.test.ts`
+  - `web-admin/scripts/run-spatial-tests.mjs`
 - **Criterios de Aceptación:**
   1. Función SQL `calcular_trayectoria_jornada(p_jornada_id UUID)` genera una polilínea `GEOMETRY(LineString, 4326)` válida sin auto-intersecciones degeneradas ni inversión cronológica de vértices.
   2. Función SQL `calcular_distancia_total_jornada(p_jornada_id UUID)` retorna la distancia real en kilómetros con precisión geodésica.
   3. Función SQL `detectar_desvios_jornada(p_jornada_id UUID, p_umbral_metros DOUBLE PRECISION)` identifica y retorna los puntos que exceden el radio de tolerancia (300 metros) respecto a clientes o paradas autorizadas.
   4. Las consultas sobre trayectorias de 10.000 puntos ejecutan en menos de 250 ms aprovechando índices espaciales `gist(coordenadas)`.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-008 — Capa de Persistencia Local Avanzada, Repositorio Unificado y Resiliencia Offline en Android
 - **Identificador:** `TASK-008`

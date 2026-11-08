@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/run-sync-tests.mjs"
+    "test": "node scripts/run-sync-tests.mjs && node scripts/run-spatial-tests.mjs",
+    "test:spatial": "node scripts/run-spatial-tests.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

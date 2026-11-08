@@ -41,7 +41,7 @@
 ## 3. Fase Actual del Proyecto
 
 - **Fase Activa:** **Fase 3 — Slice Vertical de Captura Local, Cifrado y Base Espacial.**
-- **Progreso de Fase:** Culminación y validación exitosa de `TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005` y `TASK-006` (6 tareas completadas de 28 proyectadas). Se completó la arquitectura base del panel web administrativo con layout responsivo colapsable, barra lateral (`Sidebar.tsx`), cabecera con perfil y rol (`Header.tsx`), middleware RBAC con cookies HttpOnly seguras (`@supabase/ssr`) y vistas base operativas para los módulos de monitoreo en vivo, rutas, clientes, visitas, auditoría y reportes. Preparado para abordar la siguiente tarea: `TASK-007`.
+- **Progreso de Fase:** Culminación y validación exitosa de `TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006` y `TASK-007` (7 tareas completadas de 28 proyectadas). Se completó la implementación del motor de procesamiento geoespacial analítico en PostGIS (`ST_MakeLine`, `ST_Length` geodésico, detección de desvíos > 300m, agregación GeoJSON y actualización atómica de métricas de jornada), suite de pruebas unitarias SQL y utilidades geodésicas Haversine en el cliente web con 16/16 pruebas aprobadas. Preparado para abordar la siguiente tarea: `TASK-008`.
 
 ---
 
@@ -80,19 +80,22 @@
   - Protección de Rutas con Middleware (`web-admin/src/middleware.ts`): Intercepción de accesos no autenticados hacia `/login` y bloqueo estricto de usuarios con rol `VENDEDOR` redirigiendo con parámetro de error.
   - Hook de Sesión en Cliente (`web-admin/src/hooks/useAuth.ts`, `web-admin/src/types/auth.ts`): Estado reactivo de usuario, badge de rol (`ADMIN`, `SUPERVISOR`), prevención de hydration mismatch y cierre de sesión seguro.
   - Vistas Base de Navegación: Creación y enlazado de módulos operativos para `/` (dashboard), `/live` (monitoreo en vivo), `/routes` (histórico de trayectorias), `/clients` (clientes y geocercas), `/visits` (visitas comerciales), `/audit` (bitácora inmutable) y `/reports` (reportes de jornada), compilando 11/11 rutas estáticas en `next build`.
+- **[x] TASK-007 — Procesamiento Geoespacial de Rutas, Distancias y Detección de Desvíos en PostGIS:**
+  - Funciones Espaciales PostGIS (`supabase/migrations/20260101000004_postgis_route_processing.sql`): `calcular_trayectoria_jornada` (polilínea agregada `LineString` WGS84 ordenada cronológicamente), `calcular_distancia_total_jornada` (cálculo geodésico exacto sobre esferoide casteando a `geography`), `detectar_desvios_jornada` (identificación de puntos que exceden umbral de 300m respecto al corredor de clientes) y `obtener_resumen_espacial_jornada` con salida GeoJSON y métricas de velocidad.
+  - Suite de Pruebas Unitarias SQL (`supabase/tests/postgis_route_processing_test.sql`): Escenario transaccional con datos simulados en Quito (Plaza Foch / El Ejido), inyección de desvío anómalo y validación del 100% de aserciones espaciales.
+  - Motor Geodésico Web y Pruebas (`web-admin/src/lib/geo/spatial.ts`, `spatial.test.ts`, `run-spatial-tests.mjs`): Implementación y verificación de fórmulas Haversine, cálculo de distancias acumuladas, detección de desvíos y Bounding Box con 8/8 pruebas aprobadas (16/16 pruebas totales en `npm test`).
 
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-007 (Fase 3):** Procesamiento Geoespacial de Rutas, Distancias y Detección de Desvíos en PostGIS (`ST_MakeLine`, `ST_Length`, corredor de desvío > 300m). Depende de `TASK-002`, `TASK-005`.
 - **[ ] TASK-008 (Fase 3):** Capa de Persistencia Local Avanzada, Repositorio Unificado y Resiliencia Offline en Android (`TrackingRepository`, `ShiftRepository`, `VisitRepository`, búfer 10k puntos). Depende de `TASK-004`, `TASK-005`.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* El panel web compila sin errores de TypeScript (`tsc --noEmit`), el build de Next.js genera las 11 rutas estáticas de producción y las pruebas unitarias de Zod están aprobadas al 100%.
+- *Ninguno identificado.* Los algoritmos geoespaciales, funciones PostGIS y utilidades geodésicas en el panel web compilan limpiamente (`tsc --noEmit` y `npm run build` limpios) y superan el 100% de las suites de prueba unitarias.
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-007**: Implementar en Supabase/PostgreSQL las funciones espaciales y vistas optimizadas para el procesamiento geoespacial analítico: agregación cronológica de puntos GPS en polilíneas continuas (`ST_MakeLine`), cálculo geodésico exacto de distancias recorridas en metros/kilómetros (`ST_Length` sobre esferoide WGS84) y detección de desvíos espaciales superiores al umbral de 300 metros respecto al corredor de clientes asignados en la jornada.
+- Proceder con **TASK-008**: Construir en `mobile-android` la capa de abstracción de datos y repositorios de dominio (`TrackingRepository`, `ShiftRepository` y `VisitRepository`), desacoplando el acceso a Room, orquestando concurrencia e implementando el búfer local de resiliencia ante pérdida de red.
