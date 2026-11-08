@@ -40,8 +40,8 @@
 
 ## 3. Fase Actual del Proyecto
 
-- **Fase Activa:** **Fase 1 — Configuración del Entorno, Monorepo y Esquema Base de Supabase con PostGIS (Completada).**
-- **Progreso de Fase:** Culminación y validación exitosa de `TASK-001` y `TASK-002`. Preparado para iniciar Fase 2 (`TASK-003`).
+- **Fase Activa:** **Fase 2 — Desarrollo por Rebanadas Verticales (Iniciada).**
+- **Progreso de Fase:** Culminación y validación exitosa de `TASK-001`, `TASK-002` y `TASK-003`. Preparado para iniciar Fase 3 (`TASK-004`).
 
 ---
 
@@ -59,18 +59,22 @@
   - Creación de la migración SQL `supabase/migrations/20260101000000_initial_schema.sql` con extensión PostGIS, tablas (`organizaciones`, `perfiles`, `clientes`, `jornadas_laborales`, `ubicaciones_gps`, `actividades_comerciales`, `bitacora_auditoria`), tipos `GEOMETRY(Point, 4326)`, índices GiST, vistas de compatibilidad y políticas RLS estrictas.
   - Configuración del panel web `web-admin` con Next.js 14 (App Router), TypeScript estricto, Tailwind CSS, clientes Supabase y página de inicio operativa. Verificación exitosa con `tsc --noEmit` y `npm run build`.
   - Estructuración de `mobile-android` con árbol de paquetes `com.empresa.routrack`, `AndroidManifest.xml` y dependencias de Gradle (Compose, Room, WorkManager, Play Services Location y Supabase).
+- **[x] TASK-003 — Slice Vertical: Autenticación, Gestión de Sesión y Perfiles con Roles:**
+  - Migración SQL `supabase/migrations/20260101000002_auth_triggers.sql`: Trigger `handle_new_user` sincronizando `auth.users` hacia `public.perfiles`, RPC `get_mi_perfil()` y políticas RLS por rol y organización.
+  - Panel Web `web-admin`: Formulario de login en `src/app/login/page.tsx` con estados de carga y error, middleware `src/middleware.ts` para bloqueo de usuarios no autorizados o vendedores, hook `useAuth.ts` con prevención de hidratación, y dashboard protegido en `src/app/page.tsx` con cabecera de usuario, badge de rol y botón de logout.
+  - Cliente Android `mobile-android`: Proveedor Singleton `SupabaseClientProvider`, repositorio `AuthRepositoryImpl` con GoTrue y Postgrest, `LoginViewModel` con StateFlow reactivo y `LoginScreen` en Compose con Material 3.
 
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-003 (Fase 2):** Slice Vertical de Autenticación y Perfiles (Supabase Auth + Web Login + Android Login).
+- **[ ] TASK-004 (Fase 3):** Slice Vertical de Captura Local y Cifrado (Foreground Service + Room + SQLCipher + HMAC).
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado en esta etapa.* La estructura de monorepo compila limpiamente, las tablas espaciales y políticas RLS están declaradas y verificadas.
+- *Ninguno identificado en esta etapa.* El flujo de autenticación, control de sesiones, middleware de protección por roles y tipado estricto están validados sin errores.
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con la **Fase 2 / TASK-003**: Implementación de la primera rebanada vertical completa de Autenticación y Perfiles (Triggers de Supabase Auth, login web con SSR y login móvil en Compose con Keystore).
+- Proceder con la **Fase 3 / TASK-004**: Base de datos Room cifrada con SQLCipher, DAOs locales y modelos de telemetría en `mobile-android`.

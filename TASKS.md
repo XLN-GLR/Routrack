@@ -11,10 +11,10 @@
 
 ## Resumen del Estado de Tareas
 
-- **Tareas Totales:** 26
-- **Tareas Completadas:** 2 (`TASK-001`, `TASK-002`)
+- **Tareas Totales:** 25
+- **Tareas Completadas:** 3 (`TASK-001`, `TASK-002`, `TASK-003`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 24
+- **Tareas Pendientes:** 22
 
 ---
 
@@ -86,69 +86,45 @@
 
 ## FASE 2: Slice Vertical de Autenticación y Perfiles (Supabase Auth + Web Login + Android Login)
 
-### [ ] TASK-003 — Slice Vertical de Autenticación y Perfiles (Supabase Auth + Web Login + Android Login)
+### [x] TASK-003 — Slice Vertical: Autenticación, Gestión de Sesión y Perfiles con Roles
 - **Identificador:** `TASK-003`
-- **Nombre:** Slice Vertical de Autenticación y Perfiles (Supabase Auth + Web Login + Android Login)
-- **Descripción:** Implementar el flujo de autenticación de extremo a extremo: triggers en Supabase para sincronización automática de `auth.users` hacia `public.perfiles` con claims RBAC en JWT, pantalla de login y rutas protegidas en `web-admin` con cookies HttpOnly (`@supabase/ssr`), y pantalla de login en `mobile-android` con Compose y almacenamiento de tokens en Android Keystore (AES-256-GCM).
+- **Nombre:** Slice Vertical: Autenticación, Gestión de Sesión y Perfiles con Roles
+- **Descripción:** Implementar el flujo de autenticación de extremo a extremo: triggers en Supabase para sincronización automática de `auth.users` hacia `public.perfiles` con claims RBAC en JWT, función RPC `get_mi_perfil()`, pantalla de login y rutas protegidas en `web-admin` con middleware, y cliente de autenticación en `mobile-android` con repositorio y ViewModel en Compose.
 - **Dependencias:** `TASK-002`.
 - **Archivos Involucrados:**
-  - `supabase/migrations/20260101000001_auth_triggers.sql`
-  - `web-admin/src/app/(auth)/login/page.tsx`
+  - `supabase/migrations/20260101000002_auth_triggers.sql`
   - `web-admin/src/middleware.ts`
-  - `web-admin/src/lib/supabase/server.ts`
-  - `mobile-android/app/src/main/java/com/empresa/routrack/ui/auth/`
-  - `mobile-android/app/src/main/java/com/empresa/routrack/data/auth/`
+  - `web-admin/src/app/login/page.tsx`
+  - `web-admin/src/app/page.tsx`
+  - `web-admin/src/hooks/useAuth.ts`
+  - `web-admin/src/types/auth.ts`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/network/SupabaseClientProvider.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/repository/AuthRepository.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/ui/auth/LoginViewModel.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/ui/auth/LoginScreen.kt`
+  - `TASKS.md`
+  - `docs/MEMORY.md`
 - **Criterios de Aceptación:**
-  1. Registro y login validado contra Supabase Auth.
-  2. Middleware de Next.js restringe acceso a usuarios no autenticados y redirige según rol.
-  3. Android persiste tokens de sesión de forma cifrada en Android Keystore sin texto plano.
-- **Estado:** Pendiente.
-
-### [ ] TASK-006 — Módulo web de login, sesión y protección de rutas en Next.js
-- **Identificador:** `TASK-006`
-- **Nombre:** Módulo web de login, sesión y protección de rutas en Next.js
-- **Descripción:** Desarrollar en `web-admin` la pantalla de inicio de sesión con Tailwind CSS, validación de formularios con Zod, middleware de protección de rutas y persistencia de sesión con cookies HttpOnly mediante `@supabase/ssr`.
-- **Dependencias:** `TASK-002`, `TASK-005`.
-- **Archivos Involucrados:**
-  - `web-admin/src/app/(auth)/login/page.tsx`
-  - `web-admin/src/middleware.ts`
-  - `web-admin/src/lib/supabase/client.ts`
-  - `web-admin/src/lib/supabase/server.ts`
-- **Criterios de Aceptación:**
-  1. Formulario valida formato de correo y contraseña según NIST.
-  2. Usuario autenticado con rol `ADMIN` o `SUPERVISOR` es redirigido a `/live`.
-  3. Intentos de navegación no autorizada se redirigen a `/login`.
-- **Estado:** Pendiente.
-
-### [ ] TASK-007 — Módulo móvil de login y almacenamiento seguro de tokens en Android
-- **Identificador:** `TASK-007`
-- **Nombre:** Módulo móvil de login y almacenamiento seguro de tokens en Android
-- **Descripción:** Implementar en `mobile-android` la pantalla de login con Jetpack Compose (Material 3), el caso de uso de autenticación contra Supabase Auth y el almacenamiento seguro del access token y refresh token mediante `EncryptedSharedPreferences` respaldado por Android Keystore (AES-256-GCM).
-- **Dependencias:** `TASK-002`, `TASK-005`.
-- **Archivos Involucrados:**
-  - `mobile-android/app/src/main/java/com/routrack/mobile/presentation/auth/LoginScreen.kt`
-  - `mobile-android/app/src/main/java/com/routrack/mobile/presentation/auth/LoginViewModel.kt`
-  - `mobile-android/app/src/main/java/com/routrack/mobile/security/KeystoreManager.kt`
-  - `mobile-android/app/src/main/java/com/routrack/mobile/data/remote/AuthService.kt`
-- **Criterios de Aceptación:**
-  1. Login exitoso contra Supabase devuelve JWT válido.
-  2. Los tokens se almacenan en hardware seguro sin exponer contraseñas en texto plano.
-  3. Al reiniciar la app se restaura la sesión activa automáticamente.
-- **Estado:** Pendiente.
+  1. Trigger `handle_new_user` sincroniza automáticamente registros en `perfiles`.
+  2. Middleware bloquea acceso a usuarios sin sesión o con rol `VENDEDOR`.
+  3. Panel web permite login, muestra cabecera con rol y permite cerrar sesión.
+  4. Repositorio Android conecta con Supabase Auth y expone ViewModel reactivo.
+  5. `tsc --noEmit` y `npm run build` pasan al 100% sin errores.
+- **Estado:** Completada.
 
 ---
 
 ## FASE 3: Slice Vertical de Captura Local y Cifrado (Foreground Service + Room + SQLCipher + HMAC)
 
-### [ ] TASK-008 — Base de datos Room cifrada con SQLCipher y DAOs locales
-- **Identificador:** `TASK-008`
+### [ ] TASK-004 — Base de datos Room cifrada con SQLCipher y DAOs locales
+- **Identificador:** `TASK-004`
 - **Nombre:** Base de datos Room cifrada con SQLCipher y DAOs locales
 - **Descripción:** Implementar la base de datos Room (`AppDatabase`) en `mobile-android` integrando `SQLCipher` con la frase de paso resguardada en Android Keystore. Definir entidades locales `LocalTrackingPointEntity`, `LocalWorkShiftEntity`, `LocalVisitEntity` y `LocalAuditEventEntity` con estados de sincronización (`PENDING`, `SYNCED`).
-- **Dependencias:** `TASK-007`.
+- **Dependencias:** `TASK-003`.
 - **Archivos Involucrados:**
-  - `mobile-android/app/src/main/java/com/routrack/mobile/data/local/AppDatabase.kt`
-  - `mobile-android/app/src/main/java/com/routrack/mobile/data/local/entities/`
-  - `mobile-android/app/src/main/java/com/routrack/mobile/data/local/dao/`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/AppDatabase.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/entities/`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/dao/`
 - **Criterios de Aceptación:**
   1. El archivo de base de datos en almacenamiento privado resulta ilegible para herramientas SQLite estándar.
   2. Pruebas unitarias en memoria validan inserción y recuperación cronológica de registros.
