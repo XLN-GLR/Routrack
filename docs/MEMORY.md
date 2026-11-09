@@ -41,7 +41,7 @@
 ## 3. Fase Actual del Proyecto
 
 - **Fase Activa:** **FASE 6 — Slice Vertical de Visitas y Acuerdos Comerciales (En Progreso).**
-- **Progreso de Fase:** 1 de 3 tareas completadas en la Fase 6 (17 de 28 tareas completadas en el proyecto). Se desarrolló el módulo de gestión y georreferenciación de clientes en `web-admin` (`/clients`) con formulario modal accesible (`ClientModal.tsx`), selector cartográfico interactivo de coordenadas sobre OpenStreetMap con geocercas circulares dinámicas (`ClientLocationPicker.tsx`), esquema de validación estricta con Zod (`clientSchema.ts`), persistencia en columna PostGIS `GEOMETRY(Point, 4326)`, tarjetas analíticas KPI y tabla responsiva con búsqueda y filtros, superando 18/18 pruebas unitarias (81/81 pruebas totales en `web-admin`). Preparado para continuar con `TASK-018`.
+- **Progreso de Fase:** 2 de 3 tareas completadas en la Fase 6 (18 de 28 tareas completadas en el proyecto). Se desarrolló la pantalla y flujo móvil de registro de visita comercial en Android (`VisitCheckInScreen.kt`, `VisitViewModel.kt`), permitiendo listar clientes asignados, capturar coordenadas GPS de alta precisión y timestamp sin bloquear la UI, evaluar geocercas presenciales (`VERIFIED` vs `OUT_OF_RANGE`), validar precios pactados y compromisos comerciales en formato estructurado JSON y persistir inmediatamente en Room con estado `PENDING` (`sincronizado = false`), superando 22/22 pruebas automatizadas y pruebas unitarias JUnit. Preparado para continuar con `TASK-019`.
 
 ---
 
@@ -137,17 +137,24 @@
   - Catálogo Web de Clientes (`web-admin/src/app/(dashboard)/clients/page.tsx`): 4 Tarjetas KPI analíticas (Total de clientes, Habilitados, Pausados, Geocerca promedio), buscador reactivo por RUC / nombre / dirección, filtro por estado activo/inactivo, tabla con coordenadas clickeables, modal de vista previa en mapa y sincronización con Supabase PostGIS.
   - Suite de Pruebas: 18 pruebas unitarias formales en `web-admin/scripts/run-client-tests.mjs` con 100% de éxito empírico (81/81 pruebas totales en `web-admin test`).
 
+- **[x] TASK-018 — Pantalla y flujo móvil de registro de visita comercial en Android:**
+  - ViewModel de Visitas Comerciales (`VisitViewModel.kt` en `com.routrack.mobile.presentation.visits`): Orquestación del ciclo de vida de la visita comercial con `StateFlow` inmutable, captura asíncrona no bloqueante de coordenadas GPS mediante `HighAccuracyLocationProvider`, cálculo geodésico Haversine de distancia al cliente, evaluación determinista de geocercas (`VERIFIED` vs `OUT_OF_RANGE`), cronómetro en tiempo real de permanencia en tienda, y serialización estructurada de acuerdos comerciales en formato JSON (`buildAgreementsJson`).
+  - Validación Rigurosa de Precios Pactados (Criterio 2): `validateCommercialAgreement` valida que los productos contengan al menos 2 caracteres, cantidades enteras > 0, precios unitarios pactados estrictamente > $0.00 y descuentos porcentuales entre 0% y 100%, con cálculo dinámico de subtotales y monto total acumulado.
+  - Persistencia Local Inmediata en Room (Criterio 3): Registro instantáneo de check-in y actualización de check-out en la tabla SQLite `visitas_comerciales` mediante `VisitRepository`, garantizando que el registro ingrese y permanezca en `sincronizado = false` (`PENDING`) listo para el encolamiento y despacho automático por `SyncJornadaWorker`.
+  - Interfaz Declarativa Jetpack Compose (`VisitCheckInScreen.kt`): Implementación con Material 3 (`Scaffold`, `Card`, `Button`, `FilterChip`), lista de clientes asignados con buscador reactivo y filtro de pendientes, tarjeta cabecera de visita activa con cronómetro y badge de geocerca, panel de acuerdos pactados con resumen financiero, campos de observaciones, compromisos y fecha prometida de entrega, y pantalla de resumen final tras check-out exitoso.
+  - Suites de Pruebas: Suite unitaria JUnit en `VisitViewModelTest.kt` y suite automatizada en `validate-visit-workflow.mjs` con 22/22 pruebas aprobadas (100% PASS).
+
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-018 (Fase 6):** Pantalla y flujo móvil de registro de visita comercial en Android (`mobile-android/app/src/main/java/com/routrack/mobile/presentation/visits/VisitCheckInScreen.kt`, `VisitViewModel.kt`). Depende de `TASK-008`, `TASK-010`.
+- **[ ] TASK-019 (Fase 6):** Validación espacial de geocerca en Supabase (`ST_DWithin`) (`supabase/migrations/20261106000005_visit_validation_function.sql`). Depende de `TASK-004`, `TASK-012`.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* Todas las suites de prueba: Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. El panel web compila sin errores (`tsc --noEmit` y `next build`).
+- *Ninguno identificado.* Todas las suites de prueba: Flujo de visitas Android (22/22), Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. El panel web compila sin errores (`tsc --noEmit` y `next build`).
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-018**: Desarrollar en `mobile-android` la pantalla de clientes asignados y el flujo de check-in / check-out de visita con captura de coordenadas de alta precisión, campo de observaciones, precios pactados y compromisos comerciales en formato estructurado.
+- Proceder con **TASK-019**: Implementar la función de base de datos en PostgreSQL que al ingresar o sincronizar una visita calcula la distancia física al cliente mediante `ST_Distance` y asigna automáticamente el estado `VERIFIED` (si `ST_DWithin` es verdadero) o `OUT_OF_RANGE` con la distancia exacta en metros.

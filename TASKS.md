@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 17 (`TASK-001` a `TASK-017`)
+- **Tareas Completadas:** 18 (`TASK-001` a `TASK-018`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 11 (`TASK-018` a `TASK-028`)
+- **Tareas Pendientes:** 10 (`TASK-019` a `TASK-028`)
 
 ---
 
@@ -414,7 +414,7 @@
   2. Coordenadas persistidas en columna PostGIS `GEOMETRY(Point, 4326)`.
 - **Estado:** Completada.
 
-### [ ] TASK-018 — Pantalla y flujo móvil de registro de visita comercial en Android
+### [x] TASK-018 — Pantalla y flujo móvil de registro de visita comercial en Android
 - **Identificador:** `TASK-018`
 - **Nombre:** Pantalla y flujo móvil de registro de visita comercial en Android
 - **Descripción:** Desarrollar en `mobile-android` la pantalla de clientes asignados y el flujo de check-in / check-out de visita con captura de coordenadas de alta precisión, campo de observaciones, precios pactados y compromisos comerciales en formato estructurado.
@@ -422,11 +422,13 @@
 - **Archivos Involucrados:**
   - `mobile-android/app/src/main/java/com/routrack/mobile/presentation/visits/VisitCheckInScreen.kt`
   - `mobile-android/app/src/main/java/com/routrack/mobile/presentation/visits/VisitViewModel.kt`
+  - `mobile-android/app/src/test/java/com/routrack/mobile/presentation/visits/VisitViewModelTest.kt`
+  - `mobile-android/scripts/validate-visit-workflow.mjs`
 - **Criterios de Aceptación:**
   1. Check-in captura coordenadas actuales y hora sin bloquear la UI.
   2. Formulario de compromisos comerciales y precios pactados valida montos válidos.
   3. Persistencia local inmediata en Room con estado `PENDING`.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-019 — Validación espacial de geocerca en Supabase (`ST_DWithin`)
 - **Identificador:** `TASK-019`
