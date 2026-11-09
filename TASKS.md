@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 19 (`TASK-001` a `TASK-019`)
+- **Tareas Completadas:** 20 (`TASK-001` a `TASK-020`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 9 (`TASK-020` a `TASK-028`)
+- **Tareas Pendientes:** 8 (`TASK-021` a `TASK-028`)
 
 ---
 
@@ -444,7 +444,7 @@
   2. Visitas a distancia $>$ tolerancia se marcan `OUT_OF_RANGE` con la distancia exacta en metros.
 - **Estado:** Completada.
 
-### [ ] TASK-020 — Panel web de supervisión y auditoría de visitas comerciales
+### [x] TASK-020 — Panel web de supervisión y auditoría de visitas comerciales
 - **Identificador:** `TASK-020`
 - **Nombre:** Panel web de supervisión y auditoría de visitas comerciales
 - **Descripción:** Implementar en `web-admin` la vista `/visits` que lista todas las visitas del día con badges semánticos (`VERIFIED` en verde vs `OUT_OF_RANGE` en rojo/ámbar), distancia al local, observaciones y acuerdos pactados.
@@ -453,10 +453,13 @@
   - `web-admin/src/app/(dashboard)/visits/page.tsx`
   - `web-admin/src/components/visits/VisitTable.tsx`
   - `web-admin/src/components/visits/VisitDetailModal.tsx`
+  - `web-admin/src/types/visit.ts`
+  - `web-admin/scripts/run-visit-tests.mjs`
+  - `web-admin/package.json`
 - **Criterios de Aceptación:**
   1. Despliegue de los 4 estados obligatorios de interfaz (Cargando con skeleton, Error con reintento, Vacío, Adaptativo).
   2. Clic en visita resalta el cliente y el punto del vendedor en mapa.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ---
 

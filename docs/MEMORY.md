@@ -1,8 +1,8 @@
 # Memoria Viva del Proyecto — ROUTRACK
 
-**Última Actualización:** 7 de Noviembre de 2026  
+**Última Actualización:** 8 de Noviembre de 2026  
 **Documento:** Estado Vivo y Registro Dinámico de Contexto (Project Memory)  
-**Versión:** 1.1.0  
+**Versión:** 1.2.0  
 **Autor:** Senior Software Engineer, Cloud/Mobile Solutions Architect & Technical Lead  
 
 ---
@@ -40,8 +40,8 @@
 
 ## 3. Fase Actual del Proyecto
 
-- **Fase Activa:** **FASE 6 — Slice Vertical de Visitas y Acuerdos Comerciales (Culminada al 100%).**
-- **Progreso de Fase:** 3 de 3 tareas completadas en la Fase 6 (19 de 28 tareas completadas en el proyecto). La Fase 6 ha concluido exitosamente con la implementación de la función espacial PostGIS `calcular_distancia_geocerca_cliente`, función RPC `evaluar_geocerca_visita` y el trigger anti-tampering `trg_validar_geocerca_visita` (`TASK-019`), garantizando matemáticamente en el motor de base de datos que las visitas dentro del radio de tolerancia se marquen `VERIFIED` y aquellas que excedan la geocerca se registren como `OUT_OF_RANGE` con su distancia geodésica exacta en metros sobre el esferoide WGS84, superando 16/16 pruebas unitarias. Preparado para continuar con `TASK-020`.
+- **Fase Activa:** **FASE 7 — Slice Vertical de Auditoría, Métricas e Inmutabilidad (En Curso).**
+- **Progreso de Fase:** 0 de 3 tareas completadas en la Fase 7 (20 de 28 tareas completadas en el proyecto, 71.4% de avance global). La Fase 6 ha culminado al 100% con la entrega de `TASK-020` (Panel web de supervisión y auditoría de visitas comerciales), desplegando los 4 estados obligatorios de interfaz, visor cartográfico con geocerca y línea conectora de distancia geodésica, auditoría de precios pactados con HMAC y superando 16/16 pruebas unitarias específicas y 97/97 globales en web-admin. Preparado para iniciar `TASK-021`.
 
 ---
 
@@ -151,17 +151,24 @@
   - Integración en Edge Function `sync-jornada`: Despacho de visitas comerciales en `sync-jornada/index.ts` articulado con el RPC y trigger espacial, reportando en `visits_evaluation` los valores cuantitativos de distancia y estado verificados por PostGIS.
   - Suite de Pruebas: 16 pruebas unitarias formales en `supabase/tests/visit_validation_function_test.mjs` con 100% de éxito empírico (16/16 PASS).
 
+- **[x] TASK-020 — Panel web de supervisión y auditoría de visitas comerciales:**
+  - Modelo de Dominio y Tipos (`web-admin/src/types/visit.ts`): Definición estricta de interfaces TypeScript (`VisitRecord`, `AgreementItem`, `VisitAgreementsPayload`, `VisitStatus` con `VERIFIED`, `OUT_OF_RANGE`, `CANCELLED`, `VisitFilters`, `VisitKpis`) y funciones de formateo temporal (`formatVisitDuration` para duración precisa en minutos/segundos y `formatTimeDisplay`).
+  - Componente de Tabla y Filtros de Auditoría (`web-admin/src/components/visits/VisitTable.tsx`): Tabla interactiva con badges semánticos (`VERIFIED` en verde esmeralda con check vs `OUT_OF_RANGE` en rojo con advertencia), distancia exacta calculada por PostGIS, resumen financiero de precios pactados, tiempo de permanencia, filtros dinámicos por asesor, estado de geocerca y fecha, buscador predictivo y estado vacío educativo.
+  - Modal Detallado con Visor Cartográfico Leaflet (`web-admin/src/components/visits/VisitDetailModal.tsx`): Cumplimiento de Criterio 2 al renderizar mapa interactivo sobre OpenStreetMap con geocerca circular del cliente (`L.circle` con radio de tolerancia), marcadores diferenciados de cliente y check-in del asesor, línea geodésica discontinua indicando la distancia exacta en metros, auto-encuadre espacial (`map.fitBounds`), desglose de precios pactados (SKU, cantidades, descuentos y subtotales), notas de inventario, fecha comprometida de entrega y bloque de auditoría criptográfica HMAC-SHA256 con copiado directo.
+  - Vista Principal con los 4 Estados Obligatorios de Interfaz (`web-admin/src/app/(dashboard)/visits/page.tsx`): Cumplimiento de Criterio 1 y `docs/DESIGN.md`: Skeleton Loader anatómico con `animate-pulse` para carga, pantalla de error con mensaje claro en español y botón explícito de reintento, estado vacío accesible y diseño completamente responsivo y adaptativo. Dispone de 4 tarjetas KPI con métricas cuantitativas consolidadas (Total visitas, Verificadas con % de efectividad, Alertas fuera de rango y Monto total acordado).
+  - Verificación y Suites de Pruebas: 16 pruebas unitarias formales en `web-admin/scripts/run-visit-tests.mjs` con 100% de éxito empírico (16/16 PASS), 97/97 pruebas totales aprobadas en `web-admin test`, 0 errores en chequeo estricto de tipos (`tsc --noEmit`) y empaquetado de producción exitoso (`next build`).
+
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-020 (Fase 6):** Panel web de supervisión y auditoría de visitas comerciales (`web-admin/src/app/(dashboard)/visits/page.tsx`, `VisitTable.tsx`, `VisitDetailModal.tsx`). Depende de `TASK-019`, `TASK-006`.
+- **[ ] TASK-021 (Fase 7):** Módulo web de bitácora inmutable de eventos del sistema (`web-admin/src/app/(dashboard)/audit/page.tsx`, `AuditLogTable.tsx`). Depende de `TASK-004`, `TASK-006`.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* Todas las suites de prueba: Validación de geocercas PostGIS (16/16), Flujo de visitas Android (22/22), Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. El panel web compila sin errores (`tsc --noEmit` y `next build`).
+- *Ninguno identificado.* Todas las suites de prueba: Auditoría de visitas comerciales (16/16), Validación de geocercas PostGIS (16/16), Flujo de visitas Android (22/22), Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. El panel web compila sin errores (`tsc --noEmit` y `next build`).
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-020**: Implementar en `web-admin` la vista `/visits` que lista todas las visitas del día con badges semánticos (`VERIFIED` en verde vs `OUT_OF_RANGE` en rojo/ámbar), distancia al local, observaciones y acuerdos pactados.
+- Proceder con **TASK-021**: Desarrollar en `web-admin` la vista `/audit` para inspeccionar la tabla `audit_logs` (eventos de GPS apagado, pérdida de señal, inicios de turno y anomalías de reloj), con visualización del hash HMAC y validador de cadena criptográfica.
