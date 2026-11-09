@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 16 (`TASK-001`, `TASK-002`, `TASK-003`, `TASK-004`, `TASK-005`, `TASK-006`, `TASK-007`, `TASK-008`, `TASK-009`, `TASK-010`, `TASK-011`, `TASK-012`, `TASK-013`, `TASK-014`, `TASK-015`, `TASK-016`)
+- **Tareas Completadas:** 17 (`TASK-001` a `TASK-017`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 12 (`TASK-017` a `TASK-028`)
+- **Tareas Pendientes:** 11 (`TASK-018` a `TASK-028`)
 
 ---
 
@@ -396,7 +396,7 @@
 
 ## FASE 6: Slice Vertical de Visitas y Acuerdos Comerciales (Registro Móvil + Geocerca + Reporte Web)
 
-### [ ] TASK-017 — Módulo de gestión y georreferenciación de clientes en panel web
+### [x] TASK-017 — Módulo de gestión y georreferenciación de clientes en panel web
 - **Identificador:** `TASK-017`
 - **Nombre:** Módulo de gestión y georreferenciación de clientes en panel web
 - **Descripción:** Desarrollar el CRUD de clientes comerciales en `web-admin` permitiendo registrar nombre, RUC, dirección, coordenadas exactas (mediante selector interactivo en mapa Leaflet) y radio de tolerancia en metros.
@@ -405,10 +405,14 @@
   - `web-admin/src/app/(dashboard)/clients/page.tsx`
   - `web-admin/src/components/clients/ClientModal.tsx`
   - `web-admin/src/components/clients/ClientLocationPicker.tsx`
+  - `web-admin/src/types/client.ts`
+  - `web-admin/src/lib/validation/clientSchema.ts`
+  - `web-admin/scripts/run-client-tests.mjs`
+  - `web-admin/package.json`
 - **Criterios de Aceptación:**
   1. Creación y edición de clientes validada con Zod.
   2. Coordenadas persistidas en columna PostGIS `GEOMETRY(Point, 4326)`.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-018 — Pantalla y flujo móvil de registro de visita comercial en Android
 - **Identificador:** `TASK-018`

@@ -40,8 +40,8 @@
 
 ## 3. Fase Actual del Proyecto
 
-- **Fase Activa:** **FASE 6 — Slice Vertical de Visitas y Acuerdos Comerciales (Por Iniciar).**
-- **Progreso de Fase:** 0 de 3 tareas completadas en la Fase 6 (16 de 28 tareas completadas en el proyecto). La Fase 5 ha concluido exitosamente al 100% (3 de 3 tareas completadas: `TASK-014`, `TASK-015` y `TASK-016`). Se desarrolló el visor de histórico de rutas `/routes` con polilínea cronológica continua, cálculo geodésico de distancias y velocidades, detección espacial de segmentos de desvío (> 300m de paradas autorizadas) resaltados en rojo semitransparente con popups de exceso de distancia y duración, geocercas circulares de clientes y tarjetas KPI de la jornada, con 16/16 pruebas unitarias aprobadas (63/63 pruebas totales en `web-admin`). Preparado para continuar con `TASK-017`.
+- **Fase Activa:** **FASE 6 — Slice Vertical de Visitas y Acuerdos Comerciales (En Progreso).**
+- **Progreso de Fase:** 1 de 3 tareas completadas en la Fase 6 (17 de 28 tareas completadas en el proyecto). Se desarrolló el módulo de gestión y georreferenciación de clientes en `web-admin` (`/clients`) con formulario modal accesible (`ClientModal.tsx`), selector cartográfico interactivo de coordenadas sobre OpenStreetMap con geocercas circulares dinámicas (`ClientLocationPicker.tsx`), esquema de validación estricta con Zod (`clientSchema.ts`), persistencia en columna PostGIS `GEOMETRY(Point, 4326)`, tarjetas analíticas KPI y tabla responsiva con búsqueda y filtros, superando 18/18 pruebas unitarias (81/81 pruebas totales en `web-admin`). Preparado para continuar con `TASK-018`.
 
 ---
 
@@ -129,17 +129,25 @@
   - Vista Interactiva de Auditoría de Rutas (`web-admin/src/app/(dashboard)/routes/page.tsx`): Selector interactivo de asesor y fecha, 6 tarjetas KPI con métricas consolidadas (distancia total recorrida en km, duración de jornada en formato horas/minutos, puntos auditados, velocidad promedio y máxima, y conteo de desvíos), leyenda interactiva con toggle para activar/desactivar desvíos y panel lateral con pestañas para enfocar instantáneamente anomalías o paradas comerciales.
   - Suite de Pruebas: 16 pruebas unitarias formales en `web-admin/scripts/run-routes-tests.mjs` con 100% de éxito empírico (63/63 pruebas totales en `web-admin test`).
 
+- **[x] TASK-017 — Módulo de gestión y georreferenciación de clientes en panel web:**
+  - Modelo de Dominio y Tipos (`web-admin/src/types/client.ts`): Interfaz `Client`, `ClientFormData`, `ClientPostGISRow`, conversor bidireccional a WKT canónico (`formatToWKTPoint` con orden $X=\text{Longitud}, Y=\text{Latitud}$), parser robusto de EWKT PostGIS (`parseWKTPoint`) con soporte para prefijos `SRID=4326`, y formateador visual de coordenadas sexagesimales.
+  - Esquema de Validación Estricto con Zod (`web-admin/src/lib/validation/clientSchema.ts`): Validación en doble capa con mensajes 100% en español: Razón Social (mínimo 3 caracteres), RUC ecuatoriano de 13 dígitos terminado en `001` o Cédula de 10 dígitos, dirección física (mínimo 5 caracteres), formato telefónico, rangos de coordenadas WGS84 $[-90, 90]$ y $[-180, 180]$, y radio de geocerca entero entre 10 y 1000 metros (por defecto 50m).
+  - Selector Cartográfico Interactivo (`ClientLocationPicker.tsx` en `web-admin/src/components/clients`): Renderizado exclusivo en cliente sobre OpenStreetMap ($0 USD) con pin arrastrable (*draggable marker*), captura instantánea de clics en el mapa, geolocalización de navegador satelital, geocerca circular (`L.circle`) que redimensiona su radio en tiempo real, e inputs sincronizados de precisión decimal.
+  - Formulario Modal Accesible (`ClientModal.tsx`): Creación y edición con accesibilidad (tecla Escape, backdrop), presets rápidos de radio de geocerca (25m, 50m, 100m, 200m) y feedback visual de validación en tiempo real.
+  - Catálogo Web de Clientes (`web-admin/src/app/(dashboard)/clients/page.tsx`): 4 Tarjetas KPI analíticas (Total de clientes, Habilitados, Pausados, Geocerca promedio), buscador reactivo por RUC / nombre / dirección, filtro por estado activo/inactivo, tabla con coordenadas clickeables, modal de vista previa en mapa y sincronización con Supabase PostGIS.
+  - Suite de Pruebas: 18 pruebas unitarias formales en `web-admin/scripts/run-client-tests.mjs` con 100% de éxito empírico (81/81 pruebas totales en `web-admin test`).
+
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-017 (Fase 6):** Módulo de gestión y georreferenciación de clientes en panel web (`web-admin/src/app/(dashboard)/clients/page.tsx`, `ClientModal.tsx`, `ClientLocationPicker.tsx`). Depende de `TASK-014`, `TASK-004`.
+- **[ ] TASK-018 (Fase 6):** Pantalla y flujo móvil de registro de visita comercial en Android (`mobile-android/app/src/main/java/com/routrack/mobile/presentation/visits/VisitCheckInScreen.kt`, `VisitViewModel.kt`). Depende de `TASK-008`, `TASK-010`.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* Todas las suites de prueba: Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. El panel web compila sin errores (`tsc --noEmit` y `next build`).
+- *Ninguno identificado.* Todas las suites de prueba: Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. El panel web compila sin errores (`tsc --noEmit` y `next build`).
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-017**: Desarrollar el CRUD de clientes comerciales en `web-admin` permitiendo registrar nombre, RUC, dirección, coordenadas exactas (mediante selector interactivo en mapa Leaflet) y radio de tolerancia en metros.
+- Proceder con **TASK-018**: Desarrollar en `mobile-android` la pantalla de clientes asignados y el flujo de check-in / check-out de visita con captura de coordenadas de alta precisión, campo de observaciones, precios pactados y compromisos comerciales en formato estructurado.
