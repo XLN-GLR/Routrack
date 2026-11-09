@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 18 (`TASK-001` a `TASK-018`)
+- **Tareas Completadas:** 19 (`TASK-001` a `TASK-019`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 10 (`TASK-019` a `TASK-028`)
+- **Tareas Pendientes:** 9 (`TASK-020` a `TASK-028`)
 
 ---
 
@@ -430,17 +430,19 @@
   3. Persistencia local inmediata en Room con estado `PENDING`.
 - **Estado:** Completada.
 
-### [ ] TASK-019 — Validación espacial de geocerca en Supabase (`ST_DWithin`)
+### [x] TASK-019 — Validación espacial de geocerca en Supabase (`ST_DWithin`)
 - **Identificador:** `TASK-019`
 - **Nombre:** Validación espacial de geocerca en Supabase (`ST_DWithin`)
 - **Descripción:** Implementar la función de base de datos en PostgreSQL que al ingresar o sincronizar una visita calcula la distancia física al cliente mediante `ST_Distance` y asigna automáticamente el estado `VERIFIED` (si `ST_DWithin` es verdadero) o `OUT_OF_RANGE`.
 - **Dependencias:** `TASK-004`, `TASK-012`.
 - **Archivos Involucrados:**
   - `supabase/migrations/20261106000005_visit_validation_function.sql`
+  - `supabase/functions/sync-jornada/index.ts`
+  - `supabase/tests/visit_validation_function_test.mjs`
 - **Criterios de Aceptación:**
   1. Visitas a distancia $\le$ tolerancia se marcan `VERIFIED`.
   2. Visitas a distancia $>$ tolerancia se marcan `OUT_OF_RANGE` con la distancia exacta en metros.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-020 — Panel web de supervisión y auditoría de visitas comerciales
 - **Identificador:** `TASK-020`

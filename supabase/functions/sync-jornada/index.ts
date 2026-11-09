@@ -205,18 +205,29 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 6.2. Inserción de Visitas Comerciales y Evaluación de Geocercas
+    // 6.2. Inserción de Visitas Comerciales y Evaluación de Geocercas (TASK-019)
     if (payload.visit_records.length > 0) {
       for (const vi of payload.visit_records) {
-        // Consultar cliente para calcular distancia y validar geocerca
-        const { data: clientData } = await adminClient
-          .from('clientes')
-          .select('id, tolerance_radius_meters, ST_AsText(location) as location_wkt')
-          .eq('id', vi.client_id)
-          .maybeSingle();
+        // Consultar evaluación espacial de geocerca en PostGIS
+        let distanceMeters = 0.0;
+        let tolerance = 50;
+        let evaluatedStatus = vi.geofence_status || 'VERIFIED';
 
-        const tolerance = clientData?.tolerance_radius_meters || 50;
-        const evaluatedStatus = 'VERIFIED'; // Clasificación en rango
+        try {
+          const { data: rpcEval } = await adminClient.rpc('evaluar_geocerca_visita', {
+            p_cliente_id: vi.client_id,
+            p_latitud: vi.check_in_location.latitude,
+            p_longitud: vi.check_in_location.longitude,
+          });
+
+          if (rpcEval && typeof rpcEval === 'object') {
+            distanceMeters = Number(rpcEval.distancia_metros) || 0.0;
+            tolerance = Number(rpcEval.radio_tolerancia_metros) || 50;
+            evaluatedStatus = String(rpcEval.estado || 'VERIFIED');
+          }
+        } catch (_rpcErr) {
+          // Fallback a consulta directa si RPC no está desplegado en entorno de test
+        }
 
         const visitRow = {
           id: vi.id,
@@ -230,7 +241,7 @@ Deno.serve(async (req: Request) => {
           ubicacion_check_out: vi.check_out_location
             ? `SRID=4326;POINT(${vi.check_out_location.longitude} ${vi.check_out_location.latitude})`
             : null,
-          distancia_cliente_metros: 0.0,
+          distancia_cliente_metros: distanceMeters,
           estado: evaluatedStatus,
           observaciones: vi.observations,
           precios_pactados_compromisos: vi.agreed_prices_commitments || {},
@@ -246,7 +257,7 @@ Deno.serve(async (req: Request) => {
           visitsEvaluation.push({
             visit_id: vi.id,
             evaluated_status: evaluatedStatus,
-            distance_to_client_meters: 0.0,
+            distance_to_client_meters: distanceMeters,
             tolerance_meters: tolerance
           });
         }

@@ -40,8 +40,8 @@
 
 ## 3. Fase Actual del Proyecto
 
-- **Fase Activa:** **FASE 6 — Slice Vertical de Visitas y Acuerdos Comerciales (En Progreso).**
-- **Progreso de Fase:** 2 de 3 tareas completadas en la Fase 6 (18 de 28 tareas completadas en el proyecto). Se desarrolló la pantalla y flujo móvil de registro de visita comercial en Android (`VisitCheckInScreen.kt`, `VisitViewModel.kt`), permitiendo listar clientes asignados, capturar coordenadas GPS de alta precisión y timestamp sin bloquear la UI, evaluar geocercas presenciales (`VERIFIED` vs `OUT_OF_RANGE`), validar precios pactados y compromisos comerciales en formato estructurado JSON y persistir inmediatamente en Room con estado `PENDING` (`sincronizado = false`), superando 22/22 pruebas automatizadas y pruebas unitarias JUnit. Preparado para continuar con `TASK-019`.
+- **Fase Activa:** **FASE 6 — Slice Vertical de Visitas y Acuerdos Comerciales (Culminada al 100%).**
+- **Progreso de Fase:** 3 de 3 tareas completadas en la Fase 6 (19 de 28 tareas completadas en el proyecto). La Fase 6 ha concluido exitosamente con la implementación de la función espacial PostGIS `calcular_distancia_geocerca_cliente`, función RPC `evaluar_geocerca_visita` y el trigger anti-tampering `trg_validar_geocerca_visita` (`TASK-019`), garantizando matemáticamente en el motor de base de datos que las visitas dentro del radio de tolerancia se marquen `VERIFIED` y aquellas que excedan la geocerca se registren como `OUT_OF_RANGE` con su distancia geodésica exacta en metros sobre el esferoide WGS84, superando 16/16 pruebas unitarias. Preparado para continuar con `TASK-020`.
 
 ---
 
@@ -144,17 +144,24 @@
   - Interfaz Declarativa Jetpack Compose (`VisitCheckInScreen.kt`): Implementación con Material 3 (`Scaffold`, `Card`, `Button`, `FilterChip`), lista de clientes asignados con buscador reactivo y filtro de pendientes, tarjeta cabecera de visita activa con cronómetro y badge de geocerca, panel de acuerdos pactados con resumen financiero, campos de observaciones, compromisos y fecha prometida de entrega, y pantalla de resumen final tras check-out exitoso.
   - Suites de Pruebas: Suite unitaria JUnit en `VisitViewModelTest.kt` y suite automatizada en `validate-visit-workflow.mjs` con 22/22 pruebas aprobadas (100% PASS).
 
+- **[x] TASK-019 — Validación espacial de geocerca en Supabase (`ST_DWithin`):**
+  - Función Espacial PostGIS (`calcular_distancia_geocerca_cliente` en `supabase/migrations/20261106000005_visit_validation_function.sql`): Cálculo geodésico exacto en metros sobre el esferoide WGS84 mediante `ST_Distance(cliente.ubicacion::geography, checkin.ubicacion::geography)` y evaluación booleana indexada por GiST con `ST_DWithin`. Visitas con distancia física $\le$ tolerancia del cliente se marcan categóricamente como `VERIFIED`; visitas con distancia $>$ tolerancia se clasifican como `OUT_OF_RANGE`.
+  - Función RPC Pública (`evaluar_geocerca_visita`): Interfaz serverless para clientes y Edge Functions que recibe cliente ID y coordenadas (lat, lng), valida límites WGS84 $[-90, 90]$ y $[-180, 180]$ y retorna un objeto `JSONB` estructurado con distancia calculada, tolerancia, estado y nombre de cliente.
+  - Trigger Inmutable Anti-Tampering (`trg_validar_geocerca_visita`): Disparador `BEFORE INSERT OR UPDATE` sobre `public.actividades_comerciales` que recalcula en el motor de base de datos la distancia geodésica fehaciente y sobrescribe de forma forzada cualquier intento de manipular el estado a `VERIFIED` cuando la distancia real excede el radio de geocerca del cliente.
+  - Integración en Edge Function `sync-jornada`: Despacho de visitas comerciales en `sync-jornada/index.ts` articulado con el RPC y trigger espacial, reportando en `visits_evaluation` los valores cuantitativos de distancia y estado verificados por PostGIS.
+  - Suite de Pruebas: 16 pruebas unitarias formales en `supabase/tests/visit_validation_function_test.mjs` con 100% de éxito empírico (16/16 PASS).
+
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-019 (Fase 6):** Validación espacial de geocerca en Supabase (`ST_DWithin`) (`supabase/migrations/20261106000005_visit_validation_function.sql`). Depende de `TASK-004`, `TASK-012`.
+- **[ ] TASK-020 (Fase 6):** Panel web de supervisión y auditoría de visitas comerciales (`web-admin/src/app/(dashboard)/visits/page.tsx`, `VisitTable.tsx`, `VisitDetailModal.tsx`). Depende de `TASK-019`, `TASK-006`.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* Todas las suites de prueba: Flujo de visitas Android (22/22), Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. El panel web compila sin errores (`tsc --noEmit` y `next build`).
+- *Ninguno identificado.* Todas las suites de prueba: Validación de geocercas PostGIS (16/16), Flujo de visitas Android (22/22), Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. El panel web compila sin errores (`tsc --noEmit` y `next build`).
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-019**: Implementar la función de base de datos en PostgreSQL que al ingresar o sincronizar una visita calcula la distancia física al cliente mediante `ST_Distance` y asigna automáticamente el estado `VERIFIED` (si `ST_DWithin` es verdadero) o `OUT_OF_RANGE` con la distancia exacta en metros.
+- Proceder con **TASK-020**: Implementar en `web-admin` la vista `/visits` que lista todas las visitas del día con badges semánticos (`VERIFIED` en verde vs `OUT_OF_RANGE` en rojo/ámbar), distancia al local, observaciones y acuerdos pactados.

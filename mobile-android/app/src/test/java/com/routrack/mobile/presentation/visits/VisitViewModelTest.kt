@@ -369,3 +369,4 @@ class FakeShiftRepository : ShiftRepository {
     override suspend fun getAllShifts(): List<JornadaEntity> = listOfNotNull(activeShift)
     override suspend fun updateShift(shift: JornadaEntity): Result<Unit> { activeShift = shift; return Result.success(Unit) }
 }
+
