@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 20 (`TASK-001` a `TASK-020`)
+- **Tareas Completadas:** 21 (`TASK-001` a `TASK-021`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 8 (`TASK-021` a `TASK-028`)
+- **Tareas Pendientes:** 7 (`TASK-022` a `TASK-028`)
 
 ---
 
@@ -465,7 +465,7 @@
 
 ## FASE 7: Slice Vertical de Auditoría, Métricas e Inmutabilidad (Verificación HMAC + Recharts + Exportación)
 
-### [ ] TASK-021 — Módulo web de bitácora inmutable de eventos del sistema
+### [x] TASK-021 — Módulo web de bitácora inmutable de eventos del sistema
 - **Identificador:** `TASK-021`
 - **Nombre:** Módulo web de bitácora inmutable de eventos del sistema
 - **Descripción:** Desarrollar en `web-admin` la vista `/audit` para inspeccionar la tabla `audit_logs` (eventos de GPS apagado, pérdida de señal, inicios de turno y anomalías de reloj), con visualización del hash HMAC y validador de cadena criptográfica.
@@ -473,10 +473,14 @@
 - **Archivos Involucrados:**
   - `web-admin/src/app/(dashboard)/audit/page.tsx`
   - `web-admin/src/components/audit/AuditLogTable.tsx`
+  - `web-admin/src/components/audit/AuditDetailModal.tsx`
+  - `web-admin/src/types/audit.ts`
+  - `web-admin/scripts/run-audit-tests.mjs`
+  - `web-admin/package.json`
 - **Criterios de Aceptación:**
   1. Tabla de eventos con severidad semántica (INFO, WARNING, CRITICAL).
   2. Indicador visual del estado de integridad de la cadena criptográfica.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-022 — Dashboard de métricas operativas y gráficos con Recharts
 - **Identificador:** `TASK-022`

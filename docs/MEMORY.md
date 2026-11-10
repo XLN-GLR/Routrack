@@ -1,8 +1,8 @@
 # Memoria Viva del Proyecto — ROUTRACK
 
-**Última Actualización:** 8 de Noviembre de 2026  
+**Última Actualización:** 9 de Noviembre de 2026  
 **Documento:** Estado Vivo y Registro Dinámico de Contexto (Project Memory)  
-**Versión:** 1.2.0  
+**Versión:** 1.3.0  
 **Autor:** Senior Software Engineer, Cloud/Mobile Solutions Architect & Technical Lead  
 
 ---
@@ -41,7 +41,7 @@
 ## 3. Fase Actual del Proyecto
 
 - **Fase Activa:** **FASE 7 — Slice Vertical de Auditoría, Métricas e Inmutabilidad (En Curso).**
-- **Progreso de Fase:** 0 de 3 tareas completadas en la Fase 7 (20 de 28 tareas completadas en el proyecto, 71.4% de avance global). La Fase 6 ha culminado al 100% con la entrega de `TASK-020` (Panel web de supervisión y auditoría de visitas comerciales), desplegando los 4 estados obligatorios de interfaz, visor cartográfico con geocerca y línea conectora de distancia geodésica, auditoría de precios pactados con HMAC y superando 16/16 pruebas unitarias específicas y 97/97 globales en web-admin. Preparado para iniciar `TASK-021`.
+- **Progreso de Fase:** 1 de 3 tareas completadas en la Fase 7 (21 de 28 tareas completadas en el proyecto, 75.0% de avance global). `TASK-021` ha culminado exitosamente con la implementación de la bitácora inmutable de eventos del sistema, desplegando la tabla de auditoría con severidades semánticas (`INFO`, `WARNING`, `CRITICAL`), el algoritmo e indicador visual de integridad de custodia criptográfica HMAC-SHA256, el modal de inspección forense de metadatos/coordenadas y los 4 estados obligatorios de interfaz, superando 18/18 pruebas unitarias específicas y 115/115 pruebas globales en web-admin. Preparado para iniciar `TASK-022`.
 
 ---
 
@@ -158,17 +158,24 @@
   - Vista Principal con los 4 Estados Obligatorios de Interfaz (`web-admin/src/app/(dashboard)/visits/page.tsx`): Cumplimiento de Criterio 1 y `docs/DESIGN.md`: Skeleton Loader anatómico con `animate-pulse` para carga, pantalla de error con mensaje claro en español y botón explícito de reintento, estado vacío accesible y diseño completamente responsivo y adaptativo. Dispone de 4 tarjetas KPI con métricas cuantitativas consolidadas (Total visitas, Verificadas con % de efectividad, Alertas fuera de rango y Monto total acordado).
   - Verificación y Suites de Pruebas: 16 pruebas unitarias formales en `web-admin/scripts/run-visit-tests.mjs` con 100% de éxito empírico (16/16 PASS), 97/97 pruebas totales aprobadas en `web-admin test`, 0 errores en chequeo estricto de tipos (`tsc --noEmit`) y empaquetado de producción exitoso (`next build`).
 
+- **[x] TASK-021 — Módulo web de bitácora inmutable de eventos del sistema:**
+  - Modelo de Dominio y Tipos (`web-admin/src/types/audit.ts`): Interfaces estrictas de TypeScript (`AuditLogRecord`, `AuditSeverity` con `INFO`, `WARNING`, `CRITICAL`, `AuditEventType`, `AuditFilters`, `AuditIntegritySummary`), truncado seguro de hashes de 64 caracteres (`truncateHash`), formateador de timestamps locales y función evaluadora de continuidad matemática `verifyChainContinuity`.
+  - Componente de Tabla y Filtros Forenses (`web-admin/src/components/audit/AuditLogTable.tsx`): Tabla interactiva con badges de severidad semántica oficial (`INFO` en azul, `WARNING` en ámbar y `CRITICAL` en rojo según `docs/DESIGN.md`), buscador predictivo en tiempo real, filtros por asesor, severidad, tipo de evento y fecha, metadatos estructurados en snippets legibles, indicador individual por fila del estado de eslabón criptográfico (icono de enlace íntegro vs ruptura) y copiado rápido de hashes HMAC al portapapeles.
+  - Modal Detallado de Inspección Criptográfica (`web-admin/src/components/audit/AuditDetailModal.tsx`): Modal flotante accesible con diagnóstico forense, desglose comparativo entre `previous_hash` y `hmac_hash` de 64 caracteres con copiado directo, coordenadas GPS del incidente y formateador visual de metadatos JSON completos.
+  - Vista Principal con los 4 Estados Obligatorios de Interfaz (`web-admin/src/app/(dashboard)/audit/page.tsx`): 4 Tarjetas KPI cuantitativas (Total Eventos, Alertas Críticas, Advertencias Operativas, Estado de Custodia Criptográfica), indicador visual global de integridad en cabecera con `ShieldCheck` y `ShieldAlert`, botón de auditoría matemática interactiva, simulador forense de adulteración deliberada para verificación de respuesta, y cumplimiento estricto de los 4 estados: `AuditSkeletonLoader` (Cargando con `animate-pulse`), `AuditErrorState` (Error con botón "Reintentar Conexión"), Estado Vacío educativo y diseño Adaptativo responsive.
+  - Verificación y Suites de Pruebas: 18 pruebas unitarias formales en `web-admin/scripts/run-audit-tests.mjs` con 100% de éxito empírico (18/18 PASS), 115/115 pruebas totales aprobadas en `web-admin test`, 0 errores en chequeo estricto de tipos (`tsc --noEmit`) y compilación exitosa de producción (`next build`).
+
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-021 (Fase 7):** Módulo web de bitácora inmutable de eventos del sistema (`web-admin/src/app/(dashboard)/audit/page.tsx`, `AuditLogTable.tsx`). Depende de `TASK-004`, `TASK-006`.
+- **[ ] TASK-022 (Fase 7):** Dashboard de métricas operativas y gráficos con Recharts (`web-admin/src/app/(dashboard)/page.tsx`, `MetricCards.tsx`, `PerformanceChart.tsx`). Depende de `TASK-006`, `TASK-019`.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* Todas las suites de prueba: Auditoría de visitas comerciales (16/16), Validación de geocercas PostGIS (16/16), Flujo de visitas Android (22/22), Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. El panel web compila sin errores (`tsc --noEmit` y `next build`).
+- *Ninguno identificado.* Todas las suites de prueba: Bitácora de auditoría forense (18/18), Auditoría de visitas comerciales (16/16), Validación de geocercas PostGIS (16/16), Flujo de visitas Android (22/22), Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico (115 pruebas totales en panel web). El panel web compila sin errores (`tsc --noEmit` y `next build`).
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-021**: Desarrollar en `web-admin` la vista `/audit` para inspeccionar la tabla `audit_logs` (eventos de GPS apagado, pérdida de señal, inicios de turno y anomalías de reloj), con visualización del hash HMAC y validador de cadena criptográfica.
+- Proceder con **TASK-022**: Implementar las tarjetas de métricas (KPIs) y gráficos de resumen diario en `web-admin` utilizando Recharts (cobertura de clientes visitados, kilómetros totales recorridos por vendedor y tasa de visitas verificadas).
