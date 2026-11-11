@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 21 (`TASK-001` a `TASK-021`)
+- **Tareas Completadas:** 22 (`TASK-001` a `TASK-022`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 7 (`TASK-022` a `TASK-028`)
+- **Tareas Pendientes:** 6 (`TASK-023` a `TASK-028`)
 
 ---
 
@@ -482,7 +482,7 @@
   2. Indicador visual del estado de integridad de la cadena criptográfica.
 - **Estado:** Completada.
 
-### [ ] TASK-022 — Dashboard de métricas operativas y gráficos con Recharts
+### [x] TASK-022 — Dashboard de métricas operativas y gráficos con Recharts
 - **Identificador:** `TASK-022`
 - **Nombre:** Dashboard de métricas operativas y gráficos con Recharts
 - **Descripción:** Implementar las tarjetas de métricas (KPIs) y gráficos de resumen diario en `web-admin` utilizando Recharts (cobertura de clientes visitados, kilómetros totales recorridos por vendedor y tasa de visitas verificadas).
@@ -491,10 +491,13 @@
   - `web-admin/src/app/(dashboard)/page.tsx`
   - `web-admin/src/components/dashboard/MetricCards.tsx`
   - `web-admin/src/components/dashboard/PerformanceChart.tsx`
+  - `web-admin/src/types/dashboard.ts`
+  - `web-admin/scripts/run-dashboard-tests.mjs`
+  - `web-admin/package.json`
 - **Criterios de Aceptación:**
   1. Visualización de métricas en tiempo real con estados de skeleton loader.
   2. Totalizaciones coincidentes con los registros de base de datos.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-023 — Exportación formal de reportes de jornada a formato CSV
 - **Identificador:** `TASK-023`

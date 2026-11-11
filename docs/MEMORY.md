@@ -1,8 +1,8 @@
 # Memoria Viva del Proyecto — ROUTRACK
 
-**Última Actualización:** 9 de Noviembre de 2026  
+**Última Actualización:** 10 de Noviembre de 2026  
 **Documento:** Estado Vivo y Registro Dinámico de Contexto (Project Memory)  
-**Versión:** 1.3.0  
+**Versión:** 1.4.0  
 **Autor:** Senior Software Engineer, Cloud/Mobile Solutions Architect & Technical Lead  
 
 ---
@@ -41,7 +41,7 @@
 ## 3. Fase Actual del Proyecto
 
 - **Fase Activa:** **FASE 7 — Slice Vertical de Auditoría, Métricas e Inmutabilidad (En Curso).**
-- **Progreso de Fase:** 1 de 3 tareas completadas en la Fase 7 (21 de 28 tareas completadas en el proyecto, 75.0% de avance global). `TASK-021` ha culminado exitosamente con la implementación de la bitácora inmutable de eventos del sistema, desplegando la tabla de auditoría con severidades semánticas (`INFO`, `WARNING`, `CRITICAL`), el algoritmo e indicador visual de integridad de custodia criptográfica HMAC-SHA256, el modal de inspección forense de metadatos/coordenadas y los 4 estados obligatorios de interfaz, superando 18/18 pruebas unitarias específicas y 115/115 pruebas globales en web-admin. Preparado para iniciar `TASK-022`.
+- **Progreso de Fase:** 2 de 3 tareas completadas en la Fase 7 (22 de 28 tareas completadas en el proyecto, 78.6% de avance global). `TASK-022` ha culminado exitosamente con la implementación del dashboard de métricas operativas y gráficos interactivos con Recharts (cobertura de clientes, kilómetros totales por asesor, tasa de visitas verificadas con `ST_DWithin`, distribución horaria y totalización de acuerdos pactados), tarjetas KPI con skeleton loader anatómico y cumplimiento riguroso de los 4 estados de interfaz, superando 21/21 pruebas unitarias específicas y 136/136 pruebas globales en web-admin. Preparado para iniciar `TASK-023`.
 
 ---
 
@@ -165,17 +165,24 @@
   - Vista Principal con los 4 Estados Obligatorios de Interfaz (`web-admin/src/app/(dashboard)/audit/page.tsx`): 4 Tarjetas KPI cuantitativas (Total Eventos, Alertas Críticas, Advertencias Operativas, Estado de Custodia Criptográfica), indicador visual global de integridad en cabecera con `ShieldCheck` y `ShieldAlert`, botón de auditoría matemática interactiva, simulador forense de adulteración deliberada para verificación de respuesta, y cumplimiento estricto de los 4 estados: `AuditSkeletonLoader` (Cargando con `animate-pulse`), `AuditErrorState` (Error con botón "Reintentar Conexión"), Estado Vacío educativo y diseño Adaptativo responsive.
   - Verificación y Suites de Pruebas: 18 pruebas unitarias formales en `web-admin/scripts/run-audit-tests.mjs` con 100% de éxito empírico (18/18 PASS), 115/115 pruebas totales aprobadas en `web-admin test`, 0 errores en chequeo estricto de tipos (`tsc --noEmit`) y compilación exitosa de producción (`next build`).
 
+- **[x] TASK-022 — Dashboard de métricas operativas y gráficos con Recharts:**
+  - Modelo de Dominio y Tipos (`web-admin/src/types/dashboard.ts`): Interfaces estrictas de TypeScript (`DashboardKpis`, `SellerPerformanceMetric`, `HourlyDistributionMetric`, `WeeklyTrendMetric`) y función matemática pura de totalización `calculateDashboardKpis` (cobertura %, kilómetros acumulados, tasa de efectividad en geocerca, total de visitas y montos acordados en USD).
+  - Componente de Tarjetas de Métricas (`web-admin/src/components/dashboard/MetricCards.tsx`): 4 Tarjetas KPI modulares según `docs/DESIGN.md` § 4.2 (Cobertura de clientes, Kilómetros totales recorridos, Tasa de visitas verificadas con `ST_DWithin` y Fuerza comercial activa con compromisos pactados) con soporte para skeleton loader anatómico (`MetricCardsSkeleton`) con `animate-pulse`.
+  - Componente de Gráficos de Desempeño (`web-admin/src/components/dashboard/PerformanceChart.tsx`): Integración modular de la librería Recharts (`ResponsiveContainer`, `BarChart`, `Bar`, `AreaChart`, `Area`, `Tooltip`, `Legend`) con alternancia interactiva entre "Desempeño por Asesor" (comparativa de kilómetros, visitas verificadas y fuera de rango) y "Curva Horaria" (ritmo de actividad comercial entre 08:00 y 18:00), paleta semántica oficial y skeleton loader (`PerformanceChartSkeleton`).
+  - Vista Principal del Dashboard (`web-admin/src/app/(dashboard)/page.tsx`): Selector interactivo de fecha de jornada (`YYYY-MM-DD`), botón de actualización en tiempo real, integración reactiva con cliente Supabase (`jornadas_laborales`, `actividades_comerciales`, `clientes`) y cumplimiento riguroso de los 4 estados obligatorios: Cargando con skeleton loader dual, Error con botón explícito "Reintentar Conexión", Vacío pedagógico cuando no hay jornadas en la fecha y Adaptativo responsive para móviles, tabletas y monitores panorámicos.
+  - Verificación y Suites de Pruebas: 21 pruebas unitarias formales en `web-admin/scripts/run-dashboard-tests.mjs` con 100% de éxito empírico (21/21 PASS), 136/136 pruebas totales aprobadas en `web-admin test`, 0 errores en chequeo estricto de tipos (`tsc --noEmit`) y compilación exitosa de producción (`next build`).
+
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-022 (Fase 7):** Dashboard de métricas operativas y gráficos con Recharts (`web-admin/src/app/(dashboard)/page.tsx`, `MetricCards.tsx`, `PerformanceChart.tsx`). Depende de `TASK-006`, `TASK-019`.
+- **[ ] TASK-023 (Fase 7):** Exportación formal de reportes de jornada a formato CSV (`web-admin/src/lib/export/exportCsv.ts`, `web-admin/src/app/(dashboard)/reports/page.tsx`). Depende de `TASK-006`, `TASK-020`.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* Todas las suites de prueba: Bitácora de auditoría forense (18/18), Auditoría de visitas comerciales (16/16), Validación de geocercas PostGIS (16/16), Flujo de visitas Android (22/22), Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico (115 pruebas totales en panel web). El panel web compila sin errores (`tsc --noEmit` y `next build`).
+- *Ninguno identificado.* Todas las suites de prueba: Dashboard y métricas Recharts (21/21), Bitácora de auditoría forense (18/18), Auditoría de visitas comerciales (16/16), Validación de geocercas PostGIS (16/16), Flujo de visitas Android (22/22), Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico (136 pruebas totales en panel web). El panel web compila sin errores (`tsc --noEmit` y `next build`).
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-022**: Implementar las tarjetas de métricas (KPIs) y gráficos de resumen diario en `web-admin` utilizando Recharts (cobertura de clientes visitados, kilómetros totales recorridos por vendedor y tasa de visitas verificadas).
+- Proceder con **TASK-023**: Implementar la utilidad de exportación en `web-admin` que genera archivos `.csv` estructurados con codificación UTF-8 con BOM para apertura correcta en Microsoft Excel, conteniendo fecha, vendedor, inicio, fin, kilómetros y desglose de visitas.
