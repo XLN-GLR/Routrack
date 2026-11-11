@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 22 (`TASK-001` a `TASK-022`)
+- **Tareas Completadas:** 23 (`TASK-001` a `TASK-023`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 6 (`TASK-023` a `TASK-028`)
+- **Tareas Pendientes:** 5 (`TASK-024` a `TASK-028`)
 
 ---
 
@@ -499,7 +499,7 @@
   2. Totalizaciones coincidentes con los registros de base de datos.
 - **Estado:** Completada.
 
-### [ ] TASK-023 — Exportación formal de reportes de jornada a formato CSV
+### [x] TASK-023 — Exportación formal de reportes de jornada a formato CSV
 - **Identificador:** `TASK-023`
 - **Nombre:** Exportación formal de reportes de jornada a formato CSV
 - **Descripción:** Implementar la utilidad de exportación en `web-admin` que genera archivos `.csv` estructurados con codificación UTF-8 con BOM para apertura correcta en Microsoft Excel, conteniendo fecha, vendedor, inicio, fin, kilómetros y desglose de visitas.
@@ -507,10 +507,12 @@
 - **Archivos Involucrados:**
   - `web-admin/src/lib/export/exportCsv.ts`
   - `web-admin/src/app/(dashboard)/reports/page.tsx`
+  - `web-admin/scripts/run-reports-tests.mjs`
+  - `web-admin/package.json`
 - **Criterios de Aceptación:**
   1. Descarga automática con nombre normalizado (`reporte-jornadas-YYYY-MM-DD.csv`).
   2. Correcta visualización de tildes y caracteres especiales en Excel.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ---
 

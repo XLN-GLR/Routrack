@@ -1,8 +1,8 @@
 # Memoria Viva del Proyecto — ROUTRACK
 
-**Última Actualización:** 10 de Noviembre de 2026  
+**Última Actualización:** 11 de Noviembre de 2026  
 **Documento:** Estado Vivo y Registro Dinámico de Contexto (Project Memory)  
-**Versión:** 1.4.0  
+**Versión:** 1.5.0  
 **Autor:** Senior Software Engineer, Cloud/Mobile Solutions Architect & Technical Lead  
 
 ---
@@ -40,8 +40,8 @@
 
 ## 3. Fase Actual del Proyecto
 
-- **Fase Activa:** **FASE 7 — Slice Vertical de Auditoría, Métricas e Inmutabilidad (En Curso).**
-- **Progreso de Fase:** 2 de 3 tareas completadas en la Fase 7 (22 de 28 tareas completadas en el proyecto, 78.6% de avance global). `TASK-022` ha culminado exitosamente con la implementación del dashboard de métricas operativas y gráficos interactivos con Recharts (cobertura de clientes, kilómetros totales por asesor, tasa de visitas verificadas con `ST_DWithin`, distribución horaria y totalización de acuerdos pactados), tarjetas KPI con skeleton loader anatómico y cumplimiento riguroso de los 4 estados de interfaz, superando 21/21 pruebas unitarias específicas y 136/136 pruebas globales en web-admin. Preparado para iniciar `TASK-023`.
+- **Fase Activa:** **FASE 8 — Pruebas E2E (Playwright), Auditoría de Seguridad y Despliegue en Producción (En Curso).**
+- **Progreso de Fase:** 0 de 5 tareas completadas en la Fase 8 (23 de 28 tareas completadas en el proyecto, 82.1% de avance global). La **FASE 7 (Slice Vertical de Auditoría, Métricas e Inmutabilidad) ha culminado al 100%** con la entrega de `TASK-023` (Exportación formal de reportes de jornada a formato CSV), implementando el módulo de generación con BOM UTF-8 (`\uFEFF`), nombre normalizado `reporte-jornadas-YYYY-MM-DD.csv`, tabla de vista previa con 4 estados obligatorios y superando 17/17 pruebas unitarias específicas y 153/153 pruebas globales en web-admin. Preparado para iniciar `TASK-024`.
 
 ---
 
@@ -172,17 +172,22 @@
   - Vista Principal del Dashboard (`web-admin/src/app/(dashboard)/page.tsx`): Selector interactivo de fecha de jornada (`YYYY-MM-DD`), botón de actualización en tiempo real, integración reactiva con cliente Supabase (`jornadas_laborales`, `actividades_comerciales`, `clientes`) y cumplimiento riguroso de los 4 estados obligatorios: Cargando con skeleton loader dual, Error con botón explícito "Reintentar Conexión", Vacío pedagógico cuando no hay jornadas en la fecha y Adaptativo responsive para móviles, tabletas y monitores panorámicos.
   - Verificación y Suites de Pruebas: 21 pruebas unitarias formales en `web-admin/scripts/run-dashboard-tests.mjs` con 100% de éxito empírico (21/21 PASS), 136/136 pruebas totales aprobadas en `web-admin test`, 0 errores en chequeo estricto de tipos (`tsc --noEmit`) y compilación exitosa de producción (`next build`).
 
+- **[x] TASK-023 — Exportación formal de reportes de jornada a formato CSV:**
+  - Módulo Utilitario de Exportación (`web-admin/src/lib/export/exportCsv.ts`): Especificación estricta de interfaces (`ReportShiftRow`), anteposición obligatoria del Byte Order Mark UTF-8 (`UTF8_BOM = "\uFEFF"`), escape robusto de campos conforme a RFC 4180 (`escapeCsvField`), generación de nombre normalizado `reporte-jornadas-YYYY-MM-DD.csv` (`buildReportFileName`), formateo completo (`generateShiftsCsv`) y descarga programática mediante Blob/URL revocable (`downloadCsvFile`).
+  - Vista Interactiva de Reportes (`web-admin/src/app/(dashboard)/reports/page.tsx`): Tabla de vista previa con desglose de turnos, kilometraje, efectividad en geocerca y montos pactados, botón de descarga directa de archivo compatible con Microsoft Excel en español sin corrupción de tildes o eñes, filtros por fecha, asesor y buscador predictivo, 4 tarjetas KPI cuantitativas y cumplimiento de los 4 estados obligatorios: `ReportsSkeletonLoader` (Cargando con `animate-pulse`), `ReportsErrorState` (Error con botón "Reintentar Conexión"), `ReportsEmptyState` (Vacío orientador) y diseño Adaptativo responsive.
+  - Verificación y Suites de Pruebas: 17 pruebas unitarias formales en `web-admin/scripts/run-reports-tests.mjs` con 100% de éxito empírico (17/17 PASS), 153/153 pruebas totales aprobadas en `web-admin test`, 0 errores en chequeo estricto de tipos (`tsc --noEmit`) y empaquetado de producción exitoso (`next build`).
+
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-023 (Fase 7):** Exportación formal de reportes de jornada a formato CSV (`web-admin/src/lib/export/exportCsv.ts`, `web-admin/src/app/(dashboard)/reports/page.tsx`). Depende de `TASK-006`, `TASK-020`.
+- **[ ] TASK-024 (Fase 8):** Suite de pruebas End-to-End con Playwright en panel web (`web-admin/e2e/auth.spec.ts`, `live-map.spec.ts`, `reports.spec.ts`, `playwright.config.ts`). Depende de `TASK-006`, `TASK-015`, `TASK-016`, `TASK-017`, `TASK-023`.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* Todas las suites de prueba: Dashboard y métricas Recharts (21/21), Bitácora de auditoría forense (18/18), Auditoría de visitas comerciales (16/16), Validación de geocercas PostGIS (16/16), Flujo de visitas Android (22/22), Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico (136 pruebas totales en panel web). El panel web compila sin errores (`tsc --noEmit` y `next build`).
+- *Ninguno identificado.* Todas las suites de prueba: Exportación CSV y reportes (17/17), Dashboard y métricas Recharts (21/21), Bitácora de auditoría forense (18/18), Auditoría de visitas comerciales (16/16), Validación de geocercas PostGIS (16/16), Flujo de visitas Android (22/22), Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico (153 pruebas totales en panel web). El panel web compila sin errores (`tsc --noEmit` y `next build`).
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-023**: Implementar la utilidad de exportación en `web-admin` que genera archivos `.csv` estructurados con codificación UTF-8 con BOM para apertura correcta en Microsoft Excel, conteniendo fecha, vendedor, inicio, fin, kilómetros y desglose de visitas.
+- Proceder con **TASK-024**: Implementar y ejecutar las pruebas E2E automatizadas con Playwright en `web-admin` para los 5 flujos críticos del sistema (login, mapa interactivo, detalle de trayectorias, creación de clientes y exportación).
