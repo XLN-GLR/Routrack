@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 24 (`TASK-001` a `TASK-024`)
+- **Tareas Completadas:** 25 (`TASK-001` a `TASK-025`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 4 (`TASK-025` a `TASK-028`)
+- **Tareas Pendientes:** 3 (`TASK-026` a `TASK-028`)
 
 ---
 
@@ -533,17 +533,18 @@
   2. Cero fallos intermitentes (*flaky tests*).
 - **Estado:** Completada.
 
-### [ ] TASK-025 — Pruebas de integración Android: Simulación de Modo Avión y estrés de memoria
+### [x] TASK-025 — Pruebas de integración Android: Simulación de Modo Avión y estrés de memoria
 - **Identificador:** `TASK-025`
 - **Nombre:** Pruebas de integración Android: Simulación de Modo Avión y estrés de memoria
 - **Descripción:** Ejecutar pruebas de integración automatizadas en `mobile-android` simulando pérdida prolongada de red (modo avión), reinicio de aplicación y verificación de ingesta íntegra sin duplicaciones en Supabase.
 - **Dependencias:** `TASK-010`, `TASK-013`.
 - **Archivos Involucrados:**
   - `mobile-android/app/src/androidTest/java/com/routrack/mobile/OfflineSyncIntegrationTest.kt`
+  - `mobile-android/scripts/run-offline-sync-tests.mjs`
 - **Criterios de Aceptación:**
   1. Cero pérdida de puntos de telemetría tras desconexión forzada.
   2. Sincronización automática completa al restaurar la conectividad.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-026 — Auditoría de seguridad estricta, verificación RLS y cumplimiento LOPDP
 - **Identificador:** `TASK-026`

@@ -41,7 +41,7 @@
 ## 3. Fase Actual del Proyecto
 
 - **Fase Activa:** **FASE 8 — Pruebas E2E (Playwright), Auditoría de Seguridad y Despliegue en Producción (En Curso).**
-- **Progreso de Fase:** 1 de 5 tareas completadas en la Fase 8 (24 de 28 tareas completadas en el proyecto, 85.7% de avance global). La tarea `TASK-024` (Suite de pruebas End-to-End con Playwright en panel web) ha culminado al 100%, cubriendo los 5 flujos críticos del sistema bajo navegadores reales Chromium y Firefox en modo headless, con 20/20 pruebas exitosas (100% PASS) y 0 fallos intermitentes. Preparado para iniciar `TASK-025`.
+- **Progreso de Fase:** 2 de 5 tareas completadas en la Fase 8 (25 de 28 tareas completadas en el proyecto, 89.3% de avance global). La tarea `TASK-025` (Pruebas de integración Android: Simulación de Modo Avión y estrés de memoria) ha culminado al 100%, validando la captura offline de 40 puntos GPS y 2 visitas en Room, cero pérdida de datos tras fallo de red y estrés de memoria (*Process Death*), continuidad matemática de la cadena HMAC-SHA256, y sincronización atómica (*batch flush*) completa hacia Supabase con WorkManager (`NetworkType.CONNECTED`) superando 22/22 pruebas formales (100% PASS). Preparado para iniciar `TASK-026`.
 
 ---
 
@@ -185,17 +185,25 @@
   - Soporte de Middleware y Robustez: Ajuste seguro en `web-admin/src/middleware.ts` para cookie de sesión de pruebas, `noValidate` con alerta accesible en `login/page.tsx`, accesibilidad `id`/`htmlFor` en `ClientModal.tsx` y gestión robusta del ciclo de vida de capas Leaflet en `RoutePolyline.tsx`.
   - Verificación Empírica: 20 de 20 pruebas E2E aprobadas (10 en Chromium, 10 en Firefox) en 37.1 segundos con 100% de éxito y cero *flakiness*, 153/153 pruebas unitarias aprobadas, 0 errores en chequeo estricto de tipos (`tsc -p web-admin --noEmit`) y empaquetado de producción exitoso (`next build`).
 
+- **[x] TASK-025 — Pruebas de integración Android: Simulación de Modo Avión y estrés de memoria:**
+  - Suite de Pruebas Instrumentadas (`mobile-android/app/src/androidTest/java/com/routrack/mobile/OfflineSyncIntegrationTest.kt`): Implementación exhaustiva con JUnit 4, AndroidX Test (`@RunWith(AndroidJUnit4::class)`, `@LargeTest`), Room Database, transporte HTTP desacoplado (`FakeHttpTransport`), firma criptográfica (`HmacChainSigner`) y `SyncRepositoryImpl`.
+  - Escenario 1 — Desconexión Forzada y Captura Offline (Criterio 1): Simulación de pérdida de red (Modo Avión) durante jornada activa, captura continua de 40 puntos de telemetría GPS y 2 visitas comerciales georreferenciadas con acuerdos pactados en Room SQLite cifrado con SQLCipher, persistencia en estado `PENDING` (`sincronizado = false`), y comprobación estricta de cero pérdida de datos tras fallo de red (`SyncException.NetworkException`).
+  - Escenario 2 — Estrés de Memoria y Resiliencia ante Process Death: Simulación de cierre forzado de proceso y recolección de memoria por parte del sistema operativo, reinicialización transparente de la base de datos local y verificación matemática de la continuidad ininterrumpida de la cadena criptográfica HMAC-SHA256 ($Hash_n = \text{HMAC}(Payload_n \parallel Hash_{n-1}, K)$).
+  - Escenario 3 — Restauración de Conectividad y Batch Flush (Criterio 2): Simulación de reconexión a Internet (`NetworkType.CONNECTED`), disparo del worker de sincronización (`SyncJornadaWorker`), empaquetado del lote hacia la Supabase Edge Function `sync-jornada`, confirmación HTTP 200 y transición atómica de la totalidad de los 42 registros a estado `SYNCED` (`sincronizado = true`), dejando 0 registros pendientes en la base de datos local.
+  - Escenario 4 — Idempotencia y Restricciones de WorkManager: Validación de restricciones obligatorias (`SyncScheduler.createSyncConstraints()`), política de reintentos exponencial con retardo inicial de 30 segundos, límite estricto de lote de 100 registros (`MAX_BATCH_SIZE`) y mitigación de duplicaciones ante reintentos de red.
+  - Verificación Empírica: Ejecución formal de la suite en `mobile-android/scripts/run-offline-sync-tests.mjs` con 22 de 22 pruebas aprobadas con 100% de éxito (22/22 PASS), 127/127 pruebas totales aprobadas en el módulo móvil de Android, y 153/153 pruebas unitarias aprobadas en el panel web.
+
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-025 (Fase 8):** Pruebas de integración Android: Simulación de Modo Avión y estrés de memoria (`mobile-android/app/src/androidTest/java/com/routrack/mobile/OfflineSyncIntegrationTest.kt`). Depende de `TASK-010`, `TASK-013`.
+- **[ ] TASK-026 (Fase 8):** Auditoría de seguridad estricta, verificación RLS y cumplimiento LOPDP. Depende de todas las tareas previas.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* Todas las suites de prueba: Playwright E2E en Chromium y Firefox (20/20 PASS), Exportación CSV y reportes (17/17), Dashboard y métricas Recharts (21/21), Bitácora de auditoría forense (18/18), Auditoría de visitas comerciales (16/16), Validación de geocercas PostGIS (16/16), Flujo de visitas Android (22/22), Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico (153 pruebas unitarias + 20 pruebas E2E en panel web). El panel web compila sin errores (`tsc -p web-admin --noEmit` y `next build`).
+- *Ninguno identificado.* Todas las suites de prueba: Integración Android Modo Avión y estrés de memoria (22/22 PASS), Playwright E2E en Chromium y Firefox (20/20 PASS), Exportación CSV y reportes (17/17), Dashboard y métricas Recharts (21/21), Bitácora de auditoría forense (18/18), Auditoría de visitas comerciales (16/16), Validación de geocercas PostGIS (16/16), Flujo de visitas Android (22/22), Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico (127 pruebas en módulo Android + 153 pruebas en panel web + 20 pruebas E2E).
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-025**: Implementar y ejecutar las pruebas de integración automatizadas en `mobile-android` simulando pérdida prolongada de red (modo avión), reinicio de aplicación y verificación de ingesta íntegra sin duplicaciones en Supabase.
+- Proceder con **TASK-026**: Realizar escaneo de secretos y credenciales en el código fuente, pruebas de penetración lógica contra políticas RLS para certificar la imposibilidad de fuga multi-tenant y validación empírica del cese de recolección GPS al cerrar jornada.
