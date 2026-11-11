@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 23 (`TASK-001` a `TASK-023`)
+- **Tareas Completadas:** 24 (`TASK-001` a `TASK-024`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 5 (`TASK-024` a `TASK-028`)
+- **Tareas Pendientes:** 4 (`TASK-025` a `TASK-028`)
 
 ---
 
@@ -518,7 +518,7 @@
 
 ## FASE 8: Pruebas E2E (Playwright), Auditoría de Seguridad y Despliegue en Producción
 
-### [ ] TASK-024 — Suite de pruebas End-to-End con Playwright en panel web
+### [x] TASK-024 — Suite de pruebas End-to-End con Playwright en panel web
 - **Identificador:** `TASK-024`
 - **Nombre:** Suite de pruebas End-to-End con Playwright en panel web
 - **Descripción:** Implementar y ejecutar las pruebas E2E automatizadas con Playwright en `web-admin` para los 5 flujos críticos del sistema (login, mapa interactivo, detalle de trayectorias, creación de clientes y exportación).
@@ -531,7 +531,7 @@
 - **Criterios de Aceptación:**
   1. 100% de tests E2E aprobados en navegadores Chromium y Firefox en modo headless.
   2. Cero fallos intermitentes (*flaky tests*).
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-025 — Pruebas de integración Android: Simulación de Modo Avión y estrés de memoria
 - **Identificador:** `TASK-025`

@@ -192,10 +192,11 @@ export default function ClientModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Razón Social */}
               <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="razon_social" className="block text-xs font-semibold text-slate-700 mb-1">
                   Razón Social / Nombre Oficial <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="razon_social"
                   type="text"
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
@@ -213,10 +214,11 @@ export default function ClientModal({
 
               {/* Nombre Comercial */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="nombre_comercial" className="block text-xs font-semibold text-slate-700 mb-1">
                   Nombre Comercial (Opcional)
                 </label>
                 <input
+                  id="nombre_comercial"
                   type="text"
                   value={nombreComercial}
                   onChange={(e) => setNombreComercial(e.target.value)}
@@ -227,10 +229,11 @@ export default function ClientModal({
 
               {/* RUC / Cédula */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="identificacion" className="block text-xs font-semibold text-slate-700 mb-1">
                   RUC / Cédula <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="identificacion"
                   type="text"
                   maxLength={13}
                   value={identificacionFiscal}
@@ -249,10 +252,11 @@ export default function ClientModal({
 
               {/* Dirección Física */}
               <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="direccion" className="block text-xs font-semibold text-slate-700 mb-1">
                   Dirección Física Completa <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="direccion"
                   type="text"
                   value={direccion}
                   onChange={(e) => setDireccion(e.target.value)}

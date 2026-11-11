@@ -51,10 +51,16 @@ export default function RoutePolyline({
       if (!isMounted || !map) return;
       const L = LModule.default || LModule;
 
-      // Limpiar capas previas si existen
+      // Limpiar capas previas si existen de forma segura
       if (layerGroupRef.current) {
-        layerGroupRef.current.clearLayers();
-        map.removeLayer(layerGroupRef.current);
+        try {
+          if (map && map.hasLayer(layerGroupRef.current)) {
+            map.removeLayer(layerGroupRef.current);
+          }
+          layerGroupRef.current.clearLayers();
+        } catch {
+          // Protección contra desmontaje concurrente de Leaflet
+        }
       }
 
       const layerGroup = L.layerGroup().addTo(map);
@@ -229,9 +235,15 @@ export default function RoutePolyline({
 
     return () => {
       isMounted = false;
-      if (layerGroupRef.current && map) {
-        layerGroupRef.current.clearLayers();
-        map.removeLayer(layerGroupRef.current);
+      if (layerGroupRef.current) {
+        try {
+          if (map && map.hasLayer(layerGroupRef.current)) {
+            map.removeLayer(layerGroupRef.current);
+          }
+          layerGroupRef.current.clearLayers();
+        } catch {
+          // Protección contra desmontaje de Leaflet
+        }
         layerGroupRef.current = null;
       }
     };

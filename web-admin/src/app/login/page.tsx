@@ -116,6 +116,7 @@ function LoginForm() {
         {errorMessage && (
           <div
             role="alert"
+            data-testid="login-error-alert"
             className="mb-6 flex items-start gap-3 rounded-lg border-l-4 border-red-500 bg-red-50 p-4 text-xs text-red-800"
           >
             <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-600" />
@@ -124,7 +125,7 @@ function LoginForm() {
         )}
 
         {/* Formulario */}
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form noValidate onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label
               htmlFor="email"

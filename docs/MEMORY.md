@@ -41,7 +41,7 @@
 ## 3. Fase Actual del Proyecto
 
 - **Fase Activa:** **FASE 8 — Pruebas E2E (Playwright), Auditoría de Seguridad y Despliegue en Producción (En Curso).**
-- **Progreso de Fase:** 0 de 5 tareas completadas en la Fase 8 (23 de 28 tareas completadas en el proyecto, 82.1% de avance global). La **FASE 7 (Slice Vertical de Auditoría, Métricas e Inmutabilidad) ha culminado al 100%** con la entrega de `TASK-023` (Exportación formal de reportes de jornada a formato CSV), implementando el módulo de generación con BOM UTF-8 (`\uFEFF`), nombre normalizado `reporte-jornadas-YYYY-MM-DD.csv`, tabla de vista previa con 4 estados obligatorios y superando 17/17 pruebas unitarias específicas y 153/153 pruebas globales en web-admin. Preparado para iniciar `TASK-024`.
+- **Progreso de Fase:** 1 de 5 tareas completadas en la Fase 8 (24 de 28 tareas completadas en el proyecto, 85.7% de avance global). La tarea `TASK-024` (Suite de pruebas End-to-End con Playwright en panel web) ha culminado al 100%, cubriendo los 5 flujos críticos del sistema bajo navegadores reales Chromium y Firefox en modo headless, con 20/20 pruebas exitosas (100% PASS) y 0 fallos intermitentes. Preparado para iniciar `TASK-025`.
 
 ---
 
@@ -177,17 +177,25 @@
   - Vista Interactiva de Reportes (`web-admin/src/app/(dashboard)/reports/page.tsx`): Tabla de vista previa con desglose de turnos, kilometraje, efectividad en geocerca y montos pactados, botón de descarga directa de archivo compatible con Microsoft Excel en español sin corrupción de tildes o eñes, filtros por fecha, asesor y buscador predictivo, 4 tarjetas KPI cuantitativas y cumplimiento de los 4 estados obligatorios: `ReportsSkeletonLoader` (Cargando con `animate-pulse`), `ReportsErrorState` (Error con botón "Reintentar Conexión"), `ReportsEmptyState` (Vacío orientador) y diseño Adaptativo responsive.
   - Verificación y Suites de Pruebas: 17 pruebas unitarias formales en `web-admin/scripts/run-reports-tests.mjs` con 100% de éxito empírico (17/17 PASS), 153/153 pruebas totales aprobadas en `web-admin test`, 0 errores en chequeo estricto de tipos (`tsc --noEmit`) y empaquetado de producción exitoso (`next build`).
 
+- **[x] TASK-024 — Suite de pruebas End-to-End con Playwright en panel web:**
+  - Infraestructura de Pruebas E2E (`web-admin/playwright.config.ts`): Configuración oficial de Playwright con `webServer` integrado (`npm run start` en `http://127.0.0.1:3000`), ejecución headless en navegadores Chromium (Desktop Chrome) y Firefox (Desktop Firefox), con captura de trazas, screenshots y videos ante fallos.
+  - Flujo E2E-01 — Autenticación y Control de Acceso (`web-admin/e2e/auth.spec.ts`): 5 pruebas automatizadas que certifican el despliegue del formulario y branding institucional, validación de inputs vacíos con mensaje en español, bloqueo y alerta explícita ante intentos de acceso con rol VENDEDOR, protección de rutas privadas ante navegación anónima con redirección a `/login`, y acceso exitoso al panel de control con sesión válida de SUPERVISOR.
+  - Flujo E2E-02 y E2E-03 — Cartografía, Monitoreo en Vivo y Rutas (`web-admin/e2e/live-map.spec.ts`): Pruebas que validan la carga del mapa Leaflet con teselas OpenStreetMap ($0 USD), renderizado de marcadores y estados operativos (EN RUTA, DETENIDO), panel lateral con lista de asesores comerciales, trazado cronológico de la polilínea continua, cálculo y toggle interactivo de segmentos desviados (>300m) y visualización de tarjetas KPI cuantitativas de la jornada.
+  - Flujo E2E-04 y E2E-05 — Clientes, Auditoría y Exportación (`web-admin/e2e/reports.spec.ts`): Pruebas que comprueban la apertura y cierre accesible (Escape) del modal de creación y georreferenciación de clientes con campos fiscales, la descarga programática automática de reportes CSV con nombre normalizado `reporte-jornadas-YYYY-MM-DD.csv`, y la inspección forense de la bitácora inmutable con verificación del indicador de integridad HMAC.
+  - Soporte de Middleware y Robustez: Ajuste seguro en `web-admin/src/middleware.ts` para cookie de sesión de pruebas, `noValidate` con alerta accesible en `login/page.tsx`, accesibilidad `id`/`htmlFor` en `ClientModal.tsx` y gestión robusta del ciclo de vida de capas Leaflet en `RoutePolyline.tsx`.
+  - Verificación Empírica: 20 de 20 pruebas E2E aprobadas (10 en Chromium, 10 en Firefox) en 37.1 segundos con 100% de éxito y cero *flakiness*, 153/153 pruebas unitarias aprobadas, 0 errores en chequeo estricto de tipos (`tsc -p web-admin --noEmit`) y empaquetado de producción exitoso (`next build`).
+
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-024 (Fase 8):** Suite de pruebas End-to-End con Playwright en panel web (`web-admin/e2e/auth.spec.ts`, `live-map.spec.ts`, `reports.spec.ts`, `playwright.config.ts`). Depende de `TASK-006`, `TASK-015`, `TASK-016`, `TASK-017`, `TASK-023`.
+- **[ ] TASK-025 (Fase 8):** Pruebas de integración Android: Simulación de Modo Avión y estrés de memoria (`mobile-android/app/src/androidTest/java/com/routrack/mobile/OfflineSyncIntegrationTest.kt`). Depende de `TASK-010`, `TASK-013`.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* Todas las suites de prueba: Exportación CSV y reportes (17/17), Dashboard y métricas Recharts (21/21), Bitácora de auditoría forense (18/18), Auditoría de visitas comerciales (16/16), Validación de geocercas PostGIS (16/16), Flujo de visitas Android (22/22), Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico (153 pruebas totales en panel web). El panel web compila sin errores (`tsc --noEmit` y `next build`).
+- *Ninguno identificado.* Todas las suites de prueba: Playwright E2E en Chromium y Firefox (20/20 PASS), Exportación CSV y reportes (17/17), Dashboard y métricas Recharts (21/21), Bitácora de auditoría forense (18/18), Auditoría de visitas comerciales (16/16), Validación de geocercas PostGIS (16/16), Flujo de visitas Android (22/22), Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico (153 pruebas unitarias + 20 pruebas E2E en panel web). El panel web compila sin errores (`tsc -p web-admin --noEmit` y `next build`).
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-024**: Implementar y ejecutar las pruebas E2E automatizadas con Playwright en `web-admin` para los 5 flujos críticos del sistema (login, mapa interactivo, detalle de trayectorias, creación de clientes y exportación).
+- Proceder con **TASK-025**: Implementar y ejecutar las pruebas de integración automatizadas en `mobile-android` simulando pérdida prolongada de red (modo avión), reinicio de aplicación y verificación de ingesta íntegra sin duplicaciones en Supabase.
