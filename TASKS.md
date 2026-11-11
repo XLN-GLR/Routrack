@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 25 (`TASK-001` a `TASK-025`)
+- **Tareas Completadas:** 26 (`TASK-001` a `TASK-026`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 3 (`TASK-026` a `TASK-028`)
+- **Tareas Pendientes:** 2 (`TASK-027` y `TASK-028`)
 
 ---
 
@@ -546,17 +546,22 @@
   2. Sincronización automática completa al restaurar la conectividad.
 - **Estado:** Completada.
 
-### [ ] TASK-026 — Auditoría de seguridad estricta, verificación RLS y cumplimiento LOPDP
+### [x] TASK-026 — Auditoría de seguridad estricta, verificación RLS y cumplimiento LOPDP
 - **Identificador:** `TASK-026`
 - **Nombre:** Auditoría de seguridad estricta, verificación RLS y cumplimiento LOPDP
 - **Descripción:** Realizar escaneo de secretos y credenciales en el código fuente, pruebas de penetración lógica contra políticas RLS para certificar la imposibilidad de fuga multi-tenant y validación empírica del cese de recolección GPS al cerrar jornada.
 - **Dependencias:** Todas las tareas previas.
-- **Archivos Involucrados:** Toda la base de código y base de datos.
+- **Archivos Involucrados:**
+  - `supabase/tests/rls_penetration_test.mjs`
+  - `web-admin/scripts/audit-secrets-scanner.mjs`
+  - `mobile-android/scripts/validate-lopdp-compliance.mjs`
+  - `web-admin/scripts/run-security-audit.mjs`
+  - `web-admin/package.json`
 - **Criterios de Aceptación:**
   1. Comprobación matemática de cero fugas entre organizaciones distintas.
   2. Cero exposición de claves secretas (`service_role_key`).
   3. Cese inmediato y total de telemetría fuera de la jornada laboral formal.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-027 — Configuración de CI/CD en GitHub Actions
 - **Identificador:** `TASK-027`
