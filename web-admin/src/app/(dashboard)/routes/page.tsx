@@ -243,6 +243,10 @@ export default function RoutesHistoryPage() {
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [activeTab, setActiveTab] = useState<"stops" | "deviations">("deviations");
 
+  const handleMapReady = useCallback((map: L.Map) => {
+    setMapInstance(map);
+  }, []);
+
   // Puntos de ruta ordenados cronológicamente
   const points = useMemo(() => {
     return sortPointsChronologically(MOCK_ROUTE_POINTS);
@@ -450,7 +454,7 @@ export default function RoutesHistoryPage() {
           <MapContainerWrapper
             className="w-full h-full min-h-[inherit]"
             showControls={true}
-            onMapReady={(map) => setMapInstance(map)}
+            onMapReady={handleMapReady}
           >
             {/* Trazado de Ruta y Desvíos */}
             <RoutePolyline

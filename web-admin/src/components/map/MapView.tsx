@@ -63,16 +63,22 @@ export default function MapView({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const onMapReadyRef = useRef(onMapReady);
   const [isReady, setIsReady] = useState(false);
 
-  // Inicializar Leaflet y el contenedor
+  // Mantener la referencia actualizada sin forzar recreación del mapa
+  useEffect(() => {
+    onMapReadyRef.current = onMapReady;
+  }, [onMapReady]);
+
+  // Inicializar Leaflet y el contenedor (se ejecuta una sola vez al montar)
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
     let isMounted = true;
 
     import("leaflet").then((LModule) => {
-      if (!isMounted || !mapContainerRef.current) return;
+      if (!isMounted || !mapContainerRef.current || mapInstanceRef.current) return;
 
       const L = LModule.default || LModule;
 
@@ -84,7 +90,7 @@ export default function MapView({
         shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
       });
 
-      // Crear instancia de mapa deshabilitando controles por defecto para UI unificada
+      // Crear instancia de mapa con optimizaciones de hardware para rendimiento fluido en cualquier PC
       const map = L.map(mapContainerRef.current, {
         center,
         zoom,
@@ -92,12 +98,16 @@ export default function MapView({
         maxZoom,
         zoomControl: false, // Usamos controles personalizados de ROUTRACK
         attributionControl: false,
+        preferCanvas: true, // Renderizar vectores en HTML5 Canvas (ultra liviano, 60fps)
       });
 
-      // Agregar capa de teselas (OpenStreetMap u otro proveedor configurado en .env)
+      // Agregar capa de teselas optimizada con buffer en memoria y sin recargas en paneo
       const tileLayer = L.tileLayer(tileUrl, {
         attribution,
         maxZoom,
+        keepBuffer: 6, // Mantiene en memoria RAM las teselas adyacentes para evitar recargas
+        updateWhenIdle: true, // No ahoga la red ni CPU con peticiones mientras se arrastra
+        updateWhenZooming: false,
       }).addTo(map);
 
       tileLayerRef.current = tileLayer;
@@ -119,10 +129,10 @@ export default function MapView({
         if (mapInstanceRef.current) {
           mapInstanceRef.current.invalidateSize();
         }
-      }, 200);
+      }, 150);
 
-      if (onMapReady) {
-        onMapReady(map);
+      if (onMapReadyRef.current) {
+        onMapReadyRef.current(map);
       }
     });
 
@@ -134,14 +144,21 @@ export default function MapView({
         tileLayerRef.current = null;
       }
     };
-  }, [attribution, center, maxZoom, minZoom, onMapReady, tileUrl, zoom]);
+  }, [tileUrl]);
 
-  // Actualizar vista si cambia el centro programáticamente
+  // Actualizar vista si cambia el centro o zoom programáticamente sin reconstruir el mapa
+  const centerLat = center ? center[0] : DEFAULT_MAP_CENTER[0];
+  const centerLng = center ? center[1] : DEFAULT_MAP_CENTER[1];
+
   useEffect(() => {
     if (mapInstanceRef.current && isReady) {
-      mapInstanceRef.current.setView(center, zoom, { animate: true });
+      const curCenter = mapInstanceRef.current.getCenter();
+      const dist = Math.abs(curCenter.lat - centerLat) + Math.abs(curCenter.lng - centerLng);
+      if (dist > 0.0001 || mapInstanceRef.current.getZoom() !== zoom) {
+        mapInstanceRef.current.setView([centerLat, centerLng], zoom, { animate: true });
+      }
     }
-  }, [center, isReady, zoom]);
+  }, [centerLat, centerLng, isReady, zoom]);
 
   // Controladores interactivos personalizados
   const handleZoomIn = useCallback(() => {

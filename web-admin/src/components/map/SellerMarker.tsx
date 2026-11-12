@@ -108,6 +108,14 @@ export function buildSellerMarkerSvg(seller: SellerLiveState, isSelected: boolea
   `;
 }
 
+let cachedL: typeof import("leaflet") | null = null;
+async function getLeaflet() {
+  if (cachedL) return cachedL;
+  const LModule = await import("leaflet");
+  cachedL = (LModule.default || LModule) as typeof import("leaflet");
+  return cachedL;
+}
+
 /**
  * Componente que enlaza un marcador de vendedor con la instancia activa de Leaflet.
  */
@@ -120,15 +128,21 @@ export default function SellerMarker({
   const contextMap = useMapInstance();
   const map = externalMap || contextMap;
   const markerRef = useRef<L.Marker | null>(null);
+  const onClickRef = useRef(onClick);
+  const sellerRef = useRef(seller);
+
+  useEffect(() => {
+    onClickRef.current = onClick;
+    sellerRef.current = seller;
+  });
 
   useEffect(() => {
     if (!map) return;
 
     let isMounted = true;
 
-    import("leaflet").then((LModule) => {
+    getLeaflet().then((L) => {
       if (!isMounted || !map) return;
-      const L = LModule.default || LModule;
 
       const html = buildSellerMarkerSvg(seller, isSelected);
       const customIcon = L.divIcon({
@@ -153,14 +167,14 @@ export default function SellerMarker({
         });
 
         marker.on("click", () => {
-          if (onClick) {
-            onClick(seller);
+          if (onClickRef.current) {
+            onClickRef.current(sellerRef.current);
           }
         });
 
         markerRef.current = marker;
       } else {
-        // Actualizar marcador existente con animación de posición
+        // Actualizar marcador existente de forma eficiente sin destruir el objeto Leaflet
         markerRef.current.setLatLng([seller.latitude, seller.longitude]);
         markerRef.current.setIcon(customIcon);
         markerRef.current.setPopupContent(renderSellerPopupHtml(seller));
@@ -169,12 +183,18 @@ export default function SellerMarker({
 
     return () => {
       isMounted = false;
+    };
+  }, [map, seller.sellerId, seller.latitude, seller.longitude, seller.status, seller.bearingDegrees, isSelected]);
+
+  // Limpieza final al desmontar el marcador
+  useEffect(() => {
+    return () => {
       if (markerRef.current && map) {
         markerRef.current.remove();
         markerRef.current = null;
       }
     };
-  }, [map, seller, isSelected, onClick]);
+  }, [map]);
 
   return null;
 }

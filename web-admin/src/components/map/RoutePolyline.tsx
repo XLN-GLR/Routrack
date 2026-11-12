@@ -23,6 +23,14 @@ export interface RoutePolylineProps {
   onSelectDeviation?: (deviation: DeviationSegment) => void;
 }
 
+let cachedL: typeof import("leaflet") | null = null;
+async function getLeaflet() {
+  if (cachedL) return cachedL;
+  const LModule = await import("leaflet");
+  cachedL = (LModule.default || LModule) as typeof import("leaflet");
+  return cachedL;
+}
+
 /**
  * Componente modular para el trazado de trayectorias históricas de ruta con Leaflet.
  *
@@ -47,9 +55,7 @@ export default function RoutePolyline({
 
     let isMounted = true;
 
-    import("leaflet").then((LModule) => {
-      if (!isMounted || !map) return;
-      const L = LModule.default || LModule;
+    getLeaflet().then((L) => {
 
       // Limpiar capas previas si existen de forma segura
       if (layerGroupRef.current) {

@@ -97,6 +97,11 @@ export default function LiveMonitoringPage() {
     };
   }, [sellers]);
 
+  // Callback estable para capturar la instancia del mapa sin gatillar renders en cascada
+  const handleMapReady = useCallback((map: L.Map) => {
+    setMapInstance(map);
+  }, []);
+
   // Centrar cámara en un vendedor específico
   const handleSelectSeller = useCallback(
     (seller: SellerLiveState) => {
@@ -314,7 +319,7 @@ export default function LiveMonitoringPage() {
           <MapContainerWrapper
             className="w-full h-full min-h-[inherit]"
             showControls={true}
-            onMapReady={(map) => setMapInstance(map)}
+            onMapReady={handleMapReady}
           >
             {/* Marcadores Reactivos de Vendedores Activos */}
             {filteredSellers.map((seller) => (
