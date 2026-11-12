@@ -46,7 +46,7 @@ import kotlinx.coroutines.launch
  * 3. Persistencia Cifrada con Firma HMAC: Persiste en Room mediante TrackingRepository con encadenamiento criptográfico.
  * 4. Cese Inmediato: Al detenerse el servicio se desvinculan los sensores y cesa de inmediato la recolección.
  */
-class TrackingForegroundService : Service() {
+open class TrackingForegroundService : Service() {
 
     companion object {
         const val ACTION_START_TRACKING = "com.routrack.mobile.action.START_TRACKING"

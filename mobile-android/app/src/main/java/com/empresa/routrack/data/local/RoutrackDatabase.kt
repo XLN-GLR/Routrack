@@ -12,7 +12,7 @@ import com.empresa.routrack.data.local.entity.BitacoraAuditoriaEntity
 import com.empresa.routrack.data.local.entity.JornadaEntity
 import com.empresa.routrack.data.local.entity.UbicacionGpsEntity
 import com.empresa.routrack.data.local.entity.VisitaEntity
-import net.zetetic.database.sqlcipher.SupportFactory
+import net.sqlcipher.database.SupportFactory
 
 /**
  * Base de datos principal Room para la persistencia local cifrada en ROUTRACK.
