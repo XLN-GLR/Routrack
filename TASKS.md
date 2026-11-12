@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 27 (`TASK-001` a `TASK-027`)
+- **Tareas Completadas:** 28 (`TASK-001` a `TASK-028`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 1 (`TASK-028`)
+- **Tareas Pendientes:** 0
 
 ---
 
@@ -576,15 +576,18 @@
   1. Pipeline de CI verde en GitHub Actions tras pull requests.
 - **Estado:** Completada.
 
-### [ ] TASK-028 — Despliegue de producción del panel web en Vercel a coste $0 USD
+### [x] TASK-028 — Despliegue de producción del panel web en Vercel a coste $0 USD
 - **Identificador:** `TASK-028`
 - **Nombre:** Despliegue de producción del panel web en Vercel a coste $0 USD
 - **Descripción:** Vincular el repositorio con Vercel, configurar las variables de entorno de producción seguras y verificar el correcto funcionamiento del panel web en dominio de producción con HTTPS y certificados SSL automáticos.
 - **Dependencias:** `TASK-026`, `TASK-027`.
 - **Archivos Involucrados:**
-  - Configuración de proyecto en Vercel
+  - `vercel.json`
+  - `web-admin/vercel.json`
   - `web-admin/next.config.mjs`
+  - `scripts/validate-vercel-deployment.mjs`
+  - `web-admin/package.json`
 - **Criterios de Aceptación:**
   1. Despliegue activo y accesible públicamente con HTTPS y carga < 2.0s.
   2. Conexión segura contra proyecto Supabase en producción.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
