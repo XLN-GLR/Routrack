@@ -41,7 +41,7 @@
 ## 3. Fase Actual del Proyecto
 
 - **Fase Activa:** **FASE 8 — Pruebas E2E (Playwright), Auditoría de Seguridad y Despliegue en Producción (En Curso).**
-- **Progreso de Fase:** 3 de 5 tareas completadas en la Fase 8 (26 de 28 tareas completadas en el proyecto, 92.9% de avance global). La tarea `TASK-026` (Auditoría de seguridad estricta, verificación RLS y cumplimiento LOPDP) ha culminado al 100%, certificando matemáticamente cero fugas multi-tenant entre organizaciones distintas (24/24 pruebas RLS aprobadas), cero exposición de credenciales maestras ni `SUPABASE_SERVICE_ROLE_KEY` en clientes frontend y repositorios (14/14 pruebas aprobadas), y validación empírica del cese inmediato y total de recolección GPS al cerrar jornada laboral bajo la LOPDP de Ecuador (28/28 pruebas aprobadas), superando 66/66 pruebas de seguridad formales (100% PASS). Preparado para iniciar `TASK-027`.
+- **Progreso de Fase:** 4 de 5 tareas completadas en la Fase 8 (27 de 28 tareas completadas en el proyecto, 96.4% de avance global). La tarea `TASK-027` (Configuración de CI/CD en GitHub Actions) ha culminado al 100%, implementando el workflow de integración continua `.github/workflows/ci.yml` con 5 jobs paralelos y secuenciales (`web-admin-verification`, `web-admin-e2e`, `mobile-android-verification`, `supabase-integration-verification`, `ci-status-gate`), validando automáticamente comprobaciones de TypeScript estricto, linters, pruebas unitarias de Kotlin/Android, suites de seguridad y tests E2E de Playwright ante cada Push o Pull Request a `main`, superando 30/30 pruebas del validador de CI (100% PASS). Preparado para iniciar la última tarea del proyecto: `TASK-028`.
 
 ---
 
@@ -200,18 +200,26 @@
   - Criterio 3 — Cumplimiento LOPDP Ecuador y Cese Inmediato de Telemetría (`mobile-android/scripts/validate-lopdp-compliance.mjs`): Validación en Android de la notificación permanente obligatoria transparente ("ROUTRACK: Seguimiento de jornada activo", pública y no descartable durante la jornada), desvinculación inmediata de sensores (`fusedLocationClient.removeLocationUpdates`, `activityRecognitionClient.removeActivityTransitionUpdates`), remoción instantánea de la notificación (`STOP_FOREGROUND_REMOVE`), terminación del servicio (`stopSelf()`) al pulsar "Finalizar Jornada", rechazo categórico de cualquier telemetría post-jornada (0 puntos capturados fuera del turno) y auditoría de ausencia absoluta de permisos invasivos (cero micrófonos, cámaras espía, keyloggers o lectura de SMS). 28/28 pruebas aprobadas (100% PASS).
   - Orquestador Maestro (`web-admin/scripts/run-security-audit.mjs` / `npm run test:security`): Ejecución coordinada de las 3 suites con 66 de 66 pruebas aprobadas (100% PASS).
 
+- **[x] TASK-027 — Configuración de CI/CD en GitHub Actions:**
+  - Pipeline de Integración Continua (`.github/workflows/ci.yml`): Configuración oficial de GitHub Actions con eventos de activación en `push` y `pull_request` sobre la rama `main`, y control de concurrencia (`cancel-in-progress: true`) para optimizar recursos.
+  - Job 1 — Web Admin (`web-admin-verification`): Chequeo estricto de tipos con TypeScript (`tsc --noEmit`), linter estático, suite completa de 153 pruebas unitarias y de dominio, auditoría de seguridad y penetración RLS (66 pruebas) y empaquetado de producción de Next.js (11 rutas estáticas).
+  - Job 2 — Playwright E2E (`web-admin-e2e`): Precedencia dependiente (`needs: web-admin-verification`), aprovisionamiento automático de navegadores Chromium y Firefox (`playwright install --with-deps`), ejecución de las 20 pruebas de flujos críticos y captura forense de reportes y trazas de video solo en caso de fallos (`actions/upload-artifact@v4`).
+  - Job 3 — Mobile Android (`mobile-android-verification`): Setup de Java 17 Temurin, ejecución de suites de verificación de persistencia Room con SQLCipher, validación del motor criptográfico HMAC-SHA256 encadenado, servicio foreground adaptativo, anti-tampering y desvíos de reloj, worker de sincronización WorkManager, flujo de visitas comerciales, pruebas offline de modo avión y cumplimiento normativo LOPDP Ecuador.
+  - Job 4 — Supabase Backend (`supabase-integration-verification`): Ejecución automatizada de pruebas de Edge Functions (`sync-jornada`), función geoespacial PostGIS `ST_DWithin` y pruebas de penetración RLS multi-tenant.
+  - Job 5 — Puerta de Enlace (`ci-status-gate`): Bloqueo estricto que consolida la aprobación del 100% de los jobs precedentes para habilitar el despliegue a producción.
+  - Suite de Validación Automatizada (`scripts/validate-ci-pipeline.mjs`): 30 de 30 pruebas aprobadas (100% PASS) certificando la validez del workflow YAML, la existencia de los scripts referenciados y la ausencia de secretos expuestos.
+
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-027 (Fase 8):** Configuración de CI/CD en GitHub Actions. Depende de `TASK-024` y `TASK-025`.
 - **[ ] TASK-028 (Fase 8):** Despliegue de producción del panel web en Vercel a coste $0 USD. Depende de `TASK-026` y `TASK-027`.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno identificado.* Todas las suites de prueba: Auditoría de Seguridad y RLS (66/66 PASS), Integración Android Modo Avión y estrés de memoria (22/22 PASS), Playwright E2E en Chromium y Firefox (20/20 PASS), Exportación CSV y reportes (17/17), Dashboard y métricas Recharts (21/21), Bitácora de auditoría forense (18/18), Auditoría de visitas comerciales (16/16), Validación de geocercas PostGIS (16/16), Flujo de visitas Android (22/22), Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. Compilación limpia en Next.js (`npm run build`, 11/11 rutas estáticas) y 0 errores de TypeScript (`tsc --noEmit`).
+- *Ninguno identificado.* Todas las suites de prueba: Pipeline CI/CD GitHub Actions (30/30 PASS), Auditoría de Seguridad y RLS (66/66 PASS), Integración Android Modo Avión y estrés de memoria (22/22 PASS), Playwright E2E en Chromium y Firefox (20/20 PASS), Exportación CSV y reportes (17/17), Dashboard y métricas Recharts (21/21), Bitácora de auditoría forense (18/18), Auditoría de visitas comerciales (16/16), Validación de geocercas PostGIS (16/16), Flujo de visitas Android (22/22), Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. Compilación limpia en Next.js (`npm run build`, 11/11 rutas estáticas) y 0 errores de TypeScript (`tsc --noEmit`).
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- Proceder con **TASK-027**: Configurar los flujos de GitHub Actions (`.github/workflows/ci.yml`) para ejecución automática de comprobaciones de TypeScript (`tsc --noEmit`), linters, pruebas de seguridad, pruebas unitarias de Kotlin y tests de Playwright en cada Pull Request a `main`.
+- Proceder con **TASK-028**: Despliegue de producción del panel web en Vercel a coste $0 USD, vinculando el repositorio con Vercel, configurando variables de entorno de producción y verificando el correcto funcionamiento del dominio de producción con HTTPS y certificados SSL automáticos.

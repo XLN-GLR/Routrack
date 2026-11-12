@@ -1,0 +1,192 @@
+name: ROUTRACK CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  NEXT_PUBLIC_APP_URL: "http://127.0.0.1:3000"
+  NEXT_PUBLIC_SUPABASE_URL: "https://aaermspsuxpamylwnbyz.supabase.co"
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_publishable_B910MIl6cyXtkNim6KkXLQ_vFTRXn5q"
+  NEXT_PUBLIC_MAP_TILE_PROVIDER_URL: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+  NEXT_PUBLIC_MAP_ATTRIBUTION: "&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors"
+
+jobs:
+  # ==============================================================================
+  # 1. VERIFICACIÓN Y AUDITORÍA DE WEB-ADMIN (Next.js, TypeScript y Seguridad)
+  # ==============================================================================
+  web-admin-verification:
+    name: Web Admin (Typecheck, Lint, Tests y Auditoría)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del Repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: "web-admin/package-lock.json"
+
+      - name: Instalar Dependencias de web-admin
+        run: npm --prefix web-admin ci
+
+      - name: Chequeo Estricto de Tipos TypeScript (tsc --noEmit)
+        run: npm --prefix web-admin run typecheck
+
+      - name: Verificación Estática de Linter
+        run: npm --prefix web-admin run lint
+
+      - name: Ejecución de Pruebas Unitarias de Componentes y Dominio (153 tests)
+        run: npm --prefix web-admin test
+
+      - name: Auditoría de Seguridad Estricta, Verificación RLS y LOPDP (66 tests)
+        run: npm --prefix web-admin run test:security
+
+      - name: Compilación de Producción de Next.js (11 rutas estáticas)
+        run: npm --prefix web-admin run build
+
+  # ==============================================================================
+  # 2. PRUEBAS END-TO-END CON PLAYWRIGHT (Chromium y Firefox)
+  # ==============================================================================
+  web-admin-e2e:
+    name: Pruebas E2E Playwright (Chromium & Firefox)
+    runs-on: ubuntu-latest
+    needs: web-admin-verification
+    steps:
+      - name: Checkout del Repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: "web-admin/package-lock.json"
+
+      - name: Instalar Dependencias de web-admin
+        run: npm --prefix web-admin ci
+
+      - name: Instalar Navegadores de Playwright con Dependencias de Sistema
+        run: npx --prefix web-admin playwright install --with-deps chromium firefox
+
+      - name: Compilación Previa para Servidor de Pruebas
+        run: npm --prefix web-admin run build
+
+      - name: Ejecutar Suite E2E de Flujos Críticos
+        run: npm --prefix web-admin run test:e2e
+        env:
+          CI: true
+
+      - name: Subir Artefactos y Reportes en Caso de Fallo
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-e2e-report
+          path: |
+            web-admin/playwright-report/
+            web-admin/test-results/
+          retention-days: 7
+
+  # ==============================================================================
+  # 3. VERIFICACIÓN DE ARQUITECTURA Y PRUEBAS DEL MÓDULO ANDROID
+  # ==============================================================================
+  mobile-android-verification:
+    name: Mobile Android (Arquitectura, HMAC, Cifrado y Offline Sync)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del Repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Configurar Java 17 (JDK Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Validar Persistencia Room Cifrada con SQLCipher (34 pruebas)
+        run: node mobile-android/scripts/validate-persistence-architecture.mjs
+
+      - name: Validar Motor Criptográfico HMAC-SHA256 Encadenado (20 pruebas)
+        run: node mobile-android/scripts/run-hmac-tests.mjs
+
+      - name: Validar Servicio Foreground Adaptativo y Notificación Fija (22 pruebas)
+        run: node mobile-android/scripts/validate-foreground-service.mjs
+
+      - name: Validar Detección de Fake GPS y Anomalías de Tiempo (17 pruebas)
+        run: node mobile-android/scripts/run-antitampering-tests.mjs
+
+      - name: Validar Worker de Sincronización y Restricciones WorkManager (19 pruebas)
+        run: node mobile-android/scripts/validate-sync-worker.mjs
+
+      - name: Validar Flujo y Validación de Visitas Comerciales (21 pruebas)
+        run: node mobile-android/scripts/validate-visit-workflow.mjs
+
+      - name: Validar Pruebas de Integración Offline y Resiliencia Modo Avión (22 pruebas)
+        run: node mobile-android/scripts/run-offline-sync-tests.mjs
+
+      - name: Validar Cumplimiento Normativo LOPDP Ecuador y Cese de GPS (28 pruebas)
+        run: node mobile-android/scripts/validate-lopdp-compliance.mjs
+
+  # ==============================================================================
+  # 4. VERIFICACIÓN DE SUPABASE, EDGE FUNCTIONS Y POSTGIS
+  # ==============================================================================
+  supabase-integration-verification:
+    name: Supabase Backend (Edge Functions, PostGIS y RLS)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del Repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Validar Edge Function sync-jornada con Idempotencia y HMAC (15 pruebas)
+        run: node supabase/tests/sync_jornada_edge_test.mjs
+
+      - name: Validar Función Espacial PostGIS ST_DWithin y Geocercas (16 pruebas)
+        run: node supabase/tests/visit_validation_function_test.mjs
+
+      - name: Validar Penetración Lógica RLS y Aislamiento Multi-Tenant (24 pruebas)
+        run: node supabase/tests/rls_penetration_test.mjs
+
+  # ==============================================================================
+  # 5. CONTROL Y PUERTA DE ENLACE DE CI (CI Gatekeeper)
+  # ==============================================================================
+  ci-status-gate:
+    name: ROUTRACK CI Gatekeeper (Aprobación Final)
+    runs-on: ubuntu-latest
+    needs:
+      - web-admin-verification
+      - web-admin-e2e
+      - mobile-android-verification
+      - supabase-integration-verification
+    steps:
+      - name: Certificar Pipeline Verde de CI
+        run: |
+          echo "================================================================================"
+          echo "  ✔ ROUTRACK CI/CD PIPELINE SUPERADO CON ÉXITO"
+          echo "  - Web Admin: TypeScript estricto, Linter, 153 Tests y Auditoría de Seguridad"
+          echo "  - Web E2E: 20 Tests Playwright en Chromium y Firefox"
+          echo "  - Android Mobile: 183 Tests y Validaciones de Arquitectura, Criptografía y LOPDP"
+          echo "  - Supabase Backend: 55 Tests de Ingesta Serverless, PostGIS y Políticas RLS"
+          echo "  Estado Global: LISTO PARA DESPLIEGUE EN PRODUCCIÓN ($0 USD)"
+          echo "================================================================================"

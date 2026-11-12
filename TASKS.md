@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 28
-- **Tareas Completadas:** 26 (`TASK-001` a `TASK-026`)
+- **Tareas Completadas:** 27 (`TASK-001` a `TASK-027`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 2 (`TASK-027` y `TASK-028`)
+- **Tareas Pendientes:** 1 (`TASK-028`)
 
 ---
 
@@ -563,16 +563,18 @@
   3. Cese inmediato y total de telemetría fuera de la jornada laboral formal.
 - **Estado:** Completada.
 
-### [ ] TASK-027 — Configuración de CI/CD en GitHub Actions
+### [x] TASK-027 — Configuración de CI/CD en GitHub Actions
 - **Identificador:** `TASK-027`
 - **Nombre:** Configuración de CI/CD en GitHub Actions
 - **Descripción:** Configurar los flujos de GitHub Actions para ejecución automática de comprobaciones de TypeScript (`tsc --noEmit`), linters, pruebas unitarias de Kotlin y tests de Playwright en cada Pull Request a `main`.
 - **Dependencias:** `TASK-024`, `TASK-025`.
 - **Archivos Involucrados:**
   - `.github/workflows/ci.yml`
+  - `scripts/validate-ci-pipeline.mjs`
+  - `web-admin/package.json`
 - **Criterios de Aceptación:**
   1. Pipeline de CI verde en GitHub Actions tras pull requests.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-028 — Despliegue de producción del panel web en Vercel a coste $0 USD
 - **Identificador:** `TASK-028`

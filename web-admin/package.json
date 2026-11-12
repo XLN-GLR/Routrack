@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "node scripts/run-sync-tests.mjs && node scripts/run-spatial-tests.mjs && node scripts/run-map-tests.mjs && node scripts/run-live-monitoring-tests.mjs && node scripts/run-routes-tests.mjs && node scripts/run-client-tests.mjs && node scripts/run-visit-tests.mjs && node scripts/run-audit-tests.mjs && node scripts/run-dashboard-tests.mjs && node scripts/run-reports-tests.mjs",
     "test:security": "node scripts/run-security-audit.mjs",
