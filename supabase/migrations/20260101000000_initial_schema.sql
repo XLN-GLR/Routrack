@@ -13,10 +13,12 @@ CREATE EXTENSION IF NOT EXISTS "postgis";
 -- 2. FUNCIONES DE CONTEXTO DE SEGURIDAD (JWT CLAIMS)
 -- ------------------------------------------------------------------------------
 -- Extrae el ID de organización desde los metadatos del token JWT
-CREATE OR REPLACE FUNCTION auth.jwt_organizacion_id()
+CREATE OR REPLACE FUNCTION public.jwt_organizacion_id()
 RETURNS UUID AS $$
   SELECT NULLIF(
     COALESCE(
+      (auth.jwt() -> 'app_metadata' ->> 'organization_id'),
+      (auth.jwt() -> 'app_metadata' ->> 'organizacion_id'),
       current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'organization_id',
       current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'organizacion_id'
     ),
@@ -25,10 +27,12 @@ RETURNS UUID AS $$
 $$ LANGUAGE SQL STABLE;
 
 -- Extrae el rol operativo desde los metadatos del token JWT
-CREATE OR REPLACE FUNCTION auth.jwt_rol()
+CREATE OR REPLACE FUNCTION public.jwt_rol()
 RETURNS TEXT AS $$
   SELECT NULLIF(
     COALESCE(
+      (auth.jwt() -> 'app_metadata' ->> 'role'),
+      (auth.jwt() -> 'app_metadata' ->> 'rol'),
       current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'role',
       current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'rol'
     ),
@@ -199,103 +203,103 @@ ALTER TABLE public.bitacora_auditoria ENABLE ROW LEVEL SECURITY;
 
 -- 7.1. Políticas para organizaciones
 CREATE POLICY "RLS_organizaciones_select" ON public.organizaciones
-FOR SELECT USING (id = auth.jwt_organizacion_id());
+FOR SELECT USING (id = public.jwt_organizacion_id());
 
 CREATE POLICY "RLS_organizaciones_admin_update" ON public.organizaciones
 FOR UPDATE USING (
-  id = auth.jwt_organizacion_id() AND
-  auth.jwt_rol() = 'ADMIN'
+  id = public.jwt_organizacion_id() AND
+  public.jwt_rol() = 'ADMIN'
 );
 
 -- 7.2. Políticas para perfiles
 CREATE POLICY "RLS_perfiles_select" ON public.perfiles
-FOR SELECT USING (organizacion_id = auth.jwt_organizacion_id());
+FOR SELECT USING (id = auth.uid() OR organizacion_id = public.jwt_organizacion_id());
 
 CREATE POLICY "RLS_perfiles_admin_mutate" ON public.perfiles
 FOR ALL USING (
-  organizacion_id = auth.jwt_organizacion_id() AND
-  auth.jwt_rol() = 'ADMIN'
+  organizacion_id = public.jwt_organizacion_id() AND
+  public.jwt_rol() = 'ADMIN'
 );
 
 CREATE POLICY "RLS_perfiles_self_update" ON public.perfiles
 FOR UPDATE USING (
   id = auth.uid() AND
-  organizacion_id = auth.jwt_organizacion_id()
+  organizacion_id = public.jwt_organizacion_id()
 );
 
 -- 7.3. Políticas para clientes
 CREATE POLICY "RLS_clientes_select" ON public.clientes
-FOR SELECT USING (organizacion_id = auth.jwt_organizacion_id());
+FOR SELECT USING (organizacion_id = public.jwt_organizacion_id());
 
 CREATE POLICY "RLS_clientes_admin_mutate" ON public.clientes
 FOR ALL USING (
-  organizacion_id = auth.jwt_organizacion_id() AND
-  auth.jwt_rol() = 'ADMIN'
+  organizacion_id = public.jwt_organizacion_id() AND
+  public.jwt_rol() = 'ADMIN'
 );
 
 -- 7.4. Políticas para jornadas_laborales
 CREATE POLICY "RLS_jornadas_vendedor_all" ON public.jornadas_laborales
 FOR ALL USING (
-  organizacion_id = auth.jwt_organizacion_id() AND
+  organizacion_id = public.jwt_organizacion_id() AND
   vendedor_id = auth.uid()
 )
 WITH CHECK (
-  organizacion_id = auth.jwt_organizacion_id() AND
+  organizacion_id = public.jwt_organizacion_id() AND
   vendedor_id = auth.uid()
 );
 
 CREATE POLICY "RLS_jornadas_supervision_select" ON public.jornadas_laborales
 FOR SELECT USING (
-  organizacion_id = auth.jwt_organizacion_id() AND
-  auth.jwt_rol() IN ('SUPERVISOR', 'ADMIN')
+  organizacion_id = public.jwt_organizacion_id() AND
+  public.jwt_rol() IN ('SUPERVISOR', 'ADMIN')
 );
 
 -- 7.5. Políticas para ubicaciones_gps
 CREATE POLICY "RLS_ubicaciones_vendedor_insert" ON public.ubicaciones_gps
 FOR INSERT WITH CHECK (
-  organizacion_id = auth.jwt_organizacion_id() AND
+  organizacion_id = public.jwt_organizacion_id() AND
   vendedor_id = auth.uid()
 );
 
 CREATE POLICY "RLS_ubicaciones_vendedor_select" ON public.ubicaciones_gps
 FOR SELECT USING (
-  organizacion_id = auth.jwt_organizacion_id() AND
+  organizacion_id = public.jwt_organizacion_id() AND
   vendedor_id = auth.uid()
 );
 
 CREATE POLICY "RLS_ubicaciones_supervision_select" ON public.ubicaciones_gps
 FOR SELECT USING (
-  organizacion_id = auth.jwt_organizacion_id() AND
-  auth.jwt_rol() IN ('SUPERVISOR', 'ADMIN')
+  organizacion_id = public.jwt_organizacion_id() AND
+  public.jwt_rol() IN ('SUPERVISOR', 'ADMIN')
 );
 
 -- 7.6. Políticas para actividades_comerciales
 CREATE POLICY "RLS_actividades_vendedor_all" ON public.actividades_comerciales
 FOR ALL USING (
-  organizacion_id = auth.jwt_organizacion_id() AND
+  organizacion_id = public.jwt_organizacion_id() AND
   vendedor_id = auth.uid()
 )
 WITH CHECK (
-  organizacion_id = auth.jwt_organizacion_id() AND
+  organizacion_id = public.jwt_organizacion_id() AND
   vendedor_id = auth.uid()
 );
 
 CREATE POLICY "RLS_actividades_supervision_select" ON public.actividades_comerciales
 FOR SELECT USING (
-  organizacion_id = auth.jwt_organizacion_id() AND
-  auth.jwt_rol() IN ('SUPERVISOR', 'ADMIN')
+  organizacion_id = public.jwt_organizacion_id() AND
+  public.jwt_rol() IN ('SUPERVISOR', 'ADMIN')
 );
 
 -- 7.7. Políticas para bitacora_auditoria (SOLO INSERCIÓN / LECTURA RESTRINGIDA)
 CREATE POLICY "RLS_bitacora_insert_all" ON public.bitacora_auditoria
 FOR INSERT WITH CHECK (
-  organizacion_id = auth.jwt_organizacion_id()
+  organizacion_id = public.jwt_organizacion_id()
 );
 
 CREATE POLICY "RLS_bitacora_admin_select" ON public.bitacora_auditoria
 FOR SELECT USING (
-  organizacion_id = auth.jwt_organizacion_id() AND
-  auth.jwt_rol() IN ('SUPERVISOR', 'ADMIN')
+  organizacion_id = public.jwt_organizacion_id() AND
+  public.jwt_rol() IN ('SUPERVISOR', 'ADMIN')
 );
 
 -- Bloqueo explícito de UPDATE y DELETE en bitácora (Inmutabilidad garantizada)

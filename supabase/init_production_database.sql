@@ -14,10 +14,12 @@ CREATE EXTENSION IF NOT EXISTS "postgis";
 -- ------------------------------------------------------------------------------
 -- 2. FUNCIONES DE CONTEXTO DE SEGURIDAD (JWT CLAIMS PARA RLS)
 -- ------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION auth.jwt_organizacion_id()
+CREATE OR REPLACE FUNCTION public.jwt_organizacion_id()
 RETURNS UUID AS $$
   SELECT NULLIF(
     COALESCE(
+      (auth.jwt() -> 'app_metadata' ->> 'organization_id'),
+      (auth.jwt() -> 'app_metadata' ->> 'organizacion_id'),
       current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'organization_id',
       current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'organizacion_id'
     ),
@@ -25,10 +27,12 @@ RETURNS UUID AS $$
   )::UUID;
 $$ LANGUAGE SQL STABLE;
 
-CREATE OR REPLACE FUNCTION auth.jwt_rol()
+CREATE OR REPLACE FUNCTION public.jwt_rol()
 RETURNS TEXT AS $$
   SELECT NULLIF(
     COALESCE(
+      (auth.jwt() -> 'app_metadata' ->> 'role'),
+      (auth.jwt() -> 'app_metadata' ->> 'rol'),
       current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'role',
       current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'rol'
     ),
@@ -216,88 +220,88 @@ ALTER TABLE public.sync_batches ENABLE ROW LEVEL SECURITY;
 -- Organizaciones
 DROP POLICY IF EXISTS "RLS_organizaciones_select" ON public.organizaciones;
 CREATE POLICY "RLS_organizaciones_select" ON public.organizaciones
-FOR SELECT USING (id = auth.jwt_organizacion_id());
+FOR SELECT USING (id = public.jwt_organizacion_id());
 
 DROP POLICY IF EXISTS "RLS_organizaciones_admin_update" ON public.organizaciones;
 CREATE POLICY "RLS_organizaciones_admin_update" ON public.organizaciones
-FOR UPDATE USING (id = auth.jwt_organizacion_id() AND auth.jwt_rol() = 'ADMIN');
+FOR UPDATE USING (id = public.jwt_organizacion_id() AND public.jwt_rol() = 'ADMIN');
 
 -- Perfiles
 DROP POLICY IF EXISTS "RLS_perfiles_select" ON public.perfiles;
 CREATE POLICY "RLS_perfiles_select" ON public.perfiles
-FOR SELECT USING (organizacion_id = auth.jwt_organizacion_id());
+FOR SELECT USING (id = auth.uid() OR organizacion_id = public.jwt_organizacion_id());
 
 DROP POLICY IF EXISTS "RLS_perfiles_admin_mutate" ON public.perfiles;
 CREATE POLICY "RLS_perfiles_admin_mutate" ON public.perfiles
-FOR ALL USING (organizacion_id = auth.jwt_organizacion_id() AND auth.jwt_rol() = 'ADMIN');
+FOR ALL USING (organizacion_id = public.jwt_organizacion_id() AND public.jwt_rol() = 'ADMIN');
 
 DROP POLICY IF EXISTS "RLS_perfiles_self_update" ON public.perfiles;
 CREATE POLICY "RLS_perfiles_self_update" ON public.perfiles
-FOR UPDATE USING (id = auth.uid() AND organizacion_id = auth.jwt_organizacion_id());
+FOR UPDATE USING (id = auth.uid() AND organizacion_id = public.jwt_organizacion_id());
 
 -- Clientes
 DROP POLICY IF EXISTS "RLS_clientes_select" ON public.clientes;
 CREATE POLICY "RLS_clientes_select" ON public.clientes
-FOR SELECT USING (organizacion_id = auth.jwt_organizacion_id());
+FOR SELECT USING (organizacion_id = public.jwt_organizacion_id());
 
 DROP POLICY IF EXISTS "RLS_clientes_admin_mutate" ON public.clientes;
 CREATE POLICY "RLS_clientes_admin_mutate" ON public.clientes
-FOR ALL USING (organizacion_id = auth.jwt_organizacion_id() AND auth.jwt_rol() = 'ADMIN');
+FOR ALL USING (organizacion_id = public.jwt_organizacion_id() AND public.jwt_rol() = 'ADMIN');
 
 -- Jornadas Laborales
 DROP POLICY IF EXISTS "RLS_jornadas_vendedor_all" ON public.jornadas_laborales;
 CREATE POLICY "RLS_jornadas_vendedor_all" ON public.jornadas_laborales
-FOR ALL USING (organizacion_id = auth.jwt_organizacion_id() AND vendedor_id = auth.uid())
-WITH CHECK (organizacion_id = auth.jwt_organizacion_id() AND vendedor_id = auth.uid());
+FOR ALL USING (organizacion_id = public.jwt_organizacion_id() AND vendedor_id = auth.uid())
+WITH CHECK (organizacion_id = public.jwt_organizacion_id() AND vendedor_id = auth.uid());
 
 DROP POLICY IF EXISTS "RLS_jornadas_supervision_select" ON public.jornadas_laborales;
 CREATE POLICY "RLS_jornadas_supervision_select" ON public.jornadas_laborales
-FOR SELECT USING (organizacion_id = auth.jwt_organizacion_id() AND auth.jwt_rol() IN ('SUPERVISOR', 'ADMIN'));
+FOR SELECT USING (organizacion_id = public.jwt_organizacion_id() AND public.jwt_rol() IN ('SUPERVISOR', 'ADMIN'));
 
 -- Ubicaciones GPS
 DROP POLICY IF EXISTS "RLS_ubicaciones_vendedor_insert" ON public.ubicaciones_gps;
 CREATE POLICY "RLS_ubicaciones_vendedor_insert" ON public.ubicaciones_gps
-FOR INSERT WITH CHECK (organizacion_id = auth.jwt_organizacion_id() AND vendedor_id = auth.uid());
+FOR INSERT WITH CHECK (organizacion_id = public.jwt_organizacion_id() AND vendedor_id = auth.uid());
 
 DROP POLICY IF EXISTS "RLS_ubicaciones_vendedor_select" ON public.ubicaciones_gps;
 CREATE POLICY "RLS_ubicaciones_vendedor_select" ON public.ubicaciones_gps
-FOR SELECT USING (organizacion_id = auth.jwt_organizacion_id() AND vendedor_id = auth.uid());
+FOR SELECT USING (organizacion_id = public.jwt_organizacion_id() AND vendedor_id = auth.uid());
 
 DROP POLICY IF EXISTS "RLS_ubicaciones_supervision_select" ON public.ubicaciones_gps;
 CREATE POLICY "RLS_ubicaciones_supervision_select" ON public.ubicaciones_gps
-FOR SELECT USING (organizacion_id = auth.jwt_organizacion_id() AND auth.jwt_rol() IN ('SUPERVISOR', 'ADMIN'));
+FOR SELECT USING (organizacion_id = public.jwt_organizacion_id() AND public.jwt_rol() IN ('SUPERVISOR', 'ADMIN'));
 
 -- Actividades Comerciales (Visitas)
 DROP POLICY IF EXISTS "RLS_actividades_vendedor_all" ON public.actividades_comerciales;
 CREATE POLICY "RLS_actividades_vendedor_all" ON public.actividades_comerciales
-FOR ALL USING (organizacion_id = auth.jwt_organizacion_id() AND vendedor_id = auth.uid())
-WITH CHECK (organizacion_id = auth.jwt_organizacion_id() AND vendedor_id = auth.uid());
+FOR ALL USING (organizacion_id = public.jwt_organizacion_id() AND vendedor_id = auth.uid())
+WITH CHECK (organizacion_id = public.jwt_organizacion_id() AND vendedor_id = auth.uid());
 
 DROP POLICY IF EXISTS "RLS_actividades_supervision_select" ON public.actividades_comerciales;
 CREATE POLICY "RLS_actividades_supervision_select" ON public.actividades_comerciales
-FOR SELECT USING (organizacion_id = auth.jwt_organizacion_id() AND auth.jwt_rol() IN ('SUPERVISOR', 'ADMIN'));
+FOR SELECT USING (organizacion_id = public.jwt_organizacion_id() AND public.jwt_rol() IN ('SUPERVISOR', 'ADMIN'));
 
 -- Bitácora de Auditoría (Insert para todos en la org; Select para Admin/Supervisor; UPDATE/DELETE denegados)
 DROP POLICY IF EXISTS "RLS_bitacora_insert_all" ON public.bitacora_auditoria;
 CREATE POLICY "RLS_bitacora_insert_all" ON public.bitacora_auditoria
-FOR INSERT WITH CHECK (organizacion_id = auth.jwt_organizacion_id());
+FOR INSERT WITH CHECK (organizacion_id = public.jwt_organizacion_id());
 
 DROP POLICY IF EXISTS "RLS_bitacora_admin_select" ON public.bitacora_auditoria;
 CREATE POLICY "RLS_bitacora_admin_select" ON public.bitacora_auditoria
-FOR SELECT USING (organizacion_id = auth.jwt_organizacion_id() AND auth.jwt_rol() IN ('SUPERVISOR', 'ADMIN'));
+FOR SELECT USING (organizacion_id = public.jwt_organizacion_id() AND public.jwt_rol() IN ('SUPERVISOR', 'ADMIN'));
 
 -- Sync Batches
 DROP POLICY IF EXISTS "Admins y Supervisores pueden consultar sync_batches de su org" ON public.sync_batches;
 CREATE POLICY "Admins y Supervisores pueden consultar sync_batches de su org" ON public.sync_batches
-FOR SELECT USING (organizacion_id = auth.jwt_organizacion_id() AND auth.jwt_rol() IN ('ADMIN', 'SUPERVISOR'));
+FOR SELECT USING (organizacion_id = public.jwt_organizacion_id() AND public.jwt_rol() IN ('ADMIN', 'SUPERVISOR'));
 
 DROP POLICY IF EXISTS "Vendedores pueden insertar sus sync_batches" ON public.sync_batches;
 CREATE POLICY "Vendedores pueden insertar sus sync_batches" ON public.sync_batches
-FOR INSERT WITH CHECK (organizacion_id = auth.jwt_organizacion_id() AND vendedor_id = auth.uid());
+FOR INSERT WITH CHECK (organizacion_id = public.jwt_organizacion_id() AND vendedor_id = auth.uid());
 
 DROP POLICY IF EXISTS "Vendedores pueden consultar sus propios sync_batches" ON public.sync_batches;
 CREATE POLICY "Vendedores pueden consultar sus propios sync_batches" ON public.sync_batches
-FOR SELECT USING (organizacion_id = auth.jwt_organizacion_id() AND vendedor_id = auth.uid());
+FOR SELECT USING (organizacion_id = public.jwt_organizacion_id() AND vendedor_id = auth.uid());
 
 -- ------------------------------------------------------------------------------
 -- 8. FUNCIONES ESPACIALES POSTGIS (TASK-019 Y TASK-007)
@@ -508,143 +512,30 @@ VALUES
 )
 ON CONFLICT (id) DO NOTHING;
 
--- 9.3. Creación y Aprovisionamiento del Usuario Administrador (bjacnier28giler@gmail.com)
+-- 9.3. Vincular Usuario Administrador (bjacnier28giler@gmail.com)
+-- Si el usuario ya fue creado en Authentication > Users, se vincula automáticamente como ADMIN.
+-- Si aún no ha sido creado, esta consulta no arroja error y se ejecutará limpiamente.
+INSERT INTO public.perfiles (id, organizacion_id, rol, nombre_completo, email, activo)
+SELECT 
+    id, 
+    '11111111-1111-4111-8111-111111111111', 
+    'ADMIN', 
+    'Bryan Jacnier Giler', 
+    email, 
+    TRUE
+FROM auth.users 
+WHERE email = 'bjacnier28giler@gmail.com'
+ON CONFLICT (id) DO UPDATE 
+SET rol = 'ADMIN', activo = TRUE, organizacion_id = '11111111-1111-4111-8111-111111111111';
+
+-- Sincronizar metadatos JWT en auth.users si ya existe
 DO $$
-DECLARE
-    v_user_id UUID;
-    v_org_id UUID := '11111111-1111-4111-8111-111111111111';
-    v_email TEXT := 'bjacnier28giler@gmail.com';
-    v_pass TEXT := 'RoutrackAdmin2026!';
 BEGIN
-    -- Buscar si ya existe el usuario en auth.users
-    SELECT id INTO v_user_id FROM auth.users WHERE email = v_email;
-
-    -- Si no existe en auth.users, crearlo directamente con credenciales activas
-    IF v_user_id IS NULL THEN
-        BEGIN
-            v_user_id := gen_random_uuid();
-            
-            INSERT INTO auth.users (
-                instance_id,
-                id,
-                aud,
-                role,
-                email,
-                encrypted_password,
-                email_confirmed_at,
-                raw_app_meta_data,
-                raw_user_meta_data,
-                created_at,
-                updated_at,
-                confirmation_token,
-                email_change,
-                email_change_token_new,
-                recovery_token
-            ) VALUES (
-                '00000000-0000-0000-0000-000000000000',
-                v_user_id,
-                'authenticated',
-                'authenticated',
-                v_email,
-                crypt(v_pass, gen_salt('bf')),
-                NOW(),
-                jsonb_build_object(
-                    'provider', 'email',
-                    'providers', jsonb_build_array('email'),
-                    'role', 'ADMIN',
-                    'organization_id', v_org_id::text
-                ),
-                jsonb_build_object(
-                    'nombre_completo', 'Bryan Jacnier Giler'
-                ),
-                NOW(),
-                NOW(),
-                '',
-                '',
-                '',
-                ''
-            );
-
-            -- Crear identidad para permitir login por email/password
-            INSERT INTO auth.identities (
-                id,
-                user_id,
-                identity_data,
-                provider,
-                provider_id,
-                last_sign_in_at,
-                created_at,
-                updated_at
-            ) VALUES (
-                v_user_id::text,
-                v_user_id,
-                format('{"sub":"%s","email":"%s"}', v_user_id::text, v_email)::jsonb,
-                'email',
-                v_user_id::text,
-                NOW(),
-                NOW(),
-                NOW()
-            );
-        EXCEPTION WHEN OTHERS THEN
-            RAISE NOTICE 'Aviso en aprovisionamiento auth.users: %', SQLERRM;
-        END;
-    END IF;
-
-    -- Asegurar vinculación en public.perfiles con ROL ADMIN
-    SELECT id INTO v_user_id FROM auth.users WHERE email = v_email;
-    IF v_user_id IS NOT NULL THEN
-        -- Actualizar metadatos del token JWT
-        UPDATE auth.users
-        SET raw_app_meta_data = COALESCE(raw_app_meta_data, '{}'::jsonb) || 
-            jsonb_build_object('role', 'ADMIN', 'organization_id', v_org_id::text),
-            raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb) || 
-            jsonb_build_object('nombre_completo', 'Bryan Jacnier Giler'),
-            email_confirmed_at = COALESCE(email_confirmed_at, NOW())
-        WHERE id = v_user_id;
-
-        -- Insertar o actualizar perfil en public.perfiles
-        INSERT INTO public.perfiles (id, organizacion_id, rol, nombre_completo, email, activo)
-        VALUES (
-            v_user_id,
-            v_org_id,
-            'ADMIN',
-            'Bryan Jacnier Giler',
-            v_email,
-            TRUE
-        )
-        ON CONFLICT (id) DO UPDATE 
-        SET rol = 'ADMIN', activo = TRUE, organizacion_id = v_org_id;
-    END IF;
+    UPDATE auth.users
+    SET raw_app_meta_data = COALESCE(raw_app_meta_data, '{}'::jsonb) || 
+        '{"role": "ADMIN", "organization_id": "11111111-1111-4111-8111-111111111111"}'::jsonb
+    WHERE email = 'bjacnier28giler@gmail.com';
+EXCEPTION WHEN OTHERS THEN
+    NULL;
 END $$;
-
--- 9.4. Trigger preventivo automático para sincronización futura de Auth -> Perfiles
-CREATE OR REPLACE FUNCTION public.handle_admin_auth_user()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.email = 'bjacnier28giler@gmail.com' THEN
-        INSERT INTO public.perfiles (id, organizacion_id, rol, nombre_completo, email, activo)
-        VALUES (
-            NEW.id,
-            '11111111-1111-4111-8111-111111111111',
-            'ADMIN',
-            COALESCE(NEW.raw_user_meta_data->>'nombre_completo', 'Bryan Jacnier Giler'),
-            NEW.email,
-            TRUE
-        )
-        ON CONFLICT (id) DO UPDATE
-        SET rol = 'ADMIN', activo = TRUE, organizacion_id = '11111111-1111-4111-8111-111111111111';
-
-        UPDATE auth.users
-        SET raw_app_meta_data = COALESCE(raw_app_meta_data, '{}'::jsonb) || 
-            '{"role": "ADMIN", "organization_id": "11111111-1111-4111-8111-111111111111"}'::jsonb
-        WHERE id = NEW.id;
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-DROP TRIGGER IF EXISTS trg_handle_admin_auth_user ON auth.users;
-CREATE TRIGGER trg_handle_admin_auth_user
-AFTER INSERT ON auth.users
-FOR EACH ROW EXECUTE FUNCTION public.handle_admin_auth_user();
 

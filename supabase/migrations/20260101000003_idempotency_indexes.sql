@@ -69,8 +69,8 @@ CREATE POLICY "Admins y Supervisores pueden consultar sync_batches de su org"
 ON public.sync_batches
 FOR SELECT
 USING (
-  organizacion_id = auth.jwt_organizacion_id()
-  AND auth.jwt_rol() IN ('ADMIN', 'SUPERVISOR')
+  organizacion_id = public.jwt_organizacion_id()
+  AND public.jwt_rol() IN ('ADMIN', 'SUPERVISOR')
 );
 
 -- 5.2. Vendedores: Inserción y consulta de sus propios lotes de sincronización
@@ -78,7 +78,7 @@ CREATE POLICY "Vendedores pueden insertar sus sync_batches"
 ON public.sync_batches
 FOR INSERT
 WITH CHECK (
-  organizacion_id = auth.jwt_organizacion_id()
+  organizacion_id = public.jwt_organizacion_id()
   AND vendedor_id = auth.uid()
 );
 
@@ -86,7 +86,7 @@ CREATE POLICY "Vendedores pueden consultar sus propios sync_batches"
 ON public.sync_batches
 FOR SELECT
 USING (
-  organizacion_id = auth.jwt_organizacion_id()
+  organizacion_id = public.jwt_organizacion_id()
   AND vendedor_id = auth.uid()
 );
 
