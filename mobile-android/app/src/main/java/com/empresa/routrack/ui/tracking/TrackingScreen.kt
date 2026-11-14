@@ -26,8 +26,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -233,7 +233,7 @@ fun TrackingScreen(
 
                     if (uiState.activeJornada != null) {
                         Spacer(modifier = Modifier.height(12.dp))
-                        Divider()
+                        HorizontalDivider()
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -306,7 +306,7 @@ fun TrackingScreen(
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
-                    Divider()
+                    HorizontalDivider()
                     Spacer(modifier = Modifier.height(12.dp))
 
                     // Última coordenada y precisión
