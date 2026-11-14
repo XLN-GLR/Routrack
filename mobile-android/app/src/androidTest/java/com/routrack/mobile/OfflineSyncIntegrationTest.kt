@@ -181,7 +181,9 @@ class OfflineSyncIntegrationTest {
             estado = JornadaEntity.ESTADO_EN_CURSO,
             sincronizado = false
         )
-        jornadaDao.insert(jornada)
+        runBlocking {
+            jornadaDao.insert(jornada)
+        }
     }
 
     @After
@@ -223,15 +225,13 @@ class OfflineSyncIntegrationTest {
 
             // Registro en bitácora de auditoría con HMAC encadenado
             val payload = HmacChainSigner.PointPayload(
-                pointId = pointId,
                 shiftId = testShiftId,
                 latitude = lat,
                 longitude = lng,
-                timestamp = pointTime,
                 accuracy = 4.5f,
+                altitude = 2850.0,
                 speed = 15.0f,
-                bearing = 45f,
-                battery = 85,
+                timestamp = pointTime,
                 isMock = false
             )
             val currentHash = HmacChainSigner.signPoint(payload, previousHash, testSecretKey)
@@ -327,15 +327,13 @@ class OfflineSyncIntegrationTest {
             ubicacionDao.insert(point)
 
             val payload = HmacChainSigner.PointPayload(
-                pointId = ptId,
                 shiftId = testShiftId,
                 latitude = point.latitud,
                 longitude = point.longitud,
-                timestamp = point.timestampCaptura,
                 accuracy = point.precision,
+                altitude = null,
                 speed = 0f,
-                bearing = 0f,
-                battery = 90,
+                timestamp = point.timestampCaptura,
                 isMock = false
             )
             val computedHash = HmacChainSigner.signPoint(payload, lastHash, testSecretKey)

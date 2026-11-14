@@ -57,8 +57,8 @@ class VisitViewModelTest {
         fakeVisitRepository = FakeVisitRepository()
         fakeShiftRepository = FakeShiftRepository()
         fakeLocationProvider = FakeLocationProvider(
-            latitude = -0.190130, // ~2 metros de distancia (Dentro de geocerca)
-            longitude = -78.487660,
+            currentLat = -0.190130, // ~2 metros de distancia (Dentro de geocerca)
+            currentLng = -78.487660,
             accuracy = 4.5f
         )
     }
@@ -355,18 +355,17 @@ class FakeShiftRepository : ShiftRepository {
     private var activeShift: JornadaEntity? = JornadaEntity(
         id = "shift-test-123",
         vendedorId = "seller-test-456",
-        fechaInicio = System.currentTimeMillis(),
-        estado = JornadaEntity.ESTADO_ABIERTA,
-        ubicacionInicioLat = -0.180653,
-        ubicacionInicioLng = -78.467834
+        fecha = "2026-11-11",
+        horaInicio = "08:00:00",
+        estado = JornadaEntity.ESTADO_EN_CURSO
     )
 
     override fun observeActiveShift(): Flow<JornadaEntity?> = flowOf(activeShift)
     override suspend fun getActiveShift(): JornadaEntity? = activeShift
-    override suspend fun startShift(sellerId: String, lat: Double, lng: Double, batteryLevel: Int?): Result<JornadaEntity> = Result.success(activeShift!!)
-    override suspend fun endShift(shiftId: String, lat: Double, lng: Double, batteryLevel: Int?, totalDistanceKm: Double): Result<JornadaEntity> = Result.success(activeShift!!)
-    override suspend fun getShiftById(shiftId: String): JornadaEntity? = if (activeShift?.id == shiftId) activeShift else null
-    override suspend fun getAllShifts(): List<JornadaEntity> = listOfNotNull(activeShift)
-    override suspend fun updateShift(shift: JornadaEntity): Result<Unit> { activeShift = shift; return Result.success(Unit) }
+    override suspend fun getShiftById(id: String): JornadaEntity? = if (activeShift?.id == id) activeShift else null
+    override suspend fun startShift(sellerId: String): Result<JornadaEntity> = Result.success(activeShift!!)
+    override suspend fun endShift(shiftId: String, totalPoints: Int): Result<JornadaEntity> = Result.success(activeShift!!)
+    override suspend fun getPendingSyncShifts(limit: Int): List<JornadaEntity> = listOfNotNull(activeShift)
+    override suspend fun markShiftAsSynced(shiftId: String): Result<Unit> = Result.success(Unit)
 }
 

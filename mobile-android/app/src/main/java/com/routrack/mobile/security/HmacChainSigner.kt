@@ -91,6 +91,12 @@ object HmacChainSigner {
     }
 
     /**
+     * Alias de conveniencia para inicialización de turno en pruebas.
+     */
+    fun generateShiftInitSeed(shiftId: String, secretKey: String): String = computeInitialSeed(shiftId, secretKey)
+    fun generateShiftInitSeed(shiftId: String, secretKey: ByteArray): String = computeInitialSeed(shiftId, secretKey)
+
+    /**
      * Calcula el hash encadenado (Hash_n) para un punto de telemetría GPS.
      */
     fun signPoint(
