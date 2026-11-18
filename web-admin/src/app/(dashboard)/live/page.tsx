@@ -24,6 +24,7 @@ import MapContainerWrapper from "@/components/map/MapContainerWrapper";
 import SellerMarker from "@/components/map/SellerMarker";
 import SellerPopupCard from "@/components/map/SellerPopup";
 import RoadSnappedPolyline from "@/components/map/RoadSnappedPolyline";
+import ShiftOriginMarker from "@/components/map/ShiftOriginMarker";
 import type { LatLngTuple } from "@/types/map";
 import {
   SellerLiveState,
@@ -359,6 +360,16 @@ export default function LiveMonitoringPage() {
                 color={selectedSeller ? OPERATIONAL_STATUS_CONFIGS[selectedSeller.status].colorHex : "#2563EB"}
                 weight={5}
                 opacity={0.85}
+              />
+            )}
+
+            {/* Marcador de Inicio de Turno (Punto de Partida del Vendedor Seleccionado) */}
+            {selectedSeller && selectedSellerRoutePoints.length >= 1 && (
+              <ShiftOriginMarker
+                point={selectedSellerRoutePoints[0]}
+                sellerName={selectedSeller.sellerName}
+                label="Inicio de Turno"
+                startTime="08:15 AM"
               />
             )}
 

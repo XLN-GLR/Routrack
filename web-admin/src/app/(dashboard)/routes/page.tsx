@@ -240,6 +240,7 @@ export default function RoutesHistoryPage() {
   const [selectedDate, setSelectedDate] = useState<string>("2026-11-08");
   const [showDeviations, setShowDeviations] = useState<boolean>(true);
   const [showStops, setShowStops] = useState<boolean>(true);
+  const [enableRoadMatching, setEnableRoadMatching] = useState<boolean>(true);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [activeTab, setActiveTab] = useState<"stops" | "deviations">("deviations");
 
@@ -340,6 +341,21 @@ export default function RoutesHistoryPage() {
               className="rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-2.5 text-xs font-semibold text-slate-700 shadow-xs focus:border-blue-600 focus:outline-none cursor-pointer"
             />
           </div>
+
+          {/* Toggle Map-Matching OSRM sobre calles reales */}
+          <button
+            type="button"
+            onClick={() => setEnableRoadMatching(!enableRoadMatching)}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+              enableRoadMatching
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+            }`}
+            title="Alternar entre trazado ajustado a calles reales (OSRM) y vectores directos"
+          >
+            <Compass className="h-3.5 w-3.5 text-emerald-600" />
+            <span>{enableRoadMatching ? "Vía Real (OSRM)" : "Vía Directa"}</span>
+          </button>
 
           {/* Toggle de Desvíos */}
           <button
@@ -456,13 +472,14 @@ export default function RoutesHistoryPage() {
             showControls={true}
             onMapReady={handleMapReady}
           >
-            {/* Trazado de Ruta y Desvíos */}
+            {/* Trazado de Ruta y Desvíos con Ajuste Vial */}
             <RoutePolyline
               points={points}
               referenceStops={stops}
               deviationThresholdMeters={DEFAULT_DEVIATION_THRESHOLD_METERS}
               showStops={showStops}
               showDeviations={showDeviations}
+              enableRoadMatching={enableRoadMatching}
               fitBoundsOnMount={true}
               onSelectDeviation={handleFocusDeviation}
             />

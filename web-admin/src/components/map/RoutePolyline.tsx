@@ -11,6 +11,8 @@ import {
   groupIntoDeviationSegments,
   DEFAULT_DEVIATION_THRESHOLD_METERS,
 } from "@/lib/geo/deviations";
+import { snapCoordinatesToRoads } from "@/lib/map/roadMatching";
+import type { LatLngTuple } from "@/types/map";
 import { useMapInstance } from "./MapView";
 
 export interface RoutePolylineProps {
@@ -20,6 +22,7 @@ export interface RoutePolylineProps {
   showStops?: boolean;
   showDeviations?: boolean;
   fitBoundsOnMount?: boolean;
+  enableRoadMatching?: boolean;
   onSelectDeviation?: (deviation: DeviationSegment) => void;
 }
 
@@ -45,6 +48,7 @@ export default function RoutePolyline({
   showStops = true,
   showDeviations = true,
   fitBoundsOnMount = true,
+  enableRoadMatching = true,
   onSelectDeviation,
 }: RoutePolylineProps) {
   const map = useMapInstance();
@@ -55,7 +59,8 @@ export default function RoutePolyline({
 
     let isMounted = true;
 
-    getLeaflet().then((L) => {
+    getLeaflet().then(async (L) => {
+      if (!isMounted || !map) return;
 
       // Limpiar capas previas si existen de forma segura
       if (layerGroupRef.current) {
@@ -74,15 +79,34 @@ export default function RoutePolyline({
 
       // 1. Criterio 1: Ordenar cronológicamente los puntos de telemetría para evitar deformaciones
       const sortedPoints = sortPointsChronologically(points);
-      const latLngs: [number, number][] = sortedPoints.map((p) => [p.latitude, p.longitude]);
+      const rawLatLngs: LatLngTuple[] = sortedPoints.map((p) => [p.latitude, p.longitude]);
 
-      if (latLngs.length < 2) return;
+      if (rawLatLngs.length < 2) return;
 
-      // 2. Trazo de la Polilínea Principal en Azul Tránsito (#2563EB)
-      const mainPolyline = L.polyline(latLngs, {
+      // 2. Trazo de la Polilínea Principal: Map-Matching vial sobre calles reales con OSRM ($0 USD)
+      let displayCoords: LatLngTuple[] = rawLatLngs;
+
+      if (enableRoadMatching) {
+        try {
+          const matched = await snapCoordinatesToRoads(rawLatLngs, {
+            overview: "full",
+            timeoutMs: 6000,
+          });
+          if (isMounted && matched.polyline.length >= 2) {
+            displayCoords = matched.polyline;
+          }
+        } catch {
+          // Si OSRM no responde o hay degradación, fallback geodésico suave
+          displayCoords = rawLatLngs;
+        }
+      }
+
+      if (!isMounted) return;
+
+      const mainPolyline = L.polyline(displayCoords, {
         color: "#2563EB",
         weight: 4,
-        opacity: 0.85,
+        opacity: 0.88,
         lineJoin: "round",
         lineCap: "round",
       }).addTo(layerGroup);
@@ -231,7 +255,7 @@ export default function RoutePolyline({
       }
 
       // 6. Encuadre Automático de la Ruta
-      if (fitBoundsOnMount && latLngs.length > 0) {
+      if (fitBoundsOnMount && rawLatLngs.length > 0) {
         map.fitBounds(mainPolyline.getBounds(), {
           padding: [40, 40],
           maxZoom: 16,
@@ -261,6 +285,7 @@ export default function RoutePolyline({
     showStops,
     showDeviations,
     fitBoundsOnMount,
+    enableRoadMatching,
     onSelectDeviation,
   ]);
 
