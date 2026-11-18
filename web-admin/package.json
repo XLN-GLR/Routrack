@@ -21,6 +21,7 @@
     "test:live": "node scripts/run-live-monitoring-tests.mjs",
     "test:map": "node scripts/run-map-tests.mjs",
     "test:reports": "node scripts/run-reports-tests.mjs",
+    "test:road-matching": "node scripts/run-road-matching-tests.mjs",
     "test:routes": "node scripts/run-routes-tests.mjs",
     "test:spatial": "node scripts/run-spatial-tests.mjs",
     "test:visits": "node scripts/run-visit-tests.mjs"

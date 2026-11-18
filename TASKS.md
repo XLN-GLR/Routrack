@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 35
-- **Tareas Completadas:** 31 (`TASK-001` a `TASK-031`)
+- **Tareas Completadas:** 32 (`TASK-001` a `TASK-032`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 4 (`TASK-032` a `TASK-035`)
+- **Tareas Pendientes:** 3 (`TASK-033` a `TASK-035`)
 
 ---
 
@@ -652,7 +652,7 @@
 
 ## FASE 10: Slice Vertical de Movimiento Real por Calles (Map-Matching y Navegación GPS)
 
-### [ ] TASK-032 — Motor de Map-Matching y Snap-to-Roads con OpenStreetMap/OSRM a costo $0 USD para ajuste vial real
+### [x] TASK-032 — Motor de Map-Matching y Snap-to-Roads con OpenStreetMap/OSRM a costo $0 USD para ajuste vial real
 - **Identificador:** `TASK-032`
 - **Nombre:** Motor de Map-Matching y Snap-to-Roads con OpenStreetMap/OSRM a costo $0 USD para ajuste vial real
 - **Descripción:** Implementar el módulo de utilidad geoespacial en `web-admin` que consume el servicio de Map-Matching de OSRM (o procesador vial local sobre geometría de OpenStreetMap a costo $0 USD) para convertir una secuencia de coordenadas GPS crudas con ruido satelital en una polilínea vial ajustada a las calzadas y avenidas reales, respetando el sentido de circulación y la geometría de las calles.
@@ -661,11 +661,13 @@
   - `web-admin/src/lib/map/roadMatching.ts`
   - `web-admin/src/lib/map/osrmClient.ts`
   - `web-admin/src/types/map.ts`
+  - `web-admin/scripts/run-road-matching-tests.mjs`
+  - `web-admin/package.json`
 - **Criterios de Aceptación:**
   1. Transforma las nubes de puntos GPS en trayectorias sobre el trazado físico de las calles.
   2. Cero consumo de APIs de pago (mantiene el principio de $0 USD de infraestructura).
   3. Manejo de fallbacks elegante: si el servicio OSRM no responde o no hay cobertura vial, recurre a interpolación geodésica sin bloquear la vista.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-033 — Muestreo cinemático adaptativo por rumbo (bearing) y distancias viales en cliente Android
 - **Identificador:** `TASK-033`

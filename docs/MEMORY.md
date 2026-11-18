@@ -41,8 +41,8 @@
 
 ## 3. Fase Actual del Proyecto
 
-- **Fase Activa:** **FASE 9: Slice Vertical de Captura y Auditoría de Interacciones de Texto en Dispositivos Corporativos.**
-- **Progreso Global:** 29 de 35 tareas completadas (82.9% de avance del proyecto ampliado con el backlog de requerimientos core del caso de estudio). Fases 0 a 8 completadas al 100%; TASK-029 completada y verificada empíricamente; Fases 9, 10 y 11 en ejecución activa para incorporar la auditoría de texto en dispositivos corporativos y la navegación vial realista calle por calle (Map-Matching a costo $0 USD).
+- **Fase Activa:** **FASE 10: Slice Vertical de Movimiento Real por Calles (Map-Matching y Navegación GPS).**
+- **Progreso Global:** 32 de 35 tareas completadas (91.4% de avance del proyecto ampliado con el backlog de requerimientos core del caso de estudio). Fases 0 a 9 completadas al 100%; TASK-032 completada y verificada empíricamente; Tareas 33 a 35 en ruta para finalizar la navegación vial realista y la suite final de pruebas integradas.
 
 ---
 
@@ -241,8 +241,14 @@
   - Consolidación en Reportes (`web-admin/src/app/(dashboard)/reports/page.tsx`): Integración de pestaña "Auditoría de Textos Corporativos", consulta centralizada a `interacciones_texto` en Supabase y enlaces directos de auditoría en la tabla de jornadas.
   - Verificación Automatizada (`web-admin/scripts/run-text-audit-tests.mjs`): 10 de 10 pruebas unitarias aprobadas (100% PASS) y compilación limpia en TypeScript (`tsc --noEmit`) y producción (`next build`).
 
+- **[x] TASK-032 — Motor de Map-Matching y Snap-to-Roads con OpenStreetMap/OSRM a costo $0 USD para ajuste vial real:**
+  - Tipos TypeScript Estrictos (`web-admin/src/types/map.ts`): Modelado riguroso sin `any` para `LatLngTuple`, `RoadSnappedPoint`, `RoadMatchedRoute`, `MapMatchingOptions`, `OsrmMatchResponse`, `OsrmMatching` y `OsrmTracepoint`.
+  - Cliente OSRM de Código Abierto (`web-admin/src/lib/map/osrmClient.ts`): Conexión directa al servicio de Map-Matching libre sobre OpenStreetMap (`https://router.project-osrm.org/match/v1/`), con soporte de variables de entorno públicas (`NEXT_PUBLIC_OSRM_URL`), conversión `{lng},{lat}`, `AbortController` con timeout configurable (6000ms), radiuses de tolerancia satelital (35m) y manejo de excepciones resiliente a $0 USD de costo.
+  - Motor de Ajuste Vial y Chunking (`web-admin/src/lib/map/roadMatching.ts`): Algoritmo de ajuste `snapCoordinatesToRoads` con particionado automático de trayectorias extensas en bloques de 80 coordenadas con solapamiento, transformación matemática de geometrías GeoJSON `[lng, lat]` hacia la convención Leaflet `[lat, lng]`, y caché determinista en memoria LRU para máximo desempeño en renderizados continuos.
+  - Fallback Geodésico Resiliente (`createGeodesicFallbackRoute`): Mecanismo de respaldo que calcula distancias Haversine precisas reutilizando `deviations.ts` ante pérdidas de conexión, timeouts o nubes de puntos fuera de calzadas viales, garantizando continuidad y cero bloqueos de la interfaz de usuario.
+  - Suite de Pruebas Automatizadas (`web-admin/scripts/run-road-matching-tests.mjs`): 10 de 10 pruebas aprobadas (100% PASS), validación de contratos, verificación estricta de TypeScript (`tsc --noEmit` con 0 errores) y empaquetado de producción Next.js (`npm run build`) generando 11/11 rutas estáticas.
+
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-032:** Motor de Map-Matching y Snap-to-Roads con OpenStreetMap/OSRM a costo $0 USD para ajuste vial real.
 - **[ ] TASK-033:** Muestreo cinemático adaptativo por rumbo (bearing) y distancias viales en cliente Android.
 - **[ ] TASK-034:** Animación cinemática continua de marcadores vehiculares y trazado de polilíneas viales en Monitoreo en Vivo (/live).
 - **[ ] TASK-035:** Suites de pruebas unitarias, de integración y E2E para auditoría de texto y navegación vial realista.
@@ -251,10 +257,10 @@
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno.* La auditoría web de textos corporativos se encuentra completamente integrada en el panel administrativo, con tipado estricto y compilación de producción verificada.
+- *Ninguno.* El módulo de Map-Matching y ajuste a calles viales está completamente integrado en `web-admin` bajo costos $0 USD, con fallback resiliente validado al 100%.
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- **Iniciar TASK-032:** Motor de Map-Matching y Snap-to-Roads con OpenStreetMap/OSRM a costo $0 USD para ajuste vial real en `web-admin` (`src/lib/map/roadMatching.ts`).
+- **Iniciar TASK-033:** Muestreo cinemático adaptativo por rumbo (bearing) y distancias viales en cliente Android (`mobile-android/app/src/main/java/com/routrack/mobile/services/TrackingForegroundService.kt`).
