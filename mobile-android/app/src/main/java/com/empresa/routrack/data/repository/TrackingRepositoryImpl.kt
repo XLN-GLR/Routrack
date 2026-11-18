@@ -61,6 +61,7 @@ class TrackingRepositoryImpl(
         precision: Float,
         altitud: Double?,
         velocidad: Float?,
+        bearing: Float?,
         timestamp: Long,
         isMock: Boolean
     ): Result<UbicacionGpsEntity> = withContext(ioDispatcher) {
@@ -82,6 +83,8 @@ class TrackingRepositoryImpl(
                 append("{\"lat\":").append(latitud)
                 append(",\"lng\":").append(longitud)
                 append(",\"accuracy\":").append(precision)
+                if (velocidad != null) append(",\"speed\":").append(velocidad)
+                if (bearing != null) append(",\"bearing\":").append(bearing)
                 append(",\"isMock\":").append(isMock)
                 append("}")
             }

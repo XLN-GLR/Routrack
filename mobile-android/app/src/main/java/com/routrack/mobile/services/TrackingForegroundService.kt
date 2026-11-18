@@ -61,6 +61,15 @@ open class TrackingForegroundService : Service() {
         private const val CHANNEL_ID = "routrack_adaptive_tracking_channel"
         private const val CHANNEL_NAME = "ROUTRACK Rastreo de Jornada"
 
+        // Constantes Cinemáticas de Muestreo Reactivo (TASK-033)
+        const val BEARING_CHANGE_THRESHOLD_DEGREES = 15.0f
+        const val MIN_CORNER_DISTANCE_METERS = 5.0f
+        const val MIN_VEHICLE_DISTANCE_METERS = 15.0f
+        const val MIN_WALKING_DISTANCE_METERS = 10.0f
+        const val MIN_STILL_DISTANCE_METERS = 25.0f
+        const val MIN_SPEED_FOR_BEARING_MPS = 0.8f
+        const val MAX_HEARTBEAT_INTERVAL_MS = 60_000L
+
         private val _isTracking = MutableStateFlow(false)
         val isTracking = _isTracking.asStateFlow()
 
@@ -112,6 +121,151 @@ open class TrackingForegroundService : Service() {
             }
             context.startService(intent)
         }
+
+        /**
+         * Calcula la distancia geodésica exacta entre dos coordenadas WGS84 utilizando la fórmula de Haversine.
+         */
+        fun calculateHaversineDistanceMeters(
+            lat1: Double, lon1: Double,
+            lat2: Double, lon2: Double
+        ): Double {
+            val earthRadius = 6371000.0 // Radio terrestre en metros
+            val dLat = Math.toRadians(lat2 - lat1)
+            val dLon = Math.toRadians(lon2 - lon1)
+            val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+            val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1.0 - a))
+            return earthRadius * c
+        }
+
+        /**
+         * Calcula el rumbo geodésico inicial (bearing / azimut) en grados [0.0, 360.0) desde el punto previo al actual.
+         */
+        fun calculateBearing(
+            prevLat: Double, prevLng: Double,
+            newLat: Double, newLng: Double
+        ): Float {
+            val phi1 = Math.toRadians(prevLat)
+            val phi2 = Math.toRadians(newLat)
+            val deltaLambda = Math.toRadians(newLng - prevLng)
+
+            val y = Math.sin(deltaLambda) * Math.cos(phi2)
+            val x = Math.cos(phi1) * Math.sin(phi2) -
+                    Math.sin(phi1) * Math.cos(phi2) * Math.cos(deltaLambda)
+
+            val initialBearing = Math.toDegrees(Math.atan2(y, x))
+            return (((initialBearing + 360.0) % 360.0)).toFloat()
+        }
+
+        /**
+         * Calcula la diferencia angular mínima entre dos rumbos (bearing delta) en el rango [0.0, 180.0].
+         * Maneja correctamente la discontinuidad en el norte (360° / 0°).
+         */
+        fun calculateBearingDelta(bearingA: Float, bearingB: Float): Float {
+            val diff = Math.abs(((bearingB - bearingA + 540.0) % 360.0) - 180.0)
+            return diff.toFloat()
+        }
+
+        /**
+         * Algoritmo cinemático adaptativo de muestreo por rumbo y distancia (TASK-033).
+         * Determina si una coordenada recibida amerita ser persistida en base de datos local y firmada con HMAC,
+         * o si debe descartarse para preservar la batería del dispositivo móvil (< 5-7% por jornada de 8h).
+         */
+        fun shouldSampleLocation(
+            newLocation: Location,
+            lastSampled: Location?,
+            activityType: Int
+        ): Boolean {
+            // 1. El primer punto de la jornada siempre se registra
+            if (lastSampled == null) return true
+
+            val distance = calculateHaversineDistanceMeters(
+                lastSampled.latitude, lastSampled.longitude,
+                newLocation.latitude, newLocation.longitude
+            )
+            val timeDeltaMs = Math.max(1L, newLocation.time - lastSampled.time)
+
+            // Determinar orientación actual del desplazamiento
+            val currentBearing = if (newLocation.hasBearing() && newLocation.bearing > 0f) {
+                newLocation.bearing
+            } else if (distance >= 1.0) {
+                calculateBearing(
+                    lastSampled.latitude, lastSampled.longitude,
+                    newLocation.latitude, newLocation.longitude
+                )
+            } else {
+                null
+            }
+
+            // Determinar orientación previa del desplazamiento
+            val previousBearing = if (lastSampled.hasBearing() && lastSampled.bearing > 0f) {
+                lastSampled.bearing
+            } else {
+                null
+            }
+
+            // Calcular diferencia angular si se cuenta con ambos rumbos
+            val bearingDelta = if (currentBearing != null && previousBearing != null) {
+                calculateBearingDelta(previousBearing, currentBearing)
+            } else {
+                0.0f
+            }
+
+            return when (activityType) {
+                DetectedActivity.IN_VEHICLE -> {
+                    // Detección de giro reactivo en esquinas viales (Δθ >= 15° y distancia mínima de 5m)
+                    if (bearingDelta >= BEARING_CHANGE_THRESHOLD_DEGREES && distance >= MIN_CORNER_DISTANCE_METERS) {
+                        true
+                    }
+                    // Desplazamiento lineal continuo en avenida o carretera (>= 15 metros)
+                    else if (distance >= MIN_VEHICLE_DISTANCE_METERS) {
+                        true
+                    }
+                    // Heartbeat temporal ante semáforo prolongado o congestión vehicular
+                    else if (timeDeltaMs >= 30_000L && distance >= 3.0) {
+                        true
+                    } else {
+                        false
+                    }
+                }
+                DetectedActivity.STILL -> {
+                    // Estado detenido: Solo registrar si el vendedor superó la geocerca de parada (>= 25m)
+                    // o tras intervalo prolongado de latencia (90s) para confirmar presencia sin drenar batería
+                    if (distance >= MIN_STILL_DISTANCE_METERS) {
+                        true
+                    } else if (timeDeltaMs >= 90_000L) {
+                        true
+                    } else {
+                        false
+                    }
+                }
+                DetectedActivity.WALKING, DetectedActivity.ON_FOOT -> {
+                    // Desplazamiento peatonal: giros de esquina a pie o paso peatonal (>= 10m)
+                    if (bearingDelta >= 25.0f && distance >= MIN_CORNER_DISTANCE_METERS) {
+                        true
+                    } else if (distance >= MIN_WALKING_DISTANCE_METERS) {
+                        true
+                    } else if (timeDeltaMs >= 30_000L) {
+                        true
+                    } else {
+                        false
+                    }
+                }
+                else -> {
+                    // Perfil balanceado por defecto ante actividad desconocida
+                    if (bearingDelta >= BEARING_CHANGE_THRESHOLD_DEGREES && distance >= MIN_CORNER_DISTANCE_METERS) {
+                        true
+                    } else if (distance >= 10.0f) {
+                        true
+                    } else if (timeDeltaMs >= 20_000L) {
+                        true
+                    } else {
+                        false
+                    }
+                }
+            }
+        }
     }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -122,6 +276,10 @@ open class TrackingForegroundService : Service() {
     private var currentVendedorId: String = ""
     private var activityPendingIntent: PendingIntent? = null
     private var currentActivityType: Int = DetectedActivity.UNKNOWN
+
+    // Estado local para el filtro cinemático adaptativo (TASK-033)
+    private var lastSampledLocation: Location? = null
+    private var lastSampledBearing: Float? = null
 
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -234,6 +392,8 @@ open class TrackingForegroundService : Service() {
         _isTracking.value = false
         _activeJornadaId.value = null
         _activeVendedorId.value = null
+        lastSampledLocation = null
+        lastSampledBearing = null
 
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -313,6 +473,61 @@ open class TrackingForegroundService : Service() {
             scope = serviceScope
         )
 
+        // Algoritmo de Muestreo Cinemático Adaptativo (TASK-033):
+        // Evalúa cambios angulares de orientación (Δθ >= 15° en esquinas), avance vial y ahorro de batería (RNF-01)
+        val shouldSample = shouldSampleLocation(
+            newLocation = location,
+            lastSampled = lastSampledLocation,
+            activityType = currentActivityType
+        )
+
+        if (!shouldSample) {
+            // Se descartan coordenadas redundantes intermedias para mantener el consumo de batería < 5-7%
+            return
+        }
+
+        val previousSample = lastSampledLocation
+        lastSampledLocation = location
+
+        // Cálculo o propagación de rumbo (bearing) y velocidad instantánea
+        val effectiveBearing: Float? = if (location.hasBearing() && location.bearing > 0f) {
+            location.bearing
+        } else if (previousSample != null) {
+            val dist = calculateHaversineDistanceMeters(
+                previousSample.latitude, previousSample.longitude,
+                location.latitude, location.longitude
+            )
+            if (dist >= 1.0) {
+                calculateBearing(
+                    previousSample.latitude, previousSample.longitude,
+                    location.latitude, location.longitude
+                )
+            } else {
+                lastSampledBearing
+            }
+        } else {
+            null
+        }
+
+        lastSampledBearing = effectiveBearing
+
+        val effectiveSpeed: Float? = if (location.hasSpeed()) {
+            location.speed
+        } else if (previousSample != null) {
+            val dist = calculateHaversineDistanceMeters(
+                previousSample.latitude, previousSample.longitude,
+                location.latitude, location.longitude
+            )
+            val timeDeltaMs = location.time - previousSample.time
+            if (timeDeltaMs > 0) {
+                (dist / (timeDeltaMs / 1000.0)).toFloat()
+            } else {
+                null
+            }
+        } else {
+            null
+        }
+
         serviceScope.launch {
             // Persistencia en Room mediante TrackingRepository con encadenamiento HMAC
             trackingRepository.recordLocation(
@@ -321,7 +536,8 @@ open class TrackingForegroundService : Service() {
                 longitud = location.longitude,
                 precision = location.accuracy,
                 altitud = if (location.hasAltitude()) location.altitude else null,
-                velocidad = if (location.hasSpeed()) location.speed else null,
+                velocidad = effectiveSpeed,
+                bearing = effectiveBearing,
                 timestamp = location.time,
                 isMock = securityAudit.isMock
             )

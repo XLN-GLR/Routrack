@@ -46,6 +46,7 @@ interface TrackingRepository {
     /**
      * Registra atómicamente un nuevo punto GPS y genera el evento de auditoría
      * con su respectivo hash HMAC-SHA256 encadenado.
+     * Incluye cálculo cinemático de orientación (bearing) y velocidad instantánea (TASK-033).
      */
     suspend fun recordLocation(
         shiftId: String,
@@ -54,6 +55,7 @@ interface TrackingRepository {
         precision: Float,
         altitud: Double? = null,
         velocidad: Float? = null,
+        bearing: Float? = null,
         timestamp: Long = System.currentTimeMillis(),
         isMock: Boolean = false
     ): Result<UbicacionGpsEntity>

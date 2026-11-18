@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 35
-- **Tareas Completadas:** 32 (`TASK-001` a `TASK-032`)
+- **Tareas Completadas:** 33 (`TASK-001` a `TASK-033`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 3 (`TASK-033` a `TASK-035`)
+- **Tareas Pendientes:** 2 (`TASK-034` y `TASK-035`)
 
 ---
 
@@ -669,7 +669,7 @@
   3. Manejo de fallbacks elegante: si el servicio OSRM no responde o no hay cobertura vial, recurre a interpolación geodésica sin bloquear la vista.
 - **Estado:** Completada.
 
-### [ ] TASK-033 — Muestreo cinemático adaptativo por rumbo (bearing) y distancias viales en cliente Android
+### [x] TASK-033 — Muestreo cinemático adaptativo por rumbo (bearing) y distancias viales en cliente Android
 - **Identificador:** `TASK-033`
 - **Nombre:** Muestreo cinemático adaptativo por rumbo (bearing) y distancias viales en cliente Android
 - **Descripción:** Optimizar el algoritmo de captura en `TrackingForegroundService` del cliente móvil Android para muestrear de forma reactiva ante cambios de rumbo angular ($\Delta \theta \ge 15^\circ$) y distancias mínimas en esquinas cuando el vendedor se desplaza en vehículo o motocicleta. Asegura que la nube de coordenadas capture los vértices exactos de los giros de calle sin disparar el consumo de batería.
@@ -677,11 +677,14 @@
 - **Archivos Involucrados:**
   - `mobile-android/app/src/main/java/com/routrack/mobile/services/TrackingForegroundService.kt`
   - `mobile-android/app/src/main/java/com/empresa/routrack/data/repository/TrackingRepositoryImpl.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/repository/TrackingRepository.kt`
+  - `mobile-android/app/src/test/java/com/routrack/mobile/services/TrackingForegroundServiceTest.kt`
+  - `mobile-android/scripts/validate-kinematic-sampling.mjs`
 - **Criterios de Aceptación:**
   1. Captura con alta resolución los cambios de dirección en curvas y esquinas de calle.
   2. El consumo de batería se mantiene dentro del umbral estipulado (< 5-7% por jornada de 8h).
   3. Se calculan correctamente los ángulos de orientación (*bearing*) y velocidades instantáneas.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-034 — Animación cinemática continua de marcadores vehiculares y trazado de polilíneas viales en Monitoreo en Vivo (/live)
 - **Identificador:** `TASK-034`

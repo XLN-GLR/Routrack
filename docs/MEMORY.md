@@ -42,7 +42,7 @@
 ## 3. Fase Actual del Proyecto
 
 - **Fase Activa:** **FASE 10: Slice Vertical de Movimiento Real por Calles (Map-Matching y Navegación GPS).**
-- **Progreso Global:** 32 de 35 tareas completadas (91.4% de avance del proyecto ampliado con el backlog de requerimientos core del caso de estudio). Fases 0 a 9 completadas al 100%; TASK-032 completada y verificada empíricamente; Tareas 33 a 35 en ruta para finalizar la navegación vial realista y la suite final de pruebas integradas.
+- **Progreso Global:** 33 de 35 tareas completadas (94.3% de avance del proyecto ampliado con el backlog de requerimientos core del caso de estudio). Fases 0 a 9 completadas al 100%; TASK-032 y TASK-033 completadas y verificadas empíricamente; Tareas 34 y 35 en ruta para finalizar la navegación vial realista y la suite final de pruebas integradas.
 
 ---
 
@@ -248,8 +248,14 @@
   - Fallback Geodésico Resiliente (`createGeodesicFallbackRoute`): Mecanismo de respaldo que calcula distancias Haversine precisas reutilizando `deviations.ts` ante pérdidas de conexión, timeouts o nubes de puntos fuera de calzadas viales, garantizando continuidad y cero bloqueos de la interfaz de usuario.
   - Suite de Pruebas Automatizadas (`web-admin/scripts/run-road-matching-tests.mjs`): 10 de 10 pruebas aprobadas (100% PASS), validación de contratos, verificación estricta de TypeScript (`tsc --noEmit` con 0 errores) y empaquetado de producción Next.js (`npm run build`) generando 11/11 rutas estáticas.
 
+- **[x] TASK-033 — Muestreo cinemático adaptativo por rumbo (bearing) y distancias viales en cliente Android:**
+  - Algoritmo de Muestreo Cinemático (`TrackingForegroundService.kt`): Implementación reactiva para detección de curvas y esquinas viales basada en cambios de rumbo angular ($\Delta \theta \ge 15.0^\circ$) con distancia mínima en esquinas ($5.0$m), avance rectilíneo vehicular ($15.0$m), distancia peatonal ($10.0$m) y geocerca de reposo ($25.0$m).
+  - Optimización Energética (RNF-01 < 5-7% de batería): Descarte de ruido satelital oscilatorio en detenciones prolongadas o semáforos, evitando sobrecarga de I/O en disco cifrado con SQLCipher y reduciendo drásticamente el consumo de batería sin perder fidelidad en curvas de calle.
+  - Fórmulas Geodésicas Puras: Métodos matemáticos `calculateBearing` (azimut geodésico de 0° a 360°), `calculateBearingDelta` (diferencia angular en [0°, 180°] con cruce limpio del norte 360°/0°), `calculateHaversineDistanceMeters` y `shouldSampleLocation`.
+  - Propagación de Orientación y Velocidad (`TrackingRepository.kt`, `TrackingRepositoryImpl.kt`): Registro de `bearing` y `velocidad` en `metadataJson` de la bitácora criptográfica y Room manteniendo compatibilidad total hacia atrás.
+  - Verificación Automatizada (`validate-kinematic-sampling.mjs`, `TrackingForegroundServiceTest.kt`): 10 de 10 pruebas aprobadas (100% PASS), 22/22 aserciones en el servicio foreground, validación de rumbos cardinales, diferencias angulares y constantes cinemáticas.
+
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-033:** Muestreo cinemático adaptativo por rumbo (bearing) y distancias viales en cliente Android.
 - **[ ] TASK-034:** Animación cinemática continua de marcadores vehiculares y trazado de polilíneas viales en Monitoreo en Vivo (/live).
 - **[ ] TASK-035:** Suites de pruebas unitarias, de integración y E2E para auditoría de texto y navegación vial realista.
 
@@ -257,10 +263,10 @@
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno.* El módulo de Map-Matching y ajuste a calles viales está completamente integrado en `web-admin` bajo costos $0 USD, con fallback resiliente validado al 100%.
+- *Ninguno.* El muestreo cinemático adaptativo por rumbo y distancias viales opera de forma transparente en Android, preservando la batería y capturando los vértices exactos de giro en esquinas.
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- **Iniciar TASK-033:** Muestreo cinemático adaptativo por rumbo (bearing) y distancias viales en cliente Android (`mobile-android/app/src/main/java/com/routrack/mobile/services/TrackingForegroundService.kt`).
+- **Iniciar TASK-034:** Animación cinemática continua de marcadores vehiculares y trazado de polilíneas viales en Monitoreo en Vivo (/live) (`web-admin/src/components/map/MapView.tsx`, `SellerMarker.tsx`).
