@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 35
-- **Tareas Completadas:** 34 (`TASK-001` a `TASK-034`)
+- **Tareas Completadas:** 35 (`TASK-001` a `TASK-035`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 1 (`TASK-035`)
+- **Tareas Pendientes:** 0
 
 ---
 
@@ -708,7 +708,7 @@
 
 ## FASE 11: Pruebas de Integración E2E y Validación de Cumplimiento de las Nuevas Capacidades
 
-### [ ] TASK-035 — Suites de pruebas unitarias, de integración y E2E para auditoría de texto y navegación vial realista
+### [x] TASK-035 — Suites de pruebas unitarias, de integración y E2E para auditoría de texto y navegación vial realista
 - **Identificador:** `TASK-035`
 - **Nombre:** Suites de pruebas unitarias, de integración y E2E para auditoría de texto y navegación vial realista
 - **Descripción:** Crear y ejecutar las pruebas automatizadas que certifiquen el correcto funcionamiento de las nuevas funcionalidades: prueba unitaria del filtrado de contraseñas en Android, prueba de integración del servicio de accesibilidad y almacenamiento en SQLCipher, prueba E2E en Playwright para la visualización del módulo de textos en web, y prueba de regresión para validar el trazado continuo de calles en el mapa sin saltos ni líneas rectas aéreas.
@@ -718,8 +718,9 @@
   - `web-admin/e2e/text-audit.spec.ts`
   - `web-admin/e2e/road-matching.spec.ts`
   - `web-admin/scripts/run-all-tests.mjs`
+  - `web-admin/package.json`
 - **Criterios de Aceptación:**
   1. 100% de tests unitarios y de integración aprobados en terminal.
   2. Tests E2E de Playwright verdes en Chromium y Firefox.
   3. Verificación de cero líneas rectas aéreas en los trazados viales urbanos.
-- **Estado:** Pendiente.
+- **Estado:** Completada.

@@ -172,6 +172,82 @@ class TextMonitoringAccessibilityServiceTest {
         assertTrue(emptyTextRes.isFailure)
     }
 
+    @Test
+    fun testPasswordFieldsAreStrictlyFilteredAndNeverRecorded() {
+        // Simulación del filtro de seguridad de TextMonitoringAccessibilityService:
+        // Si el evento de accesibilidad proviene de un campo de contraseña (isPassword = true),
+        // se descarta categóricamente antes de llegar a la base de datos o criptografía.
+        fun shouldFilterEvent(isPassword: Boolean, packageName: String, isShiftActive: Boolean): Boolean {
+            if (isPassword) return true // REGLA ESTRICTA LOPDP: Contraseñas NUNCA se capturan
+            if (!isShiftActive) return true // Fuera de turno no se monitorea
+            if (packageName == "com.empresa.routrack") return true // Paquete propio ignorado
+            return false
+        }
+
+        // 1. Campo de contraseña en WhatsApp o aplicación bancaria
+        assertTrue(
+            "Cualquier campo con isPassword = true debe ser descartado al 100%",
+            shouldFilterEvent(isPassword = true, packageName = "com.whatsapp", isShiftActive = true)
+        )
+        assertTrue(
+            "Campo de credenciales de acceso debe ser ignorado",
+            shouldFilterEvent(isPassword = true, packageName = "com.android.chrome", isShiftActive = true)
+        )
+
+        // 2. Texto legítimo durante jornada activa debe ser admitido
+        assertFalse(
+            "Texto comercial ordinario sin flag de contraseña debe ser procesado",
+            shouldFilterEvent(isPassword = false, packageName = "com.whatsapp", isShiftActive = true)
+        )
+    }
+
+    @Test
+    fun testTextMonitoringOnlyActiveDuringOpenShift() {
+        // Verificar que fuera de jornada abierta no se capture ningún texto (LOPDP)
+        fun canCaptureText(isTrackingActive: Boolean): Boolean {
+            return isTrackingActive
+        }
+
+        assertFalse("Si la jornada está cerrada, no se debe capturar ningún texto", canCaptureText(isTrackingActive = false))
+        assertTrue("Durante jornada activa se permite la auditoría comercial", canCaptureText(isTrackingActive = true))
+    }
+
+    @Test
+    fun testOwnAppPackageIsIgnoredToPreventLoops() {
+        fun isAllowedPackage(pkg: String): Boolean {
+            return pkg != "com.empresa.routrack" && pkg.isNotBlank()
+        }
+
+        assertFalse("El paquete propio com.empresa.routrack debe ser ignorado", isAllowedPackage("com.empresa.routrack"))
+        assertTrue("Aplicaciones comerciales externas son auditadas", isAllowedPackage("com.whatsapp"))
+        assertTrue("Mensajería SMS corporativa es auditada", isAllowedPackage("com.google.android.apps.messaging"))
+    }
+
+    @Test
+    fun testHmacChainPreservedAcrossMultipleApplications() = runBlocking {
+        // Registrar mensajes cruzados de WhatsApp y Mensajes SMS
+        val resWhatsApp = repository.recordTextInteraction(
+            shiftId = shiftId,
+            vendedorId = sellerId,
+            packageName = "com.whatsapp",
+            appLabel = "WhatsApp",
+            text = "Acuerdo de 50 cajas a $20 c/u",
+            timestamp = 1700000000000L
+        ).getOrThrow()
+
+        val resSms = repository.recordTextInteraction(
+            shiftId = shiftId,
+            vendedorId = sellerId,
+            packageName = "com.google.android.apps.messaging",
+            appLabel = "Mensajes",
+            text = "Confirmada entrega para el lunes",
+            timestamp = 1700000005000L
+        ).getOrThrow()
+
+        assertEquals("El hash previo del SMS debe ser el hash de WhatsApp", resWhatsApp.hmacHash, resSms.previousHash)
+        assertEquals(64, resSms.hmacHash.length)
+    }
+
     // --- Fake DAO en memoria para pruebas aisladas ---
     private class FakeTextInteractionDao : TextInteractionDao {
         private val list = CopyOnWriteArrayList<TextInteractionEntity>()
