@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 35
-- **Tareas Completadas:** 28 (`TASK-001` a `TASK-028`)
+- **Tareas Completadas:** 29 (`TASK-001` a `TASK-029`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 7 (`TASK-029` a `TASK-035`)
+- **Tareas Pendientes:** 6 (`TASK-030` a `TASK-035`)
 
 ---
 
@@ -596,7 +596,7 @@
 
 ## FASE 9: Slice Vertical de Captura y Auditoría de Interacciones de Texto en Dispositivos Corporativos
 
-### [ ] TASK-029 — Modelo de datos en Supabase para interacciones de texto corporativo con RLS y extensión de sync-jornada
+### [x] TASK-029 — Modelo de datos en Supabase para interacciones de texto corporativo con RLS y extensión de sync-jornada
 - **Identificador:** `TASK-029`
 - **Nombre:** Modelo de datos en Supabase para interacciones de texto corporativo con RLS y extensión de sync-jornada
 - **Descripción:** Crear la migración SQL para la tabla `public.text_interactions` con particionado multi-tenant por `organization_id`, índices por fecha/vendedor, políticas RLS para restricción de lectura a `ADMIN` y `SUPERVISOR`, y actualizar la Edge Function `sync-jornada` para validar e insertar el lote `text_interactions` preservando la cadena de custodia HMAC-SHA256.
@@ -609,7 +609,7 @@
   1. La tabla `text_interactions` cuenta con RLS activado y aislamiento estricto por `organization_id`.
   2. La Edge Function `sync-jornada` procesa el arreglo `text_interactions` de forma idempotente.
   3. No se permite la lectura cruzada de textos entre organizaciones distintas.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-030 — Servicio nativo de Accesibilidad Android (TextMonitoringAccessibilityService) y búfer cifrado en Room (SQLCipher AES-256)
 - **Identificador:** `TASK-030`

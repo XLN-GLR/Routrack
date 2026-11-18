@@ -105,7 +105,8 @@ Deno.serve(async (req: Request) => {
           tracking_points_persisted: 0,
           tracking_points_ignored_conflict: existingBatch.total_puntos || 0,
           visit_records_persisted: 0,
-          audit_events_persisted: 0
+          audit_events_persisted: 0,
+          text_interactions_persisted: 0
         },
         chain_state: {
           last_verified_hash: existingBatch.ultimo_hash_verificado || '',
@@ -132,7 +133,8 @@ Deno.serve(async (req: Request) => {
       payload.system_events,
       payload.visit_records,
       startHash,
-      auditSecretKey
+      auditSecretKey,
+      payload.text_interactions
     );
 
     if (!hmacVerification.valid) {
@@ -290,7 +292,37 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 6.4. Registro del Lote de Sincronización en sync_batches (Idempotencia)
+    // 6.4. Inserción de Interacciones de Texto Corporativo (TASK-029)
+    let textsPersisted = 0;
+    const textInteractions = payload.text_interactions || [];
+
+    if (textInteractions.length > 0) {
+      const textRows = textInteractions.map((ti) => ({
+        id: ti.id,
+        organizacion_id: payload.organization_id,
+        jornada_id: payload.shift_id,
+        vendedor_id: payload.seller_id,
+        paquete_aplicacion: ti.package_name,
+        nombre_aplicacion: ti.app_label || null,
+        texto_capturado: ti.captured_text,
+        registrado_en: ti.recorded_at,
+        previous_hash: ti.previous_hash,
+        hmac_hash: ti.hmac_hash
+      }));
+
+      const { data: insertedTexts, error: textsError } = await adminClient
+        .from('interacciones_texto')
+        .upsert(textRows, { onConflict: 'id', ignoreDuplicates: true })
+        .select('id');
+
+      if (textsError) {
+        console.error('Error al persistir interacciones de texto:', textsError);
+      } else {
+        textsPersisted = insertedTexts?.length ?? textRows.length;
+      }
+    }
+
+    // 6.5. Registro del Lote de Sincronización en sync_batches (Idempotencia)
     await adminClient.from('sync_batches').insert({
       id: payload.sync_batch_id,
       organizacion_id: payload.organization_id,
@@ -299,11 +331,12 @@ Deno.serve(async (req: Request) => {
       total_puntos: payload.tracking_points.length,
       total_visitas: payload.visit_records.length,
       total_eventos: payload.system_events.length,
+      total_textos: textInteractions.length,
       ultimo_hash_verificado: hmacVerification.lastVerifiedHash,
       procesado_en: new Date().toISOString()
     });
 
-    // 6.5. Actualizar Métricas Espaciales de la Jornada (PostGIS)
+    // 6.6. Actualizar Métricas Espaciales de la Jornada (PostGIS)
     try {
       await adminClient.rpc('actualizar_metricas_jornada', { p_jornada_id: payload.shift_id });
     } catch {
@@ -319,7 +352,8 @@ Deno.serve(async (req: Request) => {
         tracking_points_persisted: pointsPersisted,
         tracking_points_ignored_conflict: Math.max(0, payload.tracking_points.length - pointsPersisted),
         visit_records_persisted: visitsPersisted,
-        audit_events_persisted: eventsPersisted
+        audit_events_persisted: eventsPersisted,
+        text_interactions_persisted: textsPersisted
       },
       chain_state: {
         last_verified_hash: hmacVerification.lastVerifiedHash,

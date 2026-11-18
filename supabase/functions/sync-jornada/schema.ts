@@ -9,10 +9,12 @@ import {
   SyncTrackingPoint,
   SyncVisitRecord,
   SyncSystemEvent,
+  SyncTextInteraction,
   MAX_CLOCK_SKEW_MS,
   MAX_BATCH_TRACKING_POINTS,
   MAX_BATCH_VISITS,
   MAX_BATCH_EVENTS,
+  MAX_BATCH_TEXT_INTERACTIONS,
   isValidUUID,
   isValidHmacHash
 } from '../_shared/syncContracts.ts';
@@ -126,6 +128,34 @@ export function validateSystemEvent(e: unknown, index: number): string | null {
 }
 
 /**
+ * Valida un registro de interacción de texto corporativo.
+ */
+export function validateTextInteraction(t: unknown, index: number): string | null {
+  if (!t || typeof t !== 'object') {
+    return `text_interactions[${index}]: No es un objeto válido`;
+  }
+  const text = t as Record<string, unknown>;
+
+  if (!isValidUUID(text.id as string)) {
+    return `text_interactions[${index}].id: UUID inválido`;
+  }
+  if (typeof text.package_name !== 'string' || text.package_name.trim().length === 0) {
+    return `text_interactions[${index}].package_name: Requerido`;
+  }
+  if (typeof text.captured_text !== 'string' || text.captured_text.trim().length === 0) {
+    return `text_interactions[${index}].captured_text: No puede ser vacío`;
+  }
+  if (typeof text.recorded_at !== 'string' || isNaN(Date.parse(text.recorded_at))) {
+    return `text_interactions[${index}].recorded_at: Formato ISO 8601 inválido`;
+  }
+  if (!isValidHmacHash(text.hmac_hash as string)) {
+    return `text_interactions[${index}].hmac_hash: Formato hex HMAC-SHA256 inválido`;
+  }
+
+  return null;
+}
+
+/**
  * Validador integral del payload completo de lote (SyncBatchPayload).
  */
 export function validateSyncBatch(payload: unknown): ValidationResult<SyncBatchPayload> {
@@ -173,6 +203,11 @@ export function validateSyncBatch(payload: unknown): ValidationResult<SyncBatchP
     return { success: false, error: `Excede el máximo de ${MAX_BATCH_EVENTS} eventos por lote` };
   }
 
+  const texts = (Array.isArray(p.text_interactions) ? p.text_interactions : []) as SyncTextInteraction[];
+  if (texts.length > MAX_BATCH_TEXT_INTERACTIONS) {
+    return { success: false, error: `Excede el máximo de ${MAX_BATCH_TEXT_INTERACTIONS} interacciones de texto por lote` };
+  }
+
   // Validar elementos individuales
   for (let i = 0; i < points.length; i++) {
     const err = validateTrackingPoint(points[i], i);
@@ -189,6 +224,11 @@ export function validateSyncBatch(payload: unknown): ValidationResult<SyncBatchP
     if (err) return { success: false, error: err };
   }
 
+  for (let i = 0; i < texts.length; i++) {
+    const err = validateTextInteraction(texts[i], i);
+    if (err) return { success: false, error: err };
+  }
+
   const validated: SyncBatchPayload = {
     sync_batch_id: p.sync_batch_id as string,
     shift_id: p.shift_id as string,
@@ -197,7 +237,8 @@ export function validateSyncBatch(payload: unknown): ValidationResult<SyncBatchP
     batch_timestamp: p.batch_timestamp as string,
     tracking_points: points,
     visit_records: visits,
-    system_events: events
+    system_events: events,
+    text_interactions: texts
   };
 
   return { success: true, data: validated };

@@ -161,9 +161,25 @@ CREATE TABLE IF NOT EXISTS public.sync_batches (
     total_puntos INTEGER NOT NULL DEFAULT 0 CHECK (total_puntos >= 0),
     total_visitas INTEGER NOT NULL DEFAULT 0 CHECK (total_visitas >= 0),
     total_eventos INTEGER NOT NULL DEFAULT 0 CHECK (total_eventos >= 0),
+    total_textos INTEGER NOT NULL DEFAULT 0 CHECK (total_textos >= 0),
     ultimo_hash_verificado TEXT,
     procesado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 3.9. Tabla: interacciones_texto (Auditoría de Textos en Dispositivos Corporativos)
+CREATE TABLE IF NOT EXISTS public.interacciones_texto (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organizacion_id UUID NOT NULL REFERENCES public.organizaciones(id) ON DELETE CASCADE,
+    jornada_id UUID NOT NULL REFERENCES public.jornadas_laborales(id) ON DELETE CASCADE,
+    vendedor_id UUID NOT NULL REFERENCES public.perfiles(id) ON DELETE CASCADE,
+    paquete_aplicacion TEXT NOT NULL,
+    nombre_aplicacion TEXT,
+    texto_capturado TEXT NOT NULL,
+    registrado_en TIMESTAMPTZ NOT NULL,
+    previous_hash TEXT NOT NULL,
+    hmac_hash TEXT NOT NULL,
+    creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ------------------------------------------------------------------------------
@@ -183,11 +199,16 @@ CREATE INDEX IF NOT EXISTS idx_jornadas_org_vendedor ON public.jornadas_laborale
 CREATE INDEX IF NOT EXISTS idx_ubicaciones_jornada_tiempo ON public.ubicaciones_gps (jornada_id, registrado_en ASC);
 CREATE INDEX IF NOT EXISTS idx_actividades_cliente ON public.actividades_comerciales (cliente_id);
 CREATE INDEX IF NOT EXISTS idx_sync_batches_org_vendedor ON public.sync_batches (organizacion_id, vendedor_id, procesado_en DESC);
+CREATE INDEX IF NOT EXISTS idx_interacciones_texto_org_time ON public.interacciones_texto (organizacion_id, registrado_en DESC);
+CREATE INDEX IF NOT EXISTS idx_interacciones_texto_jornada ON public.interacciones_texto (jornada_id, registrado_en ASC);
+CREATE INDEX IF NOT EXISTS idx_interacciones_texto_vendedor ON public.interacciones_texto (vendedor_id);
 
 -- Índices Únicos de Idempotencia
 CREATE UNIQUE INDEX IF NOT EXISTS idx_bitacora_org_hmac_hash ON public.bitacora_auditoria (organizacion_id, hmac_hash);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ubicaciones_jornada_hmac ON public.ubicaciones_gps (jornada_id, hmac_hash);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_actividades_jornada_hmac ON public.actividades_comerciales (jornada_id, hmac_hash);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_interacciones_texto_idempotencia ON public.interacciones_texto (id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_interacciones_texto_jornada_hmac ON public.interacciones_texto (jornada_id, hmac_hash);
 
 -- ------------------------------------------------------------------------------
 -- 5. VISTAS DE COMPATIBILIDAD
@@ -198,6 +219,20 @@ CREATE OR REPLACE VIEW public.clients AS SELECT * FROM public.clientes;
 CREATE OR REPLACE VIEW public.work_shifts AS SELECT * FROM public.jornadas_laborales;
 CREATE OR REPLACE VIEW public.tracking_points AS SELECT * FROM public.ubicaciones_gps;
 CREATE OR REPLACE VIEW public.visit_records AS SELECT * FROM public.actividades_comerciales;
+CREATE OR REPLACE VIEW public.text_interactions AS 
+SELECT 
+    id,
+    organizacion_id AS organization_id,
+    jornada_id AS shift_id,
+    vendedor_id AS seller_id,
+    paquete_aplicacion AS package_name,
+    nombre_aplicacion AS app_label,
+    texto_capturado AS captured_text,
+    registrado_en AS recorded_at,
+    previous_hash,
+    hmac_hash,
+    creado_en AS created_at
+FROM public.interacciones_texto;
 CREATE OR REPLACE VIEW public.audit_logs AS SELECT * FROM public.bitacora_auditoria;
 CREATE OR REPLACE VIEW public.sync_batches_view AS SELECT * FROM public.sync_batches;
 
@@ -210,6 +245,7 @@ ALTER TABLE public.clientes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.jornadas_laborales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ubicaciones_gps ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.actividades_comerciales ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.interacciones_texto ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bitacora_auditoria ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sync_batches ENABLE ROW LEVEL SECURITY;
 
@@ -302,6 +338,21 @@ FOR INSERT WITH CHECK (organizacion_id = public.jwt_organizacion_id() AND vended
 DROP POLICY IF EXISTS "Vendedores pueden consultar sus propios sync_batches" ON public.sync_batches;
 CREATE POLICY "Vendedores pueden consultar sus propios sync_batches" ON public.sync_batches
 FOR SELECT USING (organizacion_id = public.jwt_organizacion_id() AND vendedor_id = auth.uid());
+
+-- Interacciones de Texto (Auditoría Corporativa)
+DROP POLICY IF EXISTS "interacciones_texto_select_supervisores_admin" ON public.interacciones_texto;
+CREATE POLICY "interacciones_texto_select_supervisores_admin" ON public.interacciones_texto
+FOR SELECT USING (
+    organizacion_id = public.jwt_organizacion_id()
+    AND public.jwt_rol() IN ('ADMIN', 'SUPERVISOR')
+);
+
+DROP POLICY IF EXISTS "interacciones_texto_insert_vendedor" ON public.interacciones_texto;
+CREATE POLICY "interacciones_texto_insert_vendedor" ON public.interacciones_texto
+FOR INSERT WITH CHECK (
+    organizacion_id = public.jwt_organizacion_id()
+    AND vendedor_id = auth.uid()
+);
 
 -- ------------------------------------------------------------------------------
 -- 8. FUNCIONES ESPACIALES POSTGIS (TASK-019 Y TASK-007)

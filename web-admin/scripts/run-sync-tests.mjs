@@ -87,6 +87,16 @@ const syncSystemEventSchema = z.object({
   hmac_hash: hmacHashSchema,
 });
 
+const syncTextInteractionSchema = z.object({
+  id: z.string().uuid(),
+  package_name: z.string().min(1, { message: 'El paquete de la aplicación es obligatorio' }),
+  app_label: z.string().nullable().optional(),
+  captured_text: z.string().min(1, { message: 'El texto capturado no puede estar vacío' }),
+  recorded_at: strictIsoTimestampSchema,
+  previous_hash: hmacHashSchema,
+  hmac_hash: hmacHashSchema,
+});
+
 const syncBatchPayloadSchema = z.object({
   sync_batch_id: z.string().uuid(),
   shift_id: z.string().uuid(),
@@ -96,6 +106,7 @@ const syncBatchPayloadSchema = z.object({
   tracking_points: z.array(syncTrackingPointSchema).max(500),
   visit_records: z.array(syncVisitRecordSchema).max(100),
   system_events: z.array(syncSystemEventSchema).max(100),
+  text_interactions: z.array(syncTextInteractionSchema).max(500).optional().default([]),
 });
 
 function validateSyncBatchPayload(data) {
@@ -221,6 +232,37 @@ const emptyPoints = createValidPayload();
 emptyPoints.tracking_points = [];
 const resEmpty = validateSyncBatchPayload(emptyPoints);
 assert(resEmpty.success, 'Prueba 8: Aprobación de lote con arreglo de puntos vacío');
+
+// Prueba 9: Aprobación de lote con interacciones de texto corporativo válidas (TASK-029)
+const withTexts = createValidPayload();
+withTexts.text_interactions = [
+  {
+    id: 'f1a2b3c4-d5e6-4a1b-8c2d-3e4f5a6b7c8e',
+    package_name: 'com.whatsapp',
+    app_label: 'WhatsApp',
+    captured_text: 'Se pacta precio de $12.50 por bulto comercial.',
+    recorded_at: new Date().toISOString(),
+    previous_hash: 'a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e',
+    hmac_hash: 'c89b7f52093a8d423985bf8a25c7423e8f192b9b788a1b621e289c03fae12089',
+  },
+];
+const resTexts = validateSyncBatchPayload(withTexts);
+assert(resTexts.success && resTexts.data.text_interactions?.length === 1, 'Prueba 9: Aprobación de lote con interacciones de texto corporativo válidas');
+
+// Prueba 10: Rechazo de interacción de texto con paquete vacío
+const invalidText = createValidPayload();
+invalidText.text_interactions = [
+  {
+    id: 'f1a2b3c4-d5e6-4a1b-8c2d-3e4f5a6b7c8e',
+    package_name: '',
+    captured_text: 'Texto sin paquete',
+    recorded_at: new Date().toISOString(),
+    previous_hash: 'a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e',
+    hmac_hash: 'c89b7f52093a8d423985bf8a25c7423e8f192b9b788a1b621e289c03fae12089',
+  },
+];
+const resInvalidText = validateSyncBatchPayload(invalidText);
+assert(!resInvalidText.success && resInvalidText.error.includes('paquete'), 'Prueba 10: Rechazo de interacción de texto con paquete vacío');
 
 console.log(`\nRESUMEN FINAL: ${passed} pruebas aprobadas, ${failed} pruebas falladas.`);
 if (failed > 0) process.exit(1);

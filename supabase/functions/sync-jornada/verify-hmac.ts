@@ -7,7 +7,7 @@
  * especificada en docs/SECURITY.md § 6 mediante Web Cryptography API nativa.
  */
 
-import { SyncTrackingPoint, SyncSystemEvent, SyncVisitRecord } from '../_shared/syncContracts.ts';
+import { SyncTrackingPoint, SyncSystemEvent, SyncVisitRecord, SyncTextInteraction } from '../_shared/syncContracts.ts';
 
 const CANONICAL_DELIMITER = '|';
 const SHIFT_INIT_PREFIX = 'ROUTRACK-SHIFT-INIT|';
@@ -105,6 +105,19 @@ export function buildCanonicalVisitString(vi: SyncVisitRecord, shiftId: string):
 }
 
 /**
+ * Construye la representación canónica de una interacción de texto corporativo.
+ */
+export function buildCanonicalTextInteractionString(ti: SyncTextInteraction, shiftId: string): string {
+  const recMs = new Date(ti.recorded_at).getTime();
+  return [
+    `shiftId=${shiftId.trim()}`,
+    `pkg=${ti.package_name.trim()}`,
+    `ts=${recMs}`,
+    `text=${ti.captured_text.trim()}`
+  ].join(CANONICAL_DELIMITER);
+}
+
+/**
  * Compara dos cadenas de hash en tiempo constante para mitigar ataques de temporización.
  */
 export function slowEquals(a: string, b: string): boolean {
@@ -129,7 +142,8 @@ export async function verifyHmacChain(
   events: SyncSystemEvent[],
   visits: SyncVisitRecord[],
   expectedStartHash: string,
-  secretKey: string | Uint8Array
+  secretKey: string | Uint8Array,
+  textInteractions?: SyncTextInteraction[]
 ): Promise<HmacVerificationResult> {
   let currentExpectedPrev = expectedStartHash;
 
@@ -196,6 +210,39 @@ export async function verifyHmacChain(
         }
       }
       currentExpectedPrev = ev.hmac_hash;
+    }
+  }
+
+  // 3. Validar interacciones de texto corporativas
+  const texts = textInteractions || [];
+  for (let i = 0; i < texts.length; i++) {
+    const ti = texts[i];
+
+    if (ti.previous_hash) {
+      if (texts.length > 0 && currentExpectedPrev && !slowEquals(ti.previous_hash.toLowerCase(), currentExpectedPrev.toLowerCase())) {
+        return {
+          valid: false,
+          failedEntityId: ti.id,
+          failedIndex: i,
+          lastVerifiedHash: currentExpectedPrev,
+          errorMessage: `Discontinuidad de enlace en text_interactions[${i}]: previous_hash (${ti.previous_hash}) no coincide con el hash previo (${currentExpectedPrev})`
+        };
+      }
+
+      const canonical = buildCanonicalTextInteractionString(ti, shiftId);
+      const rawMessage = `${canonical}${CANONICAL_DELIMITER}${ti.previous_hash.trim()}`;
+      const calculatedHash = await computeHmacSha256(rawMessage, secretKey);
+
+      if (!slowEquals(calculatedHash.toLowerCase(), ti.hmac_hash.toLowerCase())) {
+        return {
+          valid: false,
+          failedEntityId: ti.id,
+          failedIndex: i,
+          lastVerifiedHash: currentExpectedPrev,
+          errorMessage: `Firma HMAC inválida en text_interactions[${i}]: esperado '${calculatedHash}', recibido '${ti.hmac_hash}'`
+        };
+      }
+      currentExpectedPrev = ti.hmac_hash;
     }
   }
 

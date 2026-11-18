@@ -191,6 +191,19 @@ export const syncSystemEventSchema = z.object({
 });
 
 /**
+ * Esquema para Interacción de Texto Corporativo (`SyncTextInteraction`).
+ */
+export const syncTextInteractionSchema = z.object({
+  id: z.string().uuid({ message: 'El ID de la interacción de texto debe ser un UUID v4 válido' }),
+  package_name: z.string().min(1, { message: 'El paquete de la aplicación es obligatorio' }),
+  app_label: z.string().nullable().optional(),
+  captured_text: z.string().min(1, { message: 'El texto capturado no puede estar vacío' }),
+  recorded_at: strictIsoTimestampSchema,
+  previous_hash: hmacHashSchema,
+  hmac_hash: hmacHashSchema,
+});
+
+/**
  * Esquema Principal del Lote de Sincronización (`SyncBatchPayloadSchema`).
  */
 export const syncBatchPayloadSchema = z.object({
@@ -216,6 +229,11 @@ export const syncBatchPayloadSchema = z.object({
   system_events: z
     .array(syncSystemEventSchema)
     .max(100, { message: 'El lote excede el máximo de 100 eventos de sistema por transmisión' }),
+  text_interactions: z
+    .array(syncTextInteractionSchema)
+    .max(500, { message: 'El lote excede el máximo de 500 interacciones de texto por transmisión' })
+    .optional()
+    .default([]),
 });
 
 export type ValidatedSyncBatchPayload = z.infer<typeof syncBatchPayloadSchema>;

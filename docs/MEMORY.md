@@ -42,7 +42,7 @@
 ## 3. Fase Actual del Proyecto
 
 - **Fase Activa:** **FASE 9: Slice Vertical de Captura y Auditoría de Interacciones de Texto en Dispositivos Corporativos.**
-- **Progreso Global:** 28 de 35 tareas completadas (80.0% de avance del proyecto ampliado con el backlog de requerimientos core del caso de estudio). Fases 0 a 8 completadas al 100%; Fases 9, 10 y 11 añadidas de forma estructurada para incorporar la auditoría de texto en dispositivos corporativos y la navegación vial realista calle por calle (Map-Matching a costo $0 USD).
+- **Progreso Global:** 29 de 35 tareas completadas (82.9% de avance del proyecto ampliado con el backlog de requerimientos core del caso de estudio). Fases 0 a 8 completadas al 100%; TASK-029 completada y verificada empíricamente; Fases 9, 10 y 11 en ejecución activa para incorporar la auditoría de texto en dispositivos corporativos y la navegación vial realista calle por calle (Map-Matching a costo $0 USD).
 
 ---
 
@@ -218,8 +218,14 @@
   - Infraestructura a Coste $0 USD (ADR-007): Despliegue sobre Vercel Free / Hobby Tier con certificados SSL automáticos, CDN global y cartografía OpenStreetMap ($0 USD).
   - Suite de Validación Automatizada (`scripts/validate-vercel-deployment.mjs`): 31 de 31 pruebas aprobadas (100% PASS) certificando la configuración, seguridad y rendimiento de producción.
 
+- **[x] TASK-029 — Modelo de datos en Supabase para interacciones de texto corporativo con RLS y extensión de sync-jornada:**
+  - Migración SQL (`supabase/migrations/20260101000007_text_interactions.sql` y `supabase/init_production_database.sql`): Creación de tabla `public.interacciones_texto` con particionado multi-tenant por `organizacion_id`, llaves foráneas a `jornadas_laborales` y `perfiles`, campos de auditoría (`paquete_aplicacion`, `nombre_aplicacion`, `texto_capturado`, `registrado_en`, `hmac_hash`, `previous_hash`), vista de compatibilidad `public.text_interactions` e índices únicos de idempotencia por `id` y por `(jornada_id, hmac_hash)`.
+  - Políticas de Seguridad RLS: `ALTER TABLE public.interacciones_texto ENABLE ROW LEVEL SECURITY;`. Política SELECT estricta restringida a `ADMIN` y `SUPERVISOR` de la misma organización; política INSERT acotada al vendedor autenticado (`auth.uid() = vendedor_id`); prohibición universal de UPDATE y DELETE (inmutabilidad estricta de auditoría).
+  - Contratos y Validación Zod (`supabase/functions/_shared/syncContracts.ts`, `web-admin/src/types/sync.ts`, `web-admin/src/lib/validation/syncSchemas.ts`): Modelado de `SyncTextInteraction`, esquema Zod `syncTextInteractionSchema` con rechazo de paquetes vacíos, validación estricta de timestamps y hashes HMAC-SHA256 de 64 caracteres hex.
+  - Extensión de Edge Function `sync-jornada` (`supabase/functions/sync-jornada/`): Ingesta e inserción idempotente con `upsert(textRows, { onConflict: 'id', ignoreDuplicates: true })`, verificación secuencial de la cadena HMAC en `verify-hmac.ts` (`buildCanonicalTextInteractionString`), trazabilidad de `total_textos` en `sync_batches` y reporte de `text_interactions_persisted` en la respuesta HTTP 200.
+  - Validación Empírica Automatizada (`supabase/tests/text_interactions_test.mjs`, `web-admin/scripts/run-sync-tests.mjs`, `supabase/tests/text_interactions_rls_test.sql`): 20/20 pruebas aprobadas en la suite de interacciones de texto (100% PASS), 10/10 pruebas aprobadas en contratos Zod y 155/155 pruebas totales en `web-admin` (0 fallos).
+
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-029:** Modelo de datos en Supabase para interacciones de texto corporativo con RLS y extensión de sync-jornada.
 - **[ ] TASK-030:** Servicio nativo de Accesibilidad Android (TextMonitoringAccessibilityService) y búfer cifrado en Room (SQLCipher AES-256).
 - **[ ] TASK-031:** Módulo web de auditoría de interacciones de texto con filtrado por aplicación y fecha.
 - **[ ] TASK-032:** Motor de Map-Matching y Snap-to-Roads con OpenStreetMap/OSRM a costo $0 USD para ajuste vial real.
@@ -231,10 +237,10 @@
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno.* Todas las suites de prueba base se encuentran 100% aprobadas. La documentación fundacional se encuentra plenamente sincronizada y estructurada para abordar la implementación de las Fases 9, 10 y 11.
+- *Ninguno.* Todas las suites de prueba base y de interacciones de texto se encuentran 100% aprobadas. La infraestructura de base de datos y la Edge Function `sync-jornada` están completamente listas para interactuar con el cliente Android y el panel web.
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- **Iniciar TASK-029:** Implementación de la migración SQL para `text_interactions`, definición de RLS y extensión del contrato en la Edge Function `sync-jornada`.
+- **Iniciar TASK-030:** Implementación del servicio nativo de accesibilidad Android (`TextMonitoringAccessibilityService`), descarte de contraseñas, entidad local en Room con SQLCipher y diálogo de activación en Jetpack Compose.

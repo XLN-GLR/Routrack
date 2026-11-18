@@ -79,6 +79,16 @@ export interface SyncSystemEvent {
   hmac_hash: string;
 }
 
+export interface SyncTextInteraction {
+  id: UUID;
+  package_name: string;
+  app_label?: string | null;
+  captured_text: string;
+  recorded_at: string;
+  previous_hash: string;
+  hmac_hash: string;
+}
+
 export interface SyncBatchPayload {
   sync_batch_id: UUID;
   shift_id: UUID;
@@ -88,6 +98,7 @@ export interface SyncBatchPayload {
   tracking_points: SyncTrackingPoint[];
   visit_records: SyncVisitRecord[];
   system_events: SyncSystemEvent[];
+  text_interactions?: SyncTextInteraction[];
 }
 
 export interface SyncBatchSummary {
@@ -95,6 +106,7 @@ export interface SyncBatchSummary {
   tracking_points_ignored_conflict: number;
   visit_records_persisted: number;
   audit_events_persisted: number;
+  text_interactions_persisted?: number;
 }
 
 export interface SyncChainState {
@@ -136,6 +148,7 @@ export const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 export const MAX_BATCH_TRACKING_POINTS = 500;
 export const MAX_BATCH_VISITS = 100;
 export const MAX_BATCH_EVENTS = 100;
+export const MAX_BATCH_TEXT_INTERACTIONS = 500;
 
 /**
  * Validador básico sin dependencias para su uso directo en entornos Edge/Deno.

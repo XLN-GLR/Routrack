@@ -140,6 +140,26 @@ export interface SyncSystemEvent {
 }
 
 /**
+ * Interacción de texto capturada en el dispositivo corporativo para auditoría comercial.
+ */
+export interface SyncTextInteraction {
+  /** Identificador único UUID v4 generado en el dispositivo móvil */
+  id: UUID;
+  /** Nombre del paquete de la aplicación activa (ej. com.whatsapp) */
+  package_name: string;
+  /** Etiqueta descriptiva de la aplicación (ej. WhatsApp) */
+  app_label?: string | null;
+  /** Texto capturado digitado por el asesor */
+  captured_text: string;
+  /** Marca de tiempo de registro en formato ISO 8601 UTC */
+  recorded_at: string;
+  /** Hash previo en la cadena de integridad */
+  previous_hash: string;
+  /** Firma HMAC del registro de texto */
+  hmac_hash: string;
+}
+
+/**
  * Paquete de sincronización por lotes (Batch Payload) transmitido vía HTTPS TLS 1.3
  * desde el cliente móvil hacia la Edge Function de Supabase.
  */
@@ -160,6 +180,8 @@ export interface SyncBatchPayload {
   visit_records: SyncVisitRecord[];
   /** Lista de eventos de auditoría y anomalías operativas */
   system_events: SyncSystemEvent[];
+  /** Lista opcional de interacciones de texto corporativas */
+  text_interactions?: SyncTextInteraction[];
 }
 
 /**
@@ -170,6 +192,7 @@ export interface SyncBatchSummary {
   tracking_points_ignored_conflict: number;
   visit_records_persisted: number;
   audit_events_persisted: number;
+  text_interactions_persisted?: number;
 }
 
 /**
