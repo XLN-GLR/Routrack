@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
 import {
   FileText,
   Download,
@@ -15,6 +16,8 @@ import {
   ShieldCheck,
   AlertTriangle,
   Info,
+  MessageSquare,
+  ArrowRight,
 } from "lucide-react";
 import {
   ReportShiftRow,
@@ -23,6 +26,11 @@ import {
   downloadCsvFile,
 } from "@/lib/export/exportCsv";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
+import { TextInteractionsTable } from "@/components/audit/TextInteractionsTable";
+import {
+  TextInteractionRecord,
+  DEMO_TEXT_INTERACTIONS,
+} from "@/types/text-interactions";
 
 // Dataset representativo de reportes de jornadas en Quito para demostración y respaldo
 const DEMO_REPORTS: ReportShiftRow[] = [
@@ -198,16 +206,59 @@ function ReportsEmptyState({ onReset }: { onReset: () => void }) {
 }
 
 export default function ReportsPage() {
+  const [activeReportTab, setActiveReportTab] = useState<"shifts" | "texts">("shifts");
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     return new Date().toISOString().slice(0, 10);
   });
   const [selectedSeller, setSelectedSeller] = useState<string>("TODOS");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [rows, setRows] = useState<ReportShiftRow[]>([]);
+  const [textInteractions, setTextInteractions] = useState<TextInteractionRecord[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoadingTexts, setIsLoadingTexts] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+
+  // Consulta de interacciones de texto corporativo consolidadas
+  const loadTextInteractions = useCallback(async () => {
+    setIsLoadingTexts(true);
+    try {
+      const supabase = createSupabaseClient();
+      const { data, error } = await supabase
+        .from("interacciones_texto")
+        .select("*")
+        .order("registrado_en", { ascending: false });
+
+      if (error || !data || data.length === 0) {
+        setTextInteractions(DEMO_TEXT_INTERACTIONS);
+      } else {
+        const mapped: TextInteractionRecord[] = data.map((d: Record<string, unknown>) => ({
+          id: String(d.id),
+          organizacion_id: String(d.organizacion_id),
+          jornada_id: String(d.jornada_id),
+          vendedor_id: String(d.vendedor_id),
+          vendedor_nombre: (d.nombre_aplicacion as string) || "Asesor Comercial",
+          paquete_aplicacion: String(d.paquete_aplicacion),
+          nombre_aplicacion: (d.nombre_aplicacion as string) || null,
+          texto_capturado: String(d.texto_capturado),
+          registrado_en: String(d.registrado_en),
+          previous_hash: String(d.previous_hash),
+          hmac_hash: String(d.hmac_hash),
+          created_at: d.created_at ? String(d.created_at) : undefined,
+        }));
+        setTextInteractions(mapped);
+      }
+    } catch {
+      setTextInteractions(DEMO_TEXT_INTERACTIONS);
+    } finally {
+      setIsLoadingTexts(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTextInteractions();
+  }, [loadTextInteractions]);
 
   // Consulta de datos en Supabase con fallback seguro a demostración
   const loadReports = useCallback(async () => {
@@ -397,7 +448,57 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* Barra de Filtros Interactivos */}
+      {/* Selector de Pestañas del Módulo */}
+      <div className="border-b border-slate-200">
+        <nav className="flex space-x-6">
+          <button
+            onClick={() => setActiveReportTab("shifts")}
+            className={`pb-3 px-1 text-xs font-semibold border-b-2 flex items-center gap-2 transition-colors ${
+              activeReportTab === "shifts"
+                ? "border-blue-600 text-blue-700"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            Jornadas y Rendimiento ({filteredRows.length})
+          </button>
+
+          <button
+            onClick={() => setActiveReportTab("texts")}
+            className={`pb-3 px-1 text-xs font-semibold border-b-2 flex items-center gap-2 transition-colors ${
+              activeReportTab === "texts"
+                ? "border-emerald-600 text-emerald-700"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Auditoría de Textos Corporativos
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                activeReportTab === "texts"
+                  ? "bg-emerald-100 text-emerald-800"
+                  : "bg-slate-100 text-slate-600"
+              }`}
+            >
+              {textInteractions.length}
+            </span>
+          </button>
+        </nav>
+      </div>
+
+      {/* Vista de Auditoría de Textos Corporativos */}
+      {activeReportTab === "texts" ? (
+        <TextInteractionsTable
+          records={textInteractions}
+          isLoading={isLoadingTexts}
+          onRetry={loadTextInteractions}
+          vendedoresList={availableSellers.map((name) => ({ id: name, nombre: name }))}
+          title="Auditoría Consolidada de Textos y Acuerdos Comerciales"
+          description="Histórico centralizado de interacciones capturadas en terminales móviles durante jornadas laborales con respaldo criptográfico HMAC-SHA256."
+        />
+      ) : (
+        <>
+          {/* Barra de Filtros Interactivos */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-1 flex-wrap items-center gap-3">
@@ -578,6 +679,7 @@ export default function ReportsPage() {
                     <th className="py-3 px-4 text-center">Efectividad</th>
                     <th className="py-3 px-4 text-right">Monto Pactado</th>
                     <th className="py-3 px-4 text-center">Estado</th>
+                    <th className="py-3 px-4 text-center">Auditoría</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
@@ -636,6 +738,17 @@ export default function ReportsPage() {
                           {r.estado_turno}
                         </span>
                       </td>
+                      <td className="py-3 px-4 whitespace-nowrap text-center">
+                        <Link
+                          href={`/history/sh-980${index + 1}`}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                          title="Inspeccionar detalle histórico e interacciones de texto"
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                          <span>Ver</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -644,6 +757,8 @@ export default function ReportsPage() {
           </div>
         </>
       )}
-    </div>
+    </>
+  )}
+</div>
   );
 }

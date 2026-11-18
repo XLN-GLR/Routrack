@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 35
-- **Tareas Completadas:** 30 (`TASK-001` a `TASK-030`)
+- **Tareas Completadas:** 31 (`TASK-001` a `TASK-031`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 5 (`TASK-031` a `TASK-035`)
+- **Tareas Pendientes:** 4 (`TASK-032` a `TASK-035`)
 
 ---
 
@@ -632,7 +632,7 @@
   4. Los registros se encolan e integran al lote de sincronización con hash HMAC.
 - **Estado:** Completada.
 
-### [ ] TASK-031 — Módulo web de auditoría de interacciones de texto con filtrado por aplicación y fecha
+### [x] TASK-031 — Módulo web de auditoría de interacciones de texto con filtrado por aplicación y fecha
 - **Identificador:** `TASK-031`
 - **Nombre:** Módulo web de auditoría de interacciones de texto con filtrado por aplicación y fecha
 - **Descripción:** Diseñar e integrar en el panel `web-admin` el componente y vista de auditoría de interacciones de texto dentro del detalle de histórico de jornada (`/history/[id]`) y reporte consolidado (`/reports`). Incluir filtros por aplicación activa (WhatsApp, Mensajería, etc.), búsqueda por palabras clave de negociación comercial, y visualización de timestamp y hash de integridad.
@@ -646,7 +646,7 @@
   1. Visualización clara y ordenada cronológicamente de las interacciones capturadas por vendedor y fecha.
   2. Búsqueda y filtrado reactivo por aplicación y términos comerciales.
   3. Soporte de estados: Cargando (Skeleton), Vacío (Empty State) y Error con reintento.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ---
 

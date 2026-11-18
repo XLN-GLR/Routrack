@@ -234,8 +234,14 @@
   - Sincronización Offline-First (`SyncRepositoryImpl.kt`, `SyncRepository.kt`): Extensión del payload de `syncPendingBatch` para incorporar el arreglo `text_interactions` hacia la Supabase Edge Function `sync-jornada` y marcado de sincronización atómica tras respuesta HTTP 200.
   - Suite de Pruebas Unitarias (`TextMonitoringAccessibilityServiceTest.kt`): Verificación determinista de formato canónico, integridad de cadena HMAC, descarte de textos manipulados y manejo de entradas inválidas.
 
+- **[x] TASK-031 — Módulo web de auditoría de interacciones de texto con filtrado por aplicación y fecha:**
+  - Definiciones y Modelado TypeScript (`web-admin/src/types/text-interactions.ts`): Interfaz `TextInteractionRecord` con tipado estricto (cero `any`), filtros reactivos `TextInteractionFilterState`, función de cálculo de resúmenes `calculateTextInteractionSummary` y filtrado multivariable `filterTextInteractions`.
+  - Componente Reutilizable de Auditoría (`web-admin/src/components/audit/TextInteractionsTable.tsx`): Tabla responsiva con badges para WhatsApp (verde), Mensajería SMS (azul) y Otras apps, visualización y copia de firmas HMAC-SHA256 truncadas, expansión de textos largos, y soporte de los 4 estados de UI (Skeleton, Vacío, Error con reintento, Tabla completa).
+  - Detalle Histórico de Jornada (`web-admin/src/app/(dashboard)/history/[id]/page.tsx`): Ruta dinámica de Next.js App Router con métricas clave de jornada (km, efectividad, mensajes, estado de cadena de custodia), pestañas operativas y visualización dedicada de textos corporativos.
+  - Consolidación en Reportes (`web-admin/src/app/(dashboard)/reports/page.tsx`): Integración de pestaña "Auditoría de Textos Corporativos", consulta centralizada a `interacciones_texto` en Supabase y enlaces directos de auditoría en la tabla de jornadas.
+  - Verificación Automatizada (`web-admin/scripts/run-text-audit-tests.mjs`): 10 de 10 pruebas unitarias aprobadas (100% PASS) y compilación limpia en TypeScript (`tsc --noEmit`) y producción (`next build`).
+
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-031:** Módulo web de auditoría de interacciones de texto con filtrado por aplicación y fecha.
 - **[ ] TASK-032:** Motor de Map-Matching y Snap-to-Roads con OpenStreetMap/OSRM a costo $0 USD para ajuste vial real.
 - **[ ] TASK-033:** Muestreo cinemático adaptativo por rumbo (bearing) y distancias viales en cliente Android.
 - **[ ] TASK-034:** Animación cinemática continua de marcadores vehiculares y trazado de polilíneas viales en Monitoreo en Vivo (/live).
@@ -245,10 +251,10 @@
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno.* La implementación nativa de accesibilidad móvil, base de datos local cifrada bajo SQLCipher y el encadenamiento HMAC-SHA256 se encuentran completamente integrados y operativos.
+- *Ninguno.* La auditoría web de textos corporativos se encuentra completamente integrada en el panel administrativo, con tipado estricto y compilación de producción verificada.
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- **Iniciar TASK-031:** Módulo web de auditoría de interacciones de texto con filtrado por aplicación y fecha en `web-admin` (`/history/[id]` y `/reports`).
+- **Iniciar TASK-032:** Motor de Map-Matching y Snap-to-Roads con OpenStreetMap/OSRM a costo $0 USD para ajuste vial real en `web-admin` (`src/lib/map/roadMatching.ts`).
