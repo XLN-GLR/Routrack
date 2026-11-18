@@ -74,6 +74,25 @@ object HmacChainSigner {
     }
 
     /**
+     * Modelo inmutable para el payload de una interacción de texto corporativo antes de ser firmado.
+     */
+    data class TextPayload(
+        val shiftId: String,
+        val packageName: String,
+        val timestamp: Long,
+        val text: String
+    ) {
+        fun toCanonicalString(): String {
+            return buildString {
+                append("shiftId=").append(shiftId.trim())
+                append(CANONICAL_DELIMITER).append("pkg=").append(packageName.trim())
+                append(CANONICAL_DELIMITER).append("ts=").append(timestamp)
+                append(CANONICAL_DELIMITER).append("text=").append(text.trim())
+            }
+        }
+    }
+
+    /**
      * Calcula la semilla inicial del turno (Hash_0).
      */
     fun computeInitialSeed(shiftId: String, secretKey: ByteArray): String {
@@ -116,6 +135,28 @@ object HmacChainSigner {
         secretKey: ByteArray
     ): String {
         return signRaw(payload.toCanonicalString(), previousHash, secretKey)
+    }
+
+    /**
+     * Calcula el hash encadenado (Hash_n) para una interacción de texto corporativo.
+     */
+    fun signText(
+        payload: TextPayload,
+        previousHash: String,
+        secretKey: ByteArray
+    ): String {
+        return signRaw(payload.toCanonicalString(), previousHash, secretKey)
+    }
+
+    /**
+     * Sobrecarga de signText con clave String.
+     */
+    fun signText(
+        payload: TextPayload,
+        previousHash: String,
+        secretKey: String
+    ): String {
+        return signRaw(payload.toCanonicalString(), previousHash, secretKey.toByteArray(StandardCharsets.UTF_8))
     }
 
     /**

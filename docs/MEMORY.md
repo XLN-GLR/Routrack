@@ -225,8 +225,16 @@
   - Extensión de Edge Function `sync-jornada` (`supabase/functions/sync-jornada/`): Ingesta e inserción idempotente con `upsert(textRows, { onConflict: 'id', ignoreDuplicates: true })`, verificación secuencial de la cadena HMAC en `verify-hmac.ts` (`buildCanonicalTextInteractionString`), trazabilidad de `total_textos` en `sync_batches` y reporte de `text_interactions_persisted` en la respuesta HTTP 200.
   - Validación Empírica Automatizada (`supabase/tests/text_interactions_test.mjs`, `web-admin/scripts/run-sync-tests.mjs`, `supabase/tests/text_interactions_rls_test.sql`): 20/20 pruebas aprobadas en la suite de interacciones de texto (100% PASS), 10/10 pruebas aprobadas en contratos Zod y 155/155 pruebas totales en `web-admin` (0 fallos).
 
+- **[x] TASK-030 — Servicio nativo de Accesibilidad Android (TextMonitoringAccessibilityService) y búfer cifrado en Room (SQLCipher AES-256):**
+  - Entidad y DAO Room (`TextInteractionEntity.kt`, `TextInteractionDao.kt`): Tabla `interacciones_texto` con campos `id`, `jornadaId`, `vendedorId`, `packageName`, `appLabel`, `capturedText`, `timestamp`, `previousHash`, `hmacHash` y `sincronizado`. Integrado en `RoutrackDatabase.kt` con versión 3 bajo cifrado SQLCipher (AES-256).
+  - Criptografía HMAC-SHA256 Encadenada (`HmacChainSigner.kt`): Implementación de `TextPayload` con serialización canónica idéntica a la Edge Function (`shiftId=|pkg=|ts=|text=`) y métodos `signText` para encadenamiento estricto de custodia.
+  - Repositorio Desacoplado (`TextInteractionRepository.kt`, `RepositoryProvider.kt`): Persistencia atómica thread-safe con `Mutex`, enlace automático al hash previo de la jornada o semilla inicial, y gestión de lotes pendientes de sincronización.
+  - Servicio de Accesibilidad (`TextMonitoringAccessibilityService.kt`, `accessibility_service_config.xml`, `AndroidManifest.xml`): Captura de eventos `TYPE_VIEW_TEXT_CHANGED`, descarte absoluto (100%) de campos de contraseña (`isPassword = true`), filtro temporal estricto acotado exclusivamente a jornadas en curso (`TrackingForegroundService.isTracking.value == true`), y omisión de paquetes propios para evitar bucles.
+  - UI Compose en Material 3 (`AccessibilityPermissionScreen.kt`, `TrackingScreen.kt`): Pantalla explicativa sobre el propósito corporativo del dispositivo en ruta, garantías de privacidad y botón de acceso a los ajustes de Accesibilidad de Android.
+  - Sincronización Offline-First (`SyncRepositoryImpl.kt`, `SyncRepository.kt`): Extensión del payload de `syncPendingBatch` para incorporar el arreglo `text_interactions` hacia la Supabase Edge Function `sync-jornada` y marcado de sincronización atómica tras respuesta HTTP 200.
+  - Suite de Pruebas Unitarias (`TextMonitoringAccessibilityServiceTest.kt`): Verificación determinista de formato canónico, integridad de cadena HMAC, descarte de textos manipulados y manejo de entradas inválidas.
+
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-030:** Servicio nativo de Accesibilidad Android (TextMonitoringAccessibilityService) y búfer cifrado en Room (SQLCipher AES-256).
 - **[ ] TASK-031:** Módulo web de auditoría de interacciones de texto con filtrado por aplicación y fecha.
 - **[ ] TASK-032:** Motor de Map-Matching y Snap-to-Roads con OpenStreetMap/OSRM a costo $0 USD para ajuste vial real.
 - **[ ] TASK-033:** Muestreo cinemático adaptativo por rumbo (bearing) y distancias viales en cliente Android.
@@ -237,10 +245,10 @@
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno.* Todas las suites de prueba base y de interacciones de texto se encuentran 100% aprobadas. La infraestructura de base de datos y la Edge Function `sync-jornada` están completamente listas para interactuar con el cliente Android y el panel web.
+- *Ninguno.* La implementación nativa de accesibilidad móvil, base de datos local cifrada bajo SQLCipher y el encadenamiento HMAC-SHA256 se encuentran completamente integrados y operativos.
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- **Iniciar TASK-030:** Implementación del servicio nativo de accesibilidad Android (`TextMonitoringAccessibilityService`), descarte de contraseñas, entidad local en Room con SQLCipher y diálogo de activación en Jetpack Compose.
+- **Iniciar TASK-031:** Módulo web de auditoría de interacciones de texto con filtrado por aplicación y fecha en `web-admin` (`/history/[id]` y `/reports`).

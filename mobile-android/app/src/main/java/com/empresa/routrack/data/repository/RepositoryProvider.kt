@@ -31,6 +31,9 @@ object RepositoryProvider {
     private var syncRepositoryInstance: SyncRepository? = null
 
     @Volatile
+    private var textInteractionRepositoryInstance: TextInteractionRepository? = null
+
+    @Volatile
     private var unifiedRepositoryInstance: com.empresa.routrack.data.RoutrackRepository? = null
 
     private fun getDatabase(context: Context): RoutrackDatabase {
@@ -114,6 +117,23 @@ object RepositoryProvider {
     }
 
     /**
+     * Retorna la instancia singleton de TextInteractionRepository.
+     */
+    fun getTextInteractionRepository(context: Context): TextInteractionRepository {
+        return textInteractionRepositoryInstance ?: synchronized(this) {
+            textInteractionRepositoryInstance ?: run {
+                val db = getDatabase(context)
+                val secretKeyProvider = getSecretKeyProvider(context)
+                TextInteractionRepositoryImpl(
+                    textInteractionDao = db.textInteractionDao(),
+                    secretKeyProvider = secretKeyProvider,
+                    ioDispatcher = Dispatchers.IO
+                ).also { textInteractionRepositoryInstance = it }
+            }
+        }
+    }
+
+    /**
      * Retorna el repositorio unificado de ROUTRACK Mobile.
      */
     fun getUnifiedRepository(context: Context): com.empresa.routrack.data.RoutrackRepository {
@@ -141,6 +161,7 @@ object RepositoryProvider {
                     jornadaDao = db.jornadaDao(),
                     authRepository = AuthRepositoryImpl(),
                     secretKeyProvider = secretKeyProvider,
+                    textInteractionDao = db.textInteractionDao(),
                     ioDispatcher = Dispatchers.IO
                 ).also { syncRepositoryInstance = it }
             }

@@ -225,10 +225,10 @@ class TrackingRepositoryTest {
         override suspend fun getById(id: String): BitacoraAuditoriaEntity? = list.find { it.id == id }
 
         override suspend fun getUltimoEventoPorJornada(jornadaId: String): BitacoraAuditoriaEntity? =
-            list.filter { it.jornadaId == jornadaId }.maxByOrNull { it.timestampEvento }
+            list.filter { it.jornadaId == jornadaId }.lastOrNull()
 
         override suspend fun getEventosPorJornada(jornadaId: String): List<BitacoraAuditoriaEntity> =
-            list.filter { it.jornadaId == jornadaId }.sortedBy { it.timestampEvento }
+            list.filter { it.jornadaId == jornadaId }
 
         override fun observeEventosPorJornada(jornadaId: String): Flow<List<BitacoraAuditoriaEntity>> =
             MutableStateFlow(list.filter { it.jornadaId == jornadaId })

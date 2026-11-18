@@ -73,6 +73,9 @@ open class TrackingForegroundService : Service() {
         private val _activeJornadaId = MutableStateFlow<String?>(null)
         val activeJornadaId = _activeJornadaId.asStateFlow()
 
+        private val _activeVendedorId = MutableStateFlow<String?>(null)
+        val activeVendedorId = _activeVendedorId.asStateFlow()
+
         /**
          * Inicia el rastreo en primer plano para una jornada laboral específica.
          */
@@ -157,6 +160,7 @@ open class TrackingForegroundService : Service() {
                     currentJornadaId = jornadaId
                     currentVendedorId = vendedorId
                     _activeJornadaId.value = jornadaId
+                    _activeVendedorId.value = vendedorId
                     startForegroundTracking()
                 }
             }
@@ -229,6 +233,7 @@ open class TrackingForegroundService : Service() {
 
         _isTracking.value = false
         _activeJornadaId.value = null
+        _activeVendedorId.value = null
 
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()

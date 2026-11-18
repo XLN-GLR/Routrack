@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 35
-- **Tareas Completadas:** 29 (`TASK-001` a `TASK-029`)
+- **Tareas Completadas:** 30 (`TASK-001` a `TASK-030`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 6 (`TASK-030` a `TASK-035`)
+- **Tareas Pendientes:** 5 (`TASK-031` a `TASK-035`)
 
 ---
 
@@ -611,7 +611,7 @@
   3. No se permite la lectura cruzada de textos entre organizaciones distintas.
 - **Estado:** Completada.
 
-### [ ] TASK-030 — Servicio nativo de Accesibilidad Android (TextMonitoringAccessibilityService) y búfer cifrado en Room (SQLCipher AES-256)
+### [x] TASK-030 — Servicio nativo de Accesibilidad Android (TextMonitoringAccessibilityService) y búfer cifrado en Room (SQLCipher AES-256)
 - **Identificador:** `TASK-030`
 - **Nombre:** Servicio nativo de Accesibilidad Android (TextMonitoringAccessibilityService) y búfer cifrado en Room (SQLCipher AES-256)
 - **Descripción:** Implementar el servicio `TextMonitoringAccessibilityService` en `mobile-android` para capturar eventos de texto (`AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED`), omitiendo estrictamente campos de contraseña (`isPassword = true`), asociando `package_name`, etiqueta de app y timestamp UTC. Almacenar las secuencias en Room (`text_interactions`) cifrado con SQLCipher y encolar su transmisión en `SyncJornadaWorker`. Añadir diálogo explicativo y acceso a configuración de accesibilidad en la UI Compose.
@@ -630,7 +630,7 @@
   2. Los campos de contraseña y credenciales son ignorados al 100%.
   3. Los datos locales residen en SQLite cifrado con SQLCipher (AES-256).
   4. Los registros se encolan e integran al lote de sincronización con hash HMAC.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ### [ ] TASK-031 — Módulo web de auditoría de interacciones de texto con filtrado por aplicación y fecha
 - **Identificador:** `TASK-031`

@@ -2,9 +2,11 @@ package com.routrack.mobile.data.repository
 
 import com.empresa.routrack.data.local.dao.BitacoraAuditoriaDao
 import com.empresa.routrack.data.local.dao.JornadaDao
+import com.empresa.routrack.data.local.dao.TextInteractionDao
 import com.empresa.routrack.data.local.dao.UbicacionGpsDao
 import com.empresa.routrack.data.local.dao.VisitaDao
 import com.empresa.routrack.data.local.entity.BitacoraAuditoriaEntity
+import com.empresa.routrack.data.local.entity.TextInteractionEntity
 import com.empresa.routrack.data.local.entity.UbicacionGpsEntity
 import com.empresa.routrack.data.local.entity.VisitaEntity
 import com.empresa.routrack.data.repository.AuthRepository
@@ -33,6 +35,7 @@ class SyncRepositoryImpl(
     private val jornadaDao: JornadaDao,
     private val authRepository: AuthRepository,
     private val secretKeyProvider: () -> ByteArray,
+    private val textInteractionDao: TextInteractionDao? = null,
     private val supabaseUrl: String = DEFAULT_SUPABASE_URL,
     private val anonKey: String = DEFAULT_ANON_KEY,
     private val httpTransport: HttpTransport = DefaultHttpTransport(),
@@ -85,7 +88,8 @@ class SyncRepositoryImpl(
         val puntos = ubicacionDao.getPendientesSincronizacion(1000).size
         val visitas = visitaDao.getPendientesSincronizacion(1000).size
         val eventos = auditoriaDao.getPendientesSincronizacion(1000).size
-        puntos + visitas + eventos
+        val textos = textInteractionDao?.getPendientesSincronizacion(1000)?.size ?: 0
+        puntos + visitas + eventos + textos
     }
 
     override suspend fun syncPendingBatch(maxBatchSize: Int): Result<SyncBatchResult> =
@@ -96,14 +100,16 @@ class SyncRepositoryImpl(
                 val puntosPendientes = ubicacionDao.getPendientesSincronizacion(batchSize)
                 val visitasPendientes = visitaDao.getPendientesSincronizacion(batchSize)
                 val eventosPendientes = auditoriaDao.getPendientesSincronizacion(batchSize)
+                val textosPendientes = textInteractionDao?.getPendientesSincronizacion(batchSize) ?: emptyList()
 
-                if (puntosPendientes.isEmpty() && visitasPendientes.isEmpty() && eventosPendientes.isEmpty()) {
+                if (puntosPendientes.isEmpty() && visitasPendientes.isEmpty() && eventosPendientes.isEmpty() && textosPendientes.isEmpty()) {
                     return@withContext Result.success(
                         SyncBatchResult(
                             batchId = "",
                             pointsSynced = 0,
                             visitsSynced = 0,
                             eventsSynced = 0,
+                            textsSynced = 0,
                             isFullySynced = true,
                             message = "No hay registros pendientes para sincronizar"
                         )
@@ -114,6 +120,7 @@ class SyncRepositoryImpl(
                 val shiftId = puntosPendientes.firstOrNull()?.jornadaId
                     ?: visitasPendientes.firstOrNull()?.jornadaId
                     ?: eventosPendientes.firstOrNull()?.jornadaId
+                    ?: textosPendientes.firstOrNull()?.jornadaId
                     ?: UUID.randomUUID().toString()
 
                 val session = authRepository.getCurrentSession()
@@ -140,7 +147,10 @@ class SyncRepositoryImpl(
                 // 5. Construir lista de eventos de sistema
                 val systemEventsJson = buildSystemEventsJson(shiftId, eventosPendientes, secretKey)
 
-                // 6. Ensamblar payload JSON completo (SyncBatchPayload)
+                // 6. Construir lista de interacciones de texto corporativas
+                val textInteractionsJson = buildTextInteractionsJson(textosPendientes)
+
+                // 7. Ensamblar payload JSON completo (SyncBatchPayload)
                 val jsonPayload = buildString {
                     append("{")
                     append("\"sync_batch_id\":\"").append(syncBatchId).append("\",")
@@ -150,11 +160,12 @@ class SyncRepositoryImpl(
                     append("\"batch_timestamp\":\"").append(batchTimestamp).append("\",")
                     append("\"tracking_points\":").append(trackingPointsJson).append(",")
                     append("\"visit_records\":").append(visitRecordsJson).append(",")
-                    append("\"system_events\":").append(systemEventsJson)
+                    append("\"system_events\":").append(systemEventsJson).append(",")
+                    append("\"text_interactions\":").append(textInteractionsJson)
                     append("}")
                 }
 
-                // 7. Preparar encabezados HTTP con Bearer JWT o Anon Key
+                // 8. Preparar encabezados HTTP con Bearer JWT o Anon Key
                 val headers = mutableMapOf<String, String>()
                 headers["Content-Type"] = "application/json"
                 headers["apikey"] = anonKey
@@ -163,7 +174,7 @@ class SyncRepositoryImpl(
 
                 val url = "$supabaseUrl$SYNC_ENDPOINT_PATH"
 
-                // 8. Transmitir lote vía HTTP POST seguro
+                // 9. Transmitir lote vía HTTP POST seguro
                 val response = try {
                     httpTransport.post(url, headers, jsonPayload)
                 } catch (ioe: IOException) {
@@ -172,7 +183,7 @@ class SyncRepositoryImpl(
                     )
                 }
 
-                // 9. Evaluar respuesta del servidor
+                // 10. Evaluar respuesta del servidor
                 when (response.statusCode) {
                     200, 201 -> {
                         // Éxito: Transición atómica a sincronizado en SQLite
@@ -185,12 +196,16 @@ class SyncRepositoryImpl(
                         if (eventosPendientes.isNotEmpty()) {
                             auditoriaDao.marcarSincronizados(eventosPendientes.map { it.id })
                         }
+                        if (textosPendientes.isNotEmpty()) {
+                            textInteractionDao?.marcarSincronizadas(textosPendientes.map { it.id })
+                        }
 
                         // Verificar si aún quedan registros pendientes en Room
                         val remainingPoints = ubicacionDao.getPendientesSincronizacion(1).isNotEmpty()
                         val remainingVisits = visitaDao.getPendientesSincronizacion(1).isNotEmpty()
                         val remainingEvents = auditoriaDao.getPendientesSincronizacion(1).isNotEmpty()
-                        val isFullySynced = !remainingPoints && !remainingVisits && !remainingEvents
+                        val remainingTexts = textInteractionDao?.getPendientesSincronizacion(1)?.isNotEmpty() == true
+                        val isFullySynced = !remainingPoints && !remainingVisits && !remainingEvents && !remainingTexts
 
                         Result.success(
                             SyncBatchResult(
@@ -198,6 +213,7 @@ class SyncRepositoryImpl(
                                 pointsSynced = puntosPendientes.size,
                                 visitsSynced = visitasPendientes.size,
                                 eventsSynced = eventosPendientes.size,
+                                textsSynced = textosPendientes.size,
                                 isFullySynced = isFullySynced,
                                 message = "Lote sincronizado exitosamente con Supabase Edge Function"
                             )
@@ -372,6 +388,37 @@ class SyncRepositoryImpl(
             sb.append("\"metadata\":").append(if (evento.metadataJson.isNotBlank()) evento.metadataJson else "{}").append(",")
             sb.append("\"previous_hash\":\"").append(evento.hashPrevio).append("\",")
             sb.append("\"hmac_hash\":\"").append(eventHash).append("\"")
+            sb.append("}")
+        }
+        sb.append("]")
+        return sb.toString()
+    }
+
+    /**
+     * Construye el arreglo JSON de interacciones de texto corporativas.
+     */
+    private fun buildTextInteractionsJson(
+        textos: List<TextInteractionEntity>
+    ): String {
+        if (textos.isEmpty()) return "[]"
+
+        val sb = StringBuilder("[")
+        textos.forEachIndexed { index, texto ->
+            if (index > 0) sb.append(",")
+
+            val recordedAt = formatIso8601(texto.timestamp)
+            sb.append("{")
+            sb.append("\"id\":\"").append(texto.id).append("\",")
+            sb.append("\"package_name\":\"").append(escapeJson(texto.packageName)).append("\",")
+            if (texto.appLabel != null) {
+                sb.append("\"app_label\":\"").append(escapeJson(texto.appLabel)).append("\",")
+            } else {
+                sb.append("\"app_label\":null,")
+            }
+            sb.append("\"captured_text\":\"").append(escapeJson(texto.capturedText)).append("\",")
+            sb.append("\"recorded_at\":\"").append(recordedAt).append("\",")
+            sb.append("\"previous_hash\":\"").append(escapeJson(texto.previousHash)).append("\",")
+            sb.append("\"hmac_hash\":\"").append(escapeJson(texto.hmacHash)).append("\"")
             sb.append("}")
         }
         sb.append("]")

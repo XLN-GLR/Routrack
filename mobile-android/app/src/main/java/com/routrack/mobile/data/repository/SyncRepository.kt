@@ -8,11 +8,12 @@ data class SyncBatchResult(
     val pointsSynced: Int,
     val visitsSynced: Int,
     val eventsSynced: Int,
+    val textsSynced: Int = 0,
     val isFullySynced: Boolean,
     val message: String? = null
 ) {
     val totalRecordsSynced: Int
-        get() = pointsSynced + visitsSynced + eventsSynced
+        get() = pointsSynced + visitsSynced + eventsSynced + textsSynced
 }
 
 /**

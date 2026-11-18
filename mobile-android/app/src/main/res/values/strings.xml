@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ROUTRACK</string>
+    <string name="accessibility_service_description">Servicio de auditoría comercial de ROUTRACK para registrar acuerdos de precios y condiciones comerciales acordadas en chats corporativos durante la jornada laboral activa.</string>
+</resources>
