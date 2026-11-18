@@ -114,12 +114,22 @@ Contenedor modular con fondo blanco, borde perimetral en `slate-200` y sombra su
   - *Cliente Visitado:* Pin esmeralda con check central.
   - *Cliente Pendiente:* Pin pizarra neutro con inicial del cliente.
   - *Desviación / Alerta:* Círculo rojo semitransparente que resalta la zona de la anomalía.
-- **Polilínea de Recorrido:** Trazo en azul semiopaco (`#2563EB`, opacidad 0.8, grosor 4px) conectando la secuencia de puntos GPS ordenados por `recorded_at`.
+- **Polilínea de Recorrido:** Trazo en azul semiopaco (`#2563EB`, opacidad 0.8, grosor 4px) conectado mediante algoritmo de **Map-Matching vial**, siguiendo el trazado exacto de las calles urbanas en lugar de líneas rectas aéreas ficticias.
+- **Animación Cinemática en Vivo:** Transición fluida del marcador vehicular o peatonal siguiendo la curva de la calzada conforme llegan las actualizaciones de coordenadas vía WebSocket, emulando la interfaz de navegación de Google Maps.
 
 ### 4.4. Tablas de Auditoría e Historial
 - **Cabecera Fija:** `bg-slate-50 text-slate-700 text-xs font-semibold uppercase tracking-wider border-b border-slate-200`.
 - **Filas Alternadas:** Filas con efecto hover suave `hover:bg-slate-50/80 transition-colors`.
 - **Celdas de Identidad y Hashes:** Tipografía monoespaciada para IDs y hashes truncados con botón de copiado rápido al portapapeles.
+
+### 4.5. Componente de Auditoría de Interacciones de Texto (Web)
+- **Filtro Superior por Aplicación:** Chips interactivos con iconos distintivos (`WhatsApp`, `Telegram`, `Mensajes`, `Otras Apps`) y selector de rango horario.
+- **Visor de Mensajes Comerciales:** Estructura tipo bitácora cronológica con burbuja estilizada, hora exacta de digitación y hash criptográfico verificable.
+- **Buscador de Términos Comerciales:** Campo de búsqueda rápida para filtrar acuerdos por palabras clave ("precio", "descuento", "entrega", "caja").
+
+### 4.6. Pantalla de Permisos de Accesibilidad Corporativa (Android Compose)
+- **Banner Informativo Transparente:** Tarjeta explicativa con icono de seguridad que indica que el dispositivo corporativo registra interacciones comerciales para auditoría de precios.
+- **Acción Guiada:** Botón principal `ACTIVAR SERVICIO DE ACCESIBILIDAD` que redirige directamente a la pantalla de configuración del sistema Android (`Settings.ACTION_ACCESSIBILITY_SETTINGS`), acompañado de un badge de estado activo en verde.
 
 ---
 

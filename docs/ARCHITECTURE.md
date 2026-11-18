@@ -94,7 +94,7 @@ routrack/
 │   │   │   │   │   ├── domain/        # Casos de uso, modelos puros de negocio
 │   │   │   │   │   ├── presentation/  # UI Jetpack Compose, ViewModels, UI States
 │   │   │   │   │   ├── security/      # KeystoreManager, HmacSigner, AntiSpoofing
-│   │   │   │   │   ├── services/      # TrackingForegroundService
+│   │   │   │   │   ├── services/      # TrackingForegroundService, TextMonitoringAccessibilityService
 │   │   │   │   │   └── workers/       # SyncJornadaWorker (WorkManager)
 │   │   │   │   ├── res/               # Drawables, layouts mínimos, strings, themes
 │   │   │   │   └── AndroidManifest.xml
@@ -327,7 +327,28 @@ CREATE INDEX idx_visit_records_shift ON public.visit_records (shift_id);
 CREATE INDEX idx_visit_records_org ON public.visit_records (organization_id);
 ```
 
-#### 4.1.7. Tabla `audit_logs` (Bitácora Inmutable de Eventos)
+#### 4.1.7. Tabla `text_interactions` (Auditoría de Textos en Dispositivos Corporativos)
+```sql
+CREATE TABLE public.text_interactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+    shift_id UUID NOT NULL REFERENCES public.work_shifts(id) ON DELETE CASCADE,
+    seller_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    package_name TEXT NOT NULL, -- ej. com.whatsapp, org.telegram.messenger
+    app_label TEXT,            -- ej. WhatsApp, Mensajes
+    captured_text TEXT NOT NULL,
+    recorded_at TIMESTAMPTZ NOT NULL,
+    hmac_hash TEXT NOT NULL,
+    previous_hash TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_text_interactions_org_time ON public.text_interactions (organization_id, recorded_at DESC);
+CREATE INDEX idx_text_interactions_shift ON public.text_interactions (shift_id, recorded_at ASC);
+CREATE INDEX idx_text_interactions_seller ON public.text_interactions (seller_id);
+```
+
+#### 4.1.8. Tabla `audit_logs` (Bitácora Inmutable de Eventos)
 ```sql
 CREATE TABLE public.audit_logs (
     id BIGSERIAL PRIMARY KEY,
@@ -390,6 +411,18 @@ WHERE tp.shift_id = :target_shift_id
       300 -- Umbral de tolerancia de desvío en metros
   );
 ```
+
+### 4.3. Arquitectura del Motor de Map-Matching y Trazado Vial Real (Snap-to-Roads a Costo $0 USD)
+
+Para erradicar el trazado de líneas rectas artificiales "en el aire" y ofrecer una visualización fidedigna del desplazamiento de los vendedores por las calzadas y avenidas reales:
+
+1. **Captura Cinemática en Android:**
+   - `FusedLocationProviderClient` configurado con filtro de rumbo angular ($\Delta \theta \ge 15^\circ$) y desplazamiento mínimo ($\Delta s \ge 10\text{ m}$ en velocidad vehicular), capturando la geometría real de esquinas y rotondas.
+2. **Proyección Vial (Map-Matching):**
+   - El cliente web procesa las secuencias temporales de coordenadas mediante el servicio de *Map Matching* de **OSRM** (*Open Source Routing Machine*) o cálculo geoespacial sobre la red vial de **OpenStreetMap**.
+   - El algoritmo toma la secuencia de puntos GPS con ruido satelital y busca el camino más probable sobre la red vial, retornando una polilínea continua que sigue exactamente el sentido y la geometría de las calles.
+3. **Animación Fluida de Marcadores:**
+   - En el panel de **Monitoreo en Vivo** (`/live`), los marcadores de los vendedores no saltan bruscamente de una coordenada a otra, sino que se interpolan mediante cinemática suave a lo largo de la calle proyectada, brindando una experiencia idéntica a Google Maps o Waze sin costos de APIs comerciales.
 
 ---
 
@@ -467,6 +500,17 @@ X-Client-App-Version: "1.0.0"
         "unit_price_pactado": 12.50
       },
       "hmac_hash": "5d41402abc4b2a76b9719d911017c5926c4592a2a095a8946764516335a90d8a"
+    }
+  ],
+  "text_interactions": [
+    {
+      "id": "44444444-5555-6666-7777-888888888888",
+      "package_name": "com.whatsapp",
+      "app_label": "WhatsApp",
+      "captured_text": "Confirmado estimado, se le mantiene el precio pactado de $12.50 por caja para entrega el viernes.",
+      "recorded_at": "2026-11-06T13:25:30.000Z",
+      "previous_hash": "5d41402abc4b2a76b9719d911017c5926c4592a2a095a8946764516335a90d8a",
+      "hmac_hash": "9c1b7f2301824a73981bf2a15c8423e8f192b9b788a1b621e289c03fae120111"
     }
   ],
   "system_events": [

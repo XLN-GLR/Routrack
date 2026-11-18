@@ -129,6 +129,15 @@ flowchart TD
    - Si un vendedor adelanta o atrasa manualmente el reloj de su teléfono para simular visitas a horas indebidas, el sistema debe contrastar `System.currentTimeMillis()` contra `SystemClock.elapsedRealtime()` (tiempo transcurrido desde el encendido del hardware, inmune a cambios del reloj del sistema) y con la marca de tiempo de red satelital GPS (`location.time`).
    - Si se detecta una desviación superior a 60 segundos entre el reloj local y la hora de red/satelital, se etiqueta la anomalía en el payload y se ajusta la marca temporal basada en el tiempo monotónico del sistema.
 
+### 3.5. Verificación de Captura y Cifrado de Interacciones de Texto
+1. **Filtrado de Contraseñas:** Simular la introducción de texto en campos de contraseña (`isPassword = true`). Comprobar que el `TextMonitoringAccessibilityService` descarte el evento inmediatamente sin persistir nada en el búfer.
+2. **Cifrado en Búfer Local:** Verificar que las secuencias de texto capturadas en aplicaciones de mensajería (WhatsApp corporativo) se almacenen en Room con SQLCipher cifradas en AES-256.
+3. **Flujo de Sincronización e Inmutabilidad:** Validar que al cerrar jornada o activarse el worker de sincronización, los textos viajen con hash encadenado hacia Supabase y se persistan en `text_interactions` con RLS estricto.
+
+### 3.6. Verificación de Map-Matching y Proyección Vial
+1. **Ajuste de Ruta a Calles (Snap-to-Roads):** Cargar una secuencia de puntos GPS crudos con dispersión satelital urbana y verificar que el motor de Map-Matching de OSRM/OpenStreetMap retorne un trazado vial continuo que discurra por la calzada y no atraviese manzanas o construcciones.
+2. **Animación Cinemática Continua:** Comprobar en el navegador web que el marcador del vendedor se mueva de forma fluida a lo largo de la calle proyectada, sin saltos instantáneos discontinuos.
+
 ---
 
 ## 4. Matriz de Aceptación y Definición de Terminado (DoD)

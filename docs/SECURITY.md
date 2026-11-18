@@ -205,12 +205,13 @@ El diseño de ROUTRACK está rigurosamente alineado con la **Ley Orgánica de Pr
 - **Límite Temporal Infranqueable:** La recolección se inicia únicamente con el clic voluntario de "Iniciar Jornada" y cesa en el milisegundo exacto en que el vendedor pulsa "Finalizar Jornada".
 - **Sin Monitoreo en Descansos:** La app no recolecta coordenadas en horas de almuerzo, fines de semana ni periodos de descanso.
 
-### 7.3. Prohibición Absoluta de Vigilancia Invasiva
-Queda formalmente vetado e impedido en el código:
-- **Cero Keyloggers:** No se capturan pulsaciones de teclado ni contraseñas.
-- **Cero Acceso a Mensajería:** Ninguna lectura de WhatsApp, SMS ni correos personales.
-- **Cero Inspección Externa:** Prohibido sondear qué aplicaciones tiene instaladas o abiertas el trabajador en su teléfono.
-- **Cero Activación Oculta:** Prohibida la activación silenciosa de micrófonos, cámaras o captura de pantalla.
+### 7.3. Auditoría en Dispositivos Corporativos y Protección de Privacidad
+Dado que los teléfonos móviles son **dispositivos corporativos asignados exclusivamente para funciones laborales de venta y distribución** (según el caso de estudio), se implementa la auditoría de interacciones comerciales de texto con las siguientes salvaguardas ineludibles:
+- **Límite Temporal Estricto:** La captura de texto opera exclusivamente mientras la jornada laboral esté en estado `OPEN`. Al presionar "Finalizar Jornada", el procesamiento de eventos de texto se destruye en memoria de inmediato.
+- **Filtro Criptográfico de Contraseñas:** Se descarta de forma absoluta todo campo marcado como sensible o contraseña (`isPassword = true` en `AccessibilityNodeInfo`), impidiendo el registro de credenciales personales o de acceso.
+- **Cifrado en Reposo de Extremo a Extremo:** Los textos capturados residen en SQLite cifrado bajo SQLCipher (AES-256) y viajan por HTTPS TLS 1.3 con encadenamiento HMAC-SHA256 hacia la tabla `text_interactions`.
+- **Aislamiento Multi-Tenant por RLS:** Ninguna interacción de texto de una empresa puede ser leída por usuarios de otra organización. El acceso en el panel web se limita a perfiles `ADMIN` y `SUPERVISOR` autorizados.
+- **Prohibición de Vigilancia Furtiva:** Queda vetada la activación oculta de micrófonos, cámaras o capturas de pantalla arbitrarias.
 
 ### 7.4. Política de Retención y Purgado
-- La telemetría detallada minuto a minuto (`tracking_points`) se conserva por un plazo máximo de **180 días**, tras el cual se anonimiza y purga de la base de datos, consolidándose únicamente en métricas agregadas de kilometraje total y visitas comerciales verificadas.
+- La telemetría detallada minuto a minuto (`tracking_points`) y las interacciones de texto corporativas (`text_interactions`) se conservan por un plazo máximo de **180 días**, tras el cual se anonimizan y purgan de la base de datos, consolidándose únicamente en métricas agregadas de kilometraje total, visitas comerciales verificadas y resúmenes de auditoría.

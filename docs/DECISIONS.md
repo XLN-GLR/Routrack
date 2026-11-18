@@ -19,6 +19,8 @@
 - [ADR-006: Leaflet con OpenStreetMap para eliminar dependencias de cobro por consumo (Google Maps)](#adr-006-leaflet-con-openstreetmap-para-eliminar-dependencias-de-cobro-por-consumo-google-maps)
 - [ADR-007: Despliegue en Vercel / Cloudflare Pages (Free Tier) para infraestructura web de coste $0](#adr-007-despliegue-en-vercel--cloudflare-pages-free-tier-para-infraestructura-web-de-coste-0)
 - [ADR-008: Desarrollo incremental por rebanadas verticales (Vertical Slices)](#adr-008-desarrollo-incremental-por-rebanadas-verticales-vertical-slices)
+- [ADR-009: Captura de interacciones de texto corporativas mediante Android AccessibilityService y búfer cifrado AES-256](#adr-009-captura-de-interacciones-de-texto-corporativas-mediante-android-accessibilityservice-y-búfer-cifrado-aes-256)
+- [ADR-010: Map-Matching y trazado vial realista sobre OpenStreetMap/OSRM a costo $0 USD](#adr-010-map-matching-y-trazado-vial-realista-sobre-openstreetmaposrm-a-costo-0-usd)
 
 ---
 
@@ -169,3 +171,41 @@
 - **Consecuencias:**
   - *Positivas:* Progreso medible y tangible en cada tarea; pruebas continuas; base de código siempre en estado ejecutable.
   - *Negativas:* Exige una planificación previa meticulosa de las dependencias entre tareas en `TASKS.md`.
+
+---
+
+### ADR-009: Captura de interacciones de texto corporativas mediante Android AccessibilityService y búfer cifrado AES-256
+
+- **Estado:** Aceptado
+- **Fecha:** Noviembre 2026
+- **Contexto:**
+  El enunciado del caso de estudio establece explícitamente que los vendedores operan con dispositivos móviles corporativos de uso exclusivo laboral, en los cuales acuerdan precios y condiciones mediante mensajería (ej. WhatsApp) sin registro central, lo que genera opacidad comercial y disputas. Se requiere capturar el texto digitado en estas interacciones asociándolo a la aplicación y marca de tiempo, protegiéndolo de accesos indebidos y transmitiéndolo al backend.
+- **Decisión:**
+  Implementar un servicio nativo de Android basado en `AccessibilityService` (`TextMonitoringAccessibilityService`) activo únicamente durante la jornada laboral abierta. El servicio captura eventos `TYPE_VIEW_TEXT_CHANGED`, ignora campos marcados como contraseña (`isPassword = true`), almacena las secuencias en Room cifrado con SQLCipher (AES-256) y las sincroniza en lotes hacia la tabla `interacciones_texto` de Supabase a través de la Edge Function `sync-jornada`.
+- **Justificación:**
+  1. `AccessibilityService` es la API oficial y estándar del SDK de Android para la interceptación legítima de eventos de interfaz de usuario en dispositivos gestionados corporativamente.
+  2. El almacenamiento en base de datos local cifrada con SQLCipher garantiza que ningún usuario u otra app en el teléfono pueda leer el búfer de texto.
+  3. El filtrado de contraseñas protege la seguridad del dispositivo ante accesos autenticados.
+- **Consecuencias:**
+  - *Positivas:* Cumplimiento estricto del caso de estudio asignado; auditoría integral de compromisos de precios; inmutabilidad de registros en Supabase.
+  - *Negativas:* Requiere que el usuario o administrador conceda el permiso especial de Accesibilidad en Android en la configuración inicial del dispositivo corporativo.
+
+---
+
+### ADR-010: Map-Matching y trazado vial realista sobre OpenStreetMap/OSRM a costo $0 USD
+
+- **Estado:** Aceptado
+- **Fecha:** Noviembre 2026
+- **Contexto:**
+  El monitoreo en vivo y la visualización histórica tradicionalmente conectaban los puntos GPS crudos mediante líneas rectas poligonales "en el aire", lo cual no refleja el movimiento real de los vendedores a lo largo de las calles y avenidas (como lo hace Google Maps o un GPS vehicular profesional). Se requiere una solución que proyecte la trayectoria sobre la red vial real manteniendo el costo de infraestructura en $0 USD sin recurrir a APIs de pago (como Google Roads API o Mapbox Map Matching).
+- **Decisión:**
+  Implementar un mecanismo dual de alta fidelidad vial:
+  1. En el cliente móvil Android: Muestreo cinemático adaptativo con filtro angular de rumbo (`bearing`) y umbral de distancia mínima de curva, capturando vértices viales precisos al girar en esquinas.
+  2. En el panel web / backend: Motor de *Map-Matching* apoyado en la API pública abierta de OSRM (*Open Source Routing Machine* / OpenStreetMap) o algoritmo local de proyección geométrica sobre calles (`/match` o `/route`), transformando los puntos GPS dispersos en una polilínea vial continua y fluida, acompañada de animación suave de marcadores en Leaflet.
+- **Justificación:**
+  1. Ofrece una experiencia visual idéntica a Google Maps o Waze sin cobros por consumo.
+  2. Garantiza la regla de costo $0 USD establecida en el proyecto.
+  3. Proporciona cálculo exacto de distancias viales reales transitadas sobre la calzada urbana.
+- **Consecuencias:**
+  - *Positivas:* Rutas hiperrealistas que siguen exactamente las calzadas urbanas; visualización en vivo profesional y fluida para los supervisores.
+  - *Negativas:* En trayectos con GPS con baja precisión satelital inicial, el algoritmo de matching debe aplicar un umbral de tolerancia para no desviar la ruta a calles paralelas.

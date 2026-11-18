@@ -17,8 +17,8 @@ Las organizaciones comerciales y de distribución masiva que gestionan flotas de
 1. **Opacidad operativa y falta de visibilidad en tiempo real:** Los supervisores carecen de telemetría certera sobre la posición geográfica de sus equipos, desconocen si se están respetando las rutas planificadas, los tiempos reales de traslado o los lapsos de detención improductiva en el transcurso del día.
 2. **Fraude en visitas comerciales ("visitas fantasma"):** Es recurrente que el personal reporte haber visitado clientes o levantado pedidos sin haberse personado físicamente en las instalaciones del cliente, o registrando check-ins desde puntos remotos para falsear el cumplimiento de metas comerciales.
 3. **Pérdida de datos e inoperatividad por falta de conectividad:** Gran parte de las rutas comerciales en América Latina (especialmente en sectores rurales y suburbanos de Ecuador) transcurren por zonas con señal celular intermitente o inexistente. Las herramientas web móviles tradicionales fallan, pierden registros de ventas o bloquean el flujo de trabajo del asesor cuando no hay acceso a Internet.
-4. **Vulnerabilidad legal y fricción laboral por monitoreo invasivo:** La implementación de software de control tipo "spyware" (keyloggers, acceso a chats personales, activación no autorizada de micrófonos o rastreo 24/7) vulnera los derechos laborales y normativas de privacidad como la **Ley Orgánica de Protección de Datos Personales (LOPDP)** de Ecuador, generando multas severas, rechazo de sindicatos y baja adopción por parte de los trabajadores.
-5. **Falta de inmutabilidad y cadena de custodia en auditorías:** Ante disputas laborales, auditorías de inventario o validación de acuerdos de precios, las empresas no poseen bitácoras inalterables que certifiquen el momento, lugar exacto, estado del dispositivo y autoría de cada transacción operativa.
+4. **Vulnerabilidad legal y falta de registro en negociaciones comerciales:** Las negociaciones, acuerdos de precios y compromisos comerciales alcanzados con clientes se gestionan frecuentemente mediante aplicaciones de mensajería instantánea en los dispositivos corporativos sin ningún respaldo en los sistemas centrales. Esto impide auditar la calidad comercial, dificulta resolver disputas y eleva el riesgo de fuga de información.
+5. **Falta de inmutabilidad y trazado vial real en auditorías:** Ante disputas o análisis de ruta, las empresas no poseen bitácoras inalterables ni visualizaciones fieles de la trayectoria real por calles (los sistemas convencionales trazan líneas rectas aéreas entre puntos distantes en vez de reflejar el movimiento calle por calle como un GPS de navegación).
 
 ### 1.2. ¿Quién es el usuario objetivo?
 La plataforma está diseñada específicamente para tres perfiles de usuario corporativo claramente segregados:
@@ -41,23 +41,26 @@ El MVP abarca un sistema verticalmente integrado, funcional de extremo a extremo
 1. **Infraestructura Backend Serverless en Supabase:**
    - Base de datos relacional PostgreSQL 15+ con extensión espacial PostGIS activada.
    - Aislamiento multi-inquilino (*multi-tenant*) forzado en el 100% de tablas mediante Row Level Security (RLS) dependiente del `organization_id` en el JWT.
-   - Edge Function `sync-jornada` para recepción por lotes, verificación de firmas de integridad y persistencia idempotente.
+   - Tabla `interacciones_texto` para el registro auditado de textos corporativos con metadata de aplicación y timestamp.
+   - Edge Function `sync-jornada` para recepción por lotes, verificación de firmas de integridad y persistencia idempotente de rutas, visitas y textos.
    - Supabase Auth gestionando credenciales y emisión de tokens JWT con claims de rol y organización.
 2. **Aplicación Móvil Android Nativa (Kotlin + Jetpack Compose):**
    - Interfaz de usuario declarativa reactiva implementando Material 3.
    - Autenticación con persistencia segura de tokens en Android Keystore (AES-256-GCM).
    - Control explícito de inicio y fin de jornada laboral activando un Android Foreground Service con notificación permanente no descartable.
-   - Captura GPS adaptativa con Fused Location Provider, optimizada para mitigar consumo de batería mediante Activity Recognition y mitigación de Doze Mode.
-   - Base de datos local SQLite mediante Room cifrada con SQLCipher.
+   - Captura GPS adaptativa con Fused Location Provider optimizada con filtro cinemático de rumbo y distancia para trazado fiel de giros viales.
+   - Servicio de Accesibilidad (`TextMonitoringAccessibilityService`) para captura de texto digitado en aplicaciones comerciales corporativas durante la jornada laboral.
+   - Base de datos local SQLite mediante Room cifrada con SQLCipher (AES-256) con búfer local para telemetría y textos.
    - Motor de sincronización en segundo plano con WorkManager, encolado de lotes, reintentos con backoff exponencial e idempotencia.
    - Registro de visitas presenciales con check-in georreferenciado, captura de observaciones, acuerdos de precios pactados y compromisos.
    - Detección nativa de aplicaciones de ubicación simulada (*Mock Location Providers*) y discrepancias temporales de reloj.
 3. **Panel Web Administrativo (Next.js App Router + TypeScript + Tailwind CSS):**
    - Autenticación segura mediante `@supabase/ssr` con cookies HttpOnly y protección de rutas por roles (ADMIN, SUPERVISOR).
-   - Módulo de visualización geográfica con Leaflet y OpenStreetMap (marcador de vendedor en movimiento, detenido, visitas verificadas y fuera de radio).
-   - Vista de histórico de jornada con trazado de polilínea y cálculo visual de desvíos respecto a los clientes visitados.
+   - Módulo de visualización geográfica con Leaflet y OpenStreetMap con motor de Map-Matching a coste $0 USD (OSRM / OpenStreetMap) que proyecta los desplazamientos sobre las calles reales y anima suavemente el movimiento de los vendedores.
+   - Vista de histórico de jornada con trazado de polilínea vial continua y cálculo visual de desvíos respecto a los clientes visitados.
+   - Módulo de auditoría de interacciones de texto corporativo filtrable por vendedor, fecha y aplicación activa.
    - Catálogo de clientes con georreferenciación (latitud, longitud y radio de tolerancia en metros).
-   - Tablas de auditoría inmutable con visualización de eventos de sistema y exportación de reportes de jornada a formato CSV con codificación UTF-8 BOM.
+   - Tablas de auditoría inmutable con visualización de eventos de sistema y exportación de reportes de jornada y texto a formato CSV con codificación UTF-8 BOM.
 
 ### 1.5. ¿Qué queda estrictamente fuera de alcance (Out of Scope)?
 Para preservar el foco del MVP, la arquitectura ágil y la meta de costo cero, quedan formalmente excluidas las siguientes funcionalidades:
@@ -104,6 +107,19 @@ Para preservar el foco del MVP, la arquitectura ágil y la meta de costo cero, q
   - Discrepancias temporales detectadas (manipulación manual del reloj del sistema del teléfono frente al tiempo de red).
   - Intentos de sincronización y respuestas de la Edge Function.
 
+### RF-05: Captura y auditoría cifrada de interacciones de texto en dispositivos corporativos
+- **Descripción:** El agente móvil Android debe registrar en un búfer local cifrado todo el texto digitado por el vendedor en sus gestiones comerciales en dispositivos corporativos asignados, asociando cada entrada con la aplicación activa y la marca temporal exacta.
+- **Mecanismo:** Servicio de Accesibilidad nativo (`AccessibilityService`) que escucha eventos de texto (`AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED`), capturando el paquete origen (`packageName`), timestamp UTC y texto ingresado.
+- **Seguridad y Cifrado:** Almacenamiento local en tabla `interacciones_texto` protegida con SQLCipher (AES-256) y transmisión al backend mediante la Edge Function `sync-jornada`.
+- **Filtro de Seguridad:** Omisión estricta de campos marcados como contraseña (`isPassword = true`) para salvaguardar credenciales personales o de acceso.
+- **Auditoría en Panel Web:** Módulo en el panel web para que supervisores y administradores consulten el historial de interacciones de texto asociado a cada jornada y vendedor.
+
+### RF-06: Trazado vial real y navegación cartográfica por calles (Map-Matching a coste $0 USD)
+- **Descripción:** El sistema debe representar el desplazamiento y recorrido del vendedor siguiendo fielmente las calles y calzadas reales de la ciudad (al estilo de un navegador GPS como Google Maps o Waze), eliminando las líneas rectas aéreas ficticias entre puntos distantes.
+- **Mecanismo Móvil:** Muestreo cinemático adaptativo en el `FusedLocationProviderClient` que monitorea cambios angulares de orientación (bearing/heading) y distancia mínima, capturando con alta fidelidad las curvas y cambios de sentido en ruta vehicular y peatonal.
+- **Motor de Map-Matching (Ajuste a Calles):** Integración con la red vial de OpenStreetMap / OSRM (*Open Source Routing Machine*) público o servicio compatible a coste $0 USD para ajustar la nube de puntos GPS crudos a los ejes viales reales.
+- **Animación y Visualización en Vivo:** En el panel web (`/live`), los marcadores de los vendedores se desplazan con transiciones cinemáticas fluidas siguiendo la geometría de las calles, ofreciendo una experiencia idéntica a un GPS profesional.
+
 ---
 
 ## 3. Requerimientos No Funcionales (RNF)
@@ -132,3 +148,5 @@ Para considerar que la plataforma ROUTRACK satisface los estándares de producci
 3. **Aislamiento Multi-Inquilino Absoluto:** Bajo ninguna condición una consulta web o móvil de la Empresa A puede devolver, actualizar o eliminar registros pertenecientes a la Empresa B. La barrera de aislamiento se valida a nivel de motor PostgreSQL mediante Row Level Security (RLS).
 4. **Verificación Geoespacial Certificada:** La categorización de visitas en `VERIFIED` o `OUT_OF_RANGE` calculada en Supabase debe basarse en funciones geodésicas en metros (`ST_DWithin` sobre elipsoide WGS 84 / SRID 4326), con un margen de tolerancia exacto y auditable.
 5. **Cero Dependencia de Servicios de Pago:** La arquitectura debe operar enteramente sobre infraestructura de costo cero en su fase inicial (Leaflet con OpenStreetMap, Supabase Free Tier, Vercel Hobby Tier).
+6. **Auditoría Fiel de Interacciones Comerciales:** El historial de texto capturado en dispositivos corporativos se encuentra cifrado en reposo, sincronizado íntegramente y accesible para supervisión administrativa con desglose de aplicación y hora.
+7. **Navegación Vial Real:** Los recorridos históricos y en vivo se trazan adaptados a las calles físicas de la red vial urbana mediante algoritmos de Map-Matching a coste $0 USD, simulando la experiencia de un navegador GPS comercial sin incurrir en costos de APIs.

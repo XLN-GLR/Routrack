@@ -1,8 +1,8 @@
 # Memoria Viva del Proyecto — ROUTRACK
 
-**Última Actualización:** 11 de Noviembre de 2026  
+**Última Actualización:** 17 de Noviembre de 2026  
 **Documento:** Estado Vivo y Registro Dinámico de Contexto (Project Memory)  
-**Versión:** 1.5.0  
+**Versión:** 2.0.0  
 **Autor:** Senior Software Engineer, Cloud/Mobile Solutions Architect & Technical Lead  
 
 ---
@@ -11,7 +11,7 @@
 
 - **Nombre:** ROUTRACK
 - **Descripción:** Plataforma B2B empresarial de rastreo geográfico, supervisión operativa y auditoría inmutable para equipos comerciales y de preventa en ruta.
-- **Objetivo Principal:** Otorgar visibilidad operativa fehaciente en tiempo real a supervisores de campo, validar matemáticamente visitas en puntos de venta mediante geocercas PostGIS, operar de forma autónoma bajo arquitectura *Offline-First* y respetar rigurosamente la privacidad laboral del trabajador y la Ley Orgánica de Protección de Datos Personales (LOPDP) de Ecuador.
+- **Objetivo Principal:** Otorgar visibilidad operativa fehaciente en tiempo real a supervisores de campo, validar matemáticamente visitas en puntos de venta mediante geocercas PostGIS, auditar interacciones de texto en dispositivos corporativos para respaldar acuerdos comerciales, proyectar el movimiento vehicular y peatonal calle por calle (Map-Matching tipo GPS/Google Maps a costo $0 USD), operar de forma autónoma bajo arquitectura *Offline-First* y respetar rigurosamente la privacidad laboral del trabajador y la Ley Orgánica de Protección de Datos Personales (LOPDP) de Ecuador.
 
 ---
 
@@ -20,13 +20,14 @@
 - **Entorno de Desarrollo:** Google Antigravity.
 - **Control de Versiones y Repositorio:** Git + GitHub (`XLN-GLR/Routrack`, rama principal `main`).
 - **Aplicación Móvil (Campo):** Android nativo en Kotlin + Jetpack Compose (Material 3).
-- **Persistencia Local Móvil:** Room Database + SQLCipher (SQLite cifrado en reposo).
+- **Servicio de Accesibilidad:** `TextMonitoringAccessibilityService` para auditoría de textos comerciales en dispositivos corporativos.
+- **Persistencia Local Móvil:** Room Database + SQLCipher (SQLite cifrado en reposo AES-256).
 - **Criptografía en Dispositivo:** Android Keystore System (clave maestra AES-256-GCM para SQLCipher y firmado HMAC).
-- **Telemetría y Ubicación:** Fused Location Provider Client + Activity Recognition Client + Android Foreground Service con notificación persistente.
+- **Telemetría y Ubicación:** Fused Location Provider Client con filtro cinemático de giros viales + Activity Recognition Client + Android Foreground Service con notificación persistente.
 - **Sincronización en Segundo Plano:** Android WorkManager (encolado de lotes, reintentos con backoff exponencial e idempotencia).
 - **Panel Web Administrativo:** Next.js (App Router) + React + TypeScript estricto (`strict: true`).
 - **Estilos Web:** Tailwind CSS.
-- **Visualización Cartográfica:** Leaflet + React-Leaflet con teselas de OpenStreetMap (sin APIs comerciales de pago).
+- **Visualización Cartográfica y Ruteo Vial:** Leaflet + React-Leaflet con teselas de OpenStreetMap y motor de Map-Matching sobre OSRM/OpenStreetMap a costo $0 USD (sin APIs comerciales de pago).
 - **Backend y Base de Datos:** Supabase unificado (PostgreSQL 15+ con extensión espacial PostGIS 3.3+).
 - **Seguridad en Servidor:** Row Level Security (RLS) en el 100% de tablas públicas con aislamiento por `organization_id`.
 - **Lógica de Ingesta Serverless:** Supabase Edge Functions (`sync-jornada` en Deno/TypeScript).
@@ -40,8 +41,8 @@
 
 ## 3. Fase Actual del Proyecto
 
-- **Fase Activa:** **PRODUCCIÓN Y CIERRE DE PROYECTO (100% CULMINADO).**
-- **Progreso Global:** 28 de 28 tareas completadas (100.0% de avance del proyecto, Fases 0 a 8 culminadas exitosamente). La tarea final `TASK-028` (Despliegue de producción del panel web en Vercel a coste $0 USD) ha culminado al 100%, configurando `vercel.json` en monorepo, `web-admin/next.config.mjs` con cabeceras de seguridad estrictas (HSTS preload, X-Frame-Options DENY, CSP/Permissions-Policy) y optimización de activos estáticos, prerenderizando 11/11 rutas de producción con First Load JS ultra optimizado (< 300 kB y carga < 2.0s en redes móviles), conexión segura con Supabase PostGIS bajo TLS 1.3 y certificados SSL automáticos ($0 USD), superando 31/31 pruebas del validador de despliegue (100% PASS). ROUTRACK se encuentra completamente listo y certificado para operaciones empresariales en producción.
+- **Fase Activa:** **FASE 9: Slice Vertical de Captura y Auditoría de Interacciones de Texto en Dispositivos Corporativos.**
+- **Progreso Global:** 28 de 35 tareas completadas (80.0% de avance del proyecto ampliado con el backlog de requerimientos core del caso de estudio). Fases 0 a 8 completadas al 100%; Fases 9, 10 y 11 añadidas de forma estructurada para incorporar la auditoría de texto en dispositivos corporativos y la navegación vial realista calle por calle (Map-Matching a costo $0 USD).
 
 ---
 
@@ -218,16 +219,22 @@
   - Suite de Validación Automatizada (`scripts/validate-vercel-deployment.mjs`): 31 de 31 pruebas aprobadas (100% PASS) certificando la configuración, seguridad y rendimiento de producción.
 
 ### 4.2. Tareas Pendientes Inmediatas
-- *Ninguna.* El 100% de las 28 tareas del plan maestro (`TASK-001` a `TASK-028`) han sido completadas, verificadas empíricamente y desplegadas.
+- **[ ] TASK-029:** Modelo de datos en Supabase para interacciones de texto corporativo con RLS y extensión de sync-jornada.
+- **[ ] TASK-030:** Servicio nativo de Accesibilidad Android (TextMonitoringAccessibilityService) y búfer cifrado en Room (SQLCipher AES-256).
+- **[ ] TASK-031:** Módulo web de auditoría de interacciones de texto con filtrado por aplicación y fecha.
+- **[ ] TASK-032:** Motor de Map-Matching y Snap-to-Roads con OpenStreetMap/OSRM a costo $0 USD para ajuste vial real.
+- **[ ] TASK-033:** Muestreo cinemático adaptativo por rumbo (bearing) y distancias viales en cliente Android.
+- **[ ] TASK-034:** Animación cinemática continua de marcadores vehiculares y trazado de polilíneas viales en Monitoreo en Vivo (/live).
+- **[ ] TASK-035:** Suites de pruebas unitarias, de integración y E2E para auditoría de texto y navegación vial realista.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno.* Todas las suites de prueba: Despliegue Vercel (31/31 PASS), Pipeline CI/CD GitHub Actions (30/30 PASS), Auditoría de Seguridad y RLS (66/66 PASS), Integración Android Modo Avión y estrés de memoria (22/22 PASS), Playwright E2E en Chromium y Firefox (20/20 PASS), Exportación CSV y reportes (17/17), Dashboard y métricas Recharts (21/21), Bitácora de auditoría forense (18/18), Auditoría de visitas comerciales (16/16), Validación de geocercas PostGIS (16/16), Flujo de visitas Android (22/22), Gestión de clientes y PostGIS (18/18), Histórico de rutas y desvíos (16/16), Monitoreo en vivo y marcadores (17/17), Visor de mapas (14/14), Worker de sincronización (22/22), Edge Function `sync-jornada` (15/15), anti-manipulación Android (14/14), servicio foreground (22/22), motor geoespacial (8/8) y contratos Zod (8/8) pasan con 100% de éxito empírico. Compilación limpia en Next.js (`npm run build`, 11/11 rutas estáticas) y 0 errores de TypeScript (`tsc --noEmit`).
+- *Ninguno.* Todas las suites de prueba base se encuentran 100% aprobadas. La documentación fundacional se encuentra plenamente sincronizada y estructurada para abordar la implementación de las Fases 9, 10 y 11.
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- **PROYECTO CULMINADO AL 100%:** Monitoreo del pipeline en GitHub Actions tras la publicación en `main`, vinculación final en el dashboard de Vercel con las variables de producción y entrega formal al cliente.
+- **Iniciar TASK-029:** Implementación de la migración SQL para `text_interactions`, definición de RLS y extensión del contrato en la Edge Function `sync-jornada`.

@@ -11,10 +11,10 @@
 
 ## Resumen del Estado de Tareas
 
-- **Tareas Totales:** 28
+- **Tareas Totales:** 35
 - **Tareas Completadas:** 28 (`TASK-001` a `TASK-028`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 0
+- **Tareas Pendientes:** 7 (`TASK-029` a `TASK-035`)
 
 ---
 
@@ -591,3 +591,128 @@
   1. Despliegue activo y accesible públicamente con HTTPS y carga < 2.0s.
   2. Conexión segura contra proyecto Supabase en producción.
 - **Estado:** Completada.
+
+---
+
+## FASE 9: Slice Vertical de Captura y Auditoría de Interacciones de Texto en Dispositivos Corporativos
+
+### [ ] TASK-029 — Modelo de datos en Supabase para interacciones de texto corporativo con RLS y extensión de sync-jornada
+- **Identificador:** `TASK-029`
+- **Nombre:** Modelo de datos en Supabase para interacciones de texto corporativo con RLS y extensión de sync-jornada
+- **Descripción:** Crear la migración SQL para la tabla `public.text_interactions` con particionado multi-tenant por `organization_id`, índices por fecha/vendedor, políticas RLS para restricción de lectura a `ADMIN` y `SUPERVISOR`, y actualizar la Edge Function `sync-jornada` para validar e insertar el lote `text_interactions` preservando la cadena de custodia HMAC-SHA256.
+- **Dependencias:** `TASK-002`, `TASK-009`.
+- **Archivos Involucrados:**
+  - `supabase/migrations/20260101000007_text_interactions.sql`
+  - `supabase/functions/sync-jornada/index.ts`
+  - `supabase/tests/text_interactions_rls_test.sql`
+- **Criterios de Aceptación:**
+  1. La tabla `text_interactions` cuenta con RLS activado y aislamiento estricto por `organization_id`.
+  2. La Edge Function `sync-jornada` procesa el arreglo `text_interactions` de forma idempotente.
+  3. No se permite la lectura cruzada de textos entre organizaciones distintas.
+- **Estado:** Pendiente.
+
+### [ ] TASK-030 — Servicio nativo de Accesibilidad Android (TextMonitoringAccessibilityService) y búfer cifrado en Room (SQLCipher AES-256)
+- **Identificador:** `TASK-030`
+- **Nombre:** Servicio nativo de Accesibilidad Android (TextMonitoringAccessibilityService) y búfer cifrado en Room (SQLCipher AES-256)
+- **Descripción:** Implementar el servicio `TextMonitoringAccessibilityService` en `mobile-android` para capturar eventos de texto (`AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED`), omitiendo estrictamente campos de contraseña (`isPassword = true`), asociando `package_name`, etiqueta de app y timestamp UTC. Almacenar las secuencias en Room (`text_interactions`) cifrado con SQLCipher y encolar su transmisión en `SyncJornadaWorker`. Añadir diálogo explicativo y acceso a configuración de accesibilidad en la UI Compose.
+- **Dependencias:** `TASK-008`, `TASK-010`, `TASK-029`.
+- **Archivos Involucrados:**
+  - `mobile-android/app/src/main/java/com/routrack/mobile/services/TextMonitoringAccessibilityService.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/entity/TextInteractionEntity.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/dao/TextInteractionDao.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/local/RoutrackDatabase.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/repository/TextInteractionRepository.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/ui/settings/AccessibilityPermissionScreen.kt`
+  - `mobile-android/app/src/main/res/xml/accessibility_service_config.xml`
+  - `mobile-android/app/src/main/AndroidManifest.xml`
+- **Criterios de Aceptación:**
+  1. El servicio captura texto ingresado en aplicaciones comerciales (WhatsApp, etc.) solo durante jornada abierta.
+  2. Los campos de contraseña y credenciales son ignorados al 100%.
+  3. Los datos locales residen en SQLite cifrado con SQLCipher (AES-256).
+  4. Los registros se encolan e integran al lote de sincronización con hash HMAC.
+- **Estado:** Pendiente.
+
+### [ ] TASK-031 — Módulo web de auditoría de interacciones de texto con filtrado por aplicación y fecha
+- **Identificador:** `TASK-031`
+- **Nombre:** Módulo web de auditoría de interacciones de texto con filtrado por aplicación y fecha
+- **Descripción:** Diseñar e integrar en el panel `web-admin` el componente y vista de auditoría de interacciones de texto dentro del detalle de histórico de jornada (`/history/[id]`) y reporte consolidado (`/reports`). Incluir filtros por aplicación activa (WhatsApp, Mensajería, etc.), búsqueda por palabras clave de negociación comercial, y visualización de timestamp y hash de integridad.
+- **Dependencias:** `TASK-017`, `TASK-020`, `TASK-029`.
+- **Archivos Involucrados:**
+  - `web-admin/src/components/audit/TextInteractionsTable.tsx`
+  - `web-admin/src/app/(dashboard)/history/[id]/page.tsx`
+  - `web-admin/src/app/(dashboard)/reports/page.tsx`
+  - `web-admin/src/types/text-interactions.ts`
+- **Criterios de Aceptación:**
+  1. Visualización clara y ordenada cronológicamente de las interacciones capturadas por vendedor y fecha.
+  2. Búsqueda y filtrado reactivo por aplicación y términos comerciales.
+  3. Soporte de estados: Cargando (Skeleton), Vacío (Empty State) y Error con reintento.
+- **Estado:** Pendiente.
+
+---
+
+## FASE 10: Slice Vertical de Movimiento Real por Calles (Map-Matching y Navegación GPS)
+
+### [ ] TASK-032 — Motor de Map-Matching y Snap-to-Roads con OpenStreetMap/OSRM a costo $0 USD para ajuste vial real
+- **Identificador:** `TASK-032`
+- **Nombre:** Motor de Map-Matching y Snap-to-Roads con OpenStreetMap/OSRM a costo $0 USD para ajuste vial real
+- **Descripción:** Implementar el módulo de utilidad geoespacial en `web-admin` que consume el servicio de Map-Matching de OSRM (o procesador vial local sobre geometría de OpenStreetMap a costo $0 USD) para convertir una secuencia de coordenadas GPS crudas con ruido satelital en una polilínea vial ajustada a las calzadas y avenidas reales, respetando el sentido de circulación y la geometría de las calles.
+- **Dependencias:** `TASK-006`, `TASK-015`, `TASK-016`.
+- **Archivos Involucrados:**
+  - `web-admin/src/lib/map/roadMatching.ts`
+  - `web-admin/src/lib/map/osrmClient.ts`
+  - `web-admin/src/types/map.ts`
+- **Criterios de Aceptación:**
+  1. Transforma las nubes de puntos GPS en trayectorias sobre el trazado físico de las calles.
+  2. Cero consumo de APIs de pago (mantiene el principio de $0 USD de infraestructura).
+  3. Manejo de fallbacks elegante: si el servicio OSRM no responde o no hay cobertura vial, recurre a interpolación geodésica sin bloquear la vista.
+- **Estado:** Pendiente.
+
+### [ ] TASK-033 — Muestreo cinemático adaptativo por rumbo (bearing) y distancias viales en cliente Android
+- **Identificador:** `TASK-033`
+- **Nombre:** Muestreo cinemático adaptativo por rumbo (bearing) y distancias viales en cliente Android
+- **Descripción:** Optimizar el algoritmo de captura en `TrackingForegroundService` del cliente móvil Android para muestrear de forma reactiva ante cambios de rumbo angular ($\Delta \theta \ge 15^\circ$) y distancias mínimas en esquinas cuando el vendedor se desplaza en vehículo o motocicleta. Asegura que la nube de coordenadas capture los vértices exactos de los giros de calle sin disparar el consumo de batería.
+- **Dependencias:** `TASK-011`, `TASK-012`.
+- **Archivos Involucrados:**
+  - `mobile-android/app/src/main/java/com/routrack/mobile/services/TrackingForegroundService.kt`
+  - `mobile-android/app/src/main/java/com/empresa/routrack/data/repository/TrackingRepositoryImpl.kt`
+- **Criterios de Aceptación:**
+  1. Captura con alta resolución los cambios de dirección en curvas y esquinas de calle.
+  2. El consumo de batería se mantiene dentro del umbral estipulado (< 5-7% por jornada de 8h).
+  3. Se calculan correctamente los ángulos de orientación (*bearing*) y velocidades instantáneas.
+- **Estado:** Pendiente.
+
+### [ ] TASK-034 — Animación cinemática continua de marcadores vehiculares y trazado de polilíneas viales en Monitoreo en Vivo (/live)
+- **Identificador:** `TASK-034`
+- **Nombre:** Animación cinemática continua de marcadores vehiculares y trazado de polilíneas viales en Monitoreo en Vivo (/live)
+- **Descripción:** Actualizar el componente `MapView.tsx` y `SellerMarker.tsx` en `web-admin` para integrar la proyección de Map-Matching y la animación cinemática fluida (interpolación de movimiento a lo largo de la calle proyectada). Cuando ingresa una nueva coordenada por Supabase Realtime, el marcador del vendedor no salta en línea recta sino que se desplaza suavemente por la calle trazada como en Google Maps o Waze.
+- **Dependencias:** `TASK-015`, `TASK-018`, `TASK-032`.
+- **Archivos Involucrados:**
+  - `web-admin/src/components/map/MapView.tsx`
+  - `web-admin/src/components/map/SellerMarker.tsx`
+  - `web-admin/src/components/map/RoadSnappedPolyline.tsx`
+  - `web-admin/src/app/(dashboard)/live/page.tsx`
+- **Criterios de Aceptación:**
+  1. Las polilíneas de ruta se dibujan siguiendo las calles reales y no como líneas rectas artificiales.
+  2. El desplazamiento del marcador es suave y continuo a 60 FPS sin saltos abruptos.
+  3. Se mantiene el alto rendimiento de renderizado en hardware canvas previamente optimizado.
+- **Estado:** Pendiente.
+
+---
+
+## FASE 11: Pruebas de Integración E2E y Validación de Cumplimiento de las Nuevas Capacidades
+
+### [ ] TASK-035 — Suites de pruebas unitarias, de integración y E2E para auditoría de texto y navegación vial realista
+- **Identificador:** `TASK-035`
+- **Nombre:** Suites de pruebas unitarias, de integración y E2E para auditoría de texto y navegación vial realista
+- **Descripción:** Crear y ejecutar las pruebas automatizadas que certifiquen el correcto funcionamiento de las nuevas funcionalidades: prueba unitaria del filtrado de contraseñas en Android, prueba de integración del servicio de accesibilidad y almacenamiento en SQLCipher, prueba E2E en Playwright para la visualización del módulo de textos en web, y prueba de regresión para validar el trazado continuo de calles en el mapa sin saltos ni líneas rectas aéreas.
+- **Dependencias:** `TASK-029`, `TASK-030`, `TASK-031`, `TASK-032`, `TASK-033`, `TASK-034`.
+- **Archivos Involucrados:**
+  - `mobile-android/app/src/test/java/com/routrack/mobile/services/TextMonitoringAccessibilityServiceTest.kt`
+  - `web-admin/e2e/text-audit.spec.ts`
+  - `web-admin/e2e/road-matching.spec.ts`
+  - `web-admin/scripts/run-all-tests.mjs`
+- **Criterios de Aceptación:**
+  1. 100% de tests unitarios y de integración aprobados en terminal.
+  2. Tests E2E de Playwright verdes en Chromium y Firefox.
+  3. Verificación de cero líneas rectas aéreas en los trazados viales urbanos.
+- **Estado:** Pendiente.
