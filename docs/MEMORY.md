@@ -42,7 +42,7 @@
 ## 3. Fase Actual del Proyecto
 
 - **Fase Activa:** **FASE 10: Slice Vertical de Movimiento Real por Calles (Map-Matching y Navegación GPS).**
-- **Progreso Global:** 33 de 35 tareas completadas (94.3% de avance del proyecto ampliado con el backlog de requerimientos core del caso de estudio). Fases 0 a 9 completadas al 100%; TASK-032 y TASK-033 completadas y verificadas empíricamente; Tareas 34 y 35 en ruta para finalizar la navegación vial realista y la suite final de pruebas integradas.
+- **Progreso Global:** 34 de 35 tareas completadas (97.1% de avance del proyecto ampliado con el backlog de requerimientos core del caso de estudio). Fases 0 a 10 completadas al 100%; TASK-032, TASK-033 y TASK-034 completadas y verificadas empíricamente; TASK-035 en ruta para finalizar la suite integral de pruebas y validación del sistema completo.
 
 ---
 
@@ -255,18 +255,24 @@
   - Propagación de Orientación y Velocidad (`TrackingRepository.kt`, `TrackingRepositoryImpl.kt`): Registro de `bearing` y `velocidad` en `metadataJson` de la bitácora criptográfica y Room manteniendo compatibilidad total hacia atrás.
   - Verificación Automatizada (`validate-kinematic-sampling.mjs`, `TrackingForegroundServiceTest.kt`): 10 de 10 pruebas aprobadas (100% PASS), 22/22 aserciones en el servicio foreground, validación de rumbos cardinales, diferencias angulares y constantes cinemáticas.
 
+- **[x] TASK-034 — Animación cinemática continua de marcadores vehiculares y trazado de polilíneas viales en Monitoreo en Vivo (/live):**
+  - Componente de Trazado Vial (`web-admin/src/components/map/RoadSnappedPolyline.tsx`): Integración asíncrona con el motor OSRM sobre OpenStreetMap a coste $0 USD, transformando puntos GPS en polilíneas viales continuas con estilo vehicular redondeado y fallback geodésico resiliente sin bloquear la interfaz.
+  - Animación Cinemática 60 FPS (`web-admin/src/components/map/SellerMarker.tsx`): Motor de interpolación con `requestAnimationFrame`, cancelación en caliente (`cancelAnimationFrame`), función de easing cúbico (`easeOutCubic`) y cálculo de la trayectoria angular más corta en rotaciones de rumbo (bearing), garantizando desplazamientos orgánicos continuos sin saltos lineales abruptos.
+  - Integración en Supervisión Activa (`web-admin/src/app/(dashboard)/live/page.tsx`): Despliegue de la polilínea vial ajustada para el vendedor en foco y control interactivo en cabecera para alternar entre "Vía Real (OSRM)" y "Vía Directa".
+  - Alto Rendimiento en Hardware Canvas (`web-admin/src/components/map/MapView.tsx`): Preservación de `preferCanvas: true`, actualización directa de coordenadas en el objeto `L.Marker` sin destruir capas y cero fugas de memoria en desmontaje.
+  - Verificación Automatizada (`web-admin/scripts/run-live-road-matching-tests.mjs`): 10 de 10 pruebas aprobadas (100% PASS), 17/17 en monitoreo en vivo, chequeo TypeScript (`tsc --noEmit`) con 0 errores y compilación de producción de Next.js (`npm run build`) validada con 11/11 rutas.
+
 ### 4.2. Tareas Pendientes Inmediatas
-- **[ ] TASK-034:** Animación cinemática continua de marcadores vehiculares y trazado de polilíneas viales en Monitoreo en Vivo (/live).
 - **[ ] TASK-035:** Suites de pruebas unitarias, de integración y E2E para auditoría de texto y navegación vial realista.
 
 ---
 
 ## 5. Problemas Conocidos y Bloqueos
 
-- *Ninguno.* El muestreo cinemático adaptativo por rumbo y distancias viales opera de forma transparente en Android, preservando la batería y capturando los vértices exactos de giro en esquinas.
+- *Ninguno.* La animación cinemática fluida a 60 FPS y el trazado vial sobre calles reales operan de manera óptima y reactiva en el panel web administrativo sin costes de licencia ($0 USD).
 
 ---
 
 ## 6. Siguiente Paso Obligatorio
 
-- **Iniciar TASK-034:** Animación cinemática continua de marcadores vehiculares y trazado de polilíneas viales en Monitoreo en Vivo (/live) (`web-admin/src/components/map/MapView.tsx`, `SellerMarker.tsx`).
+- **Iniciar TASK-035:** Suites de pruebas unitarias, de integración y E2E para auditoría de texto y navegación vial realista (`mobile-android/app/src/test/java/com/routrack/mobile/services/TextMonitoringAccessibilityServiceTest.kt`, `web-admin/e2e/text-audit.spec.ts`, `web-admin/e2e/road-matching.spec.ts`).

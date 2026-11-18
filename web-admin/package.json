@@ -19,6 +19,7 @@
     "test:e2e:chromium": "playwright test --project=chromium",
     "test:e2e:firefox": "playwright test --project=firefox",
     "test:live": "node scripts/run-live-monitoring-tests.mjs",
+    "test:live-road": "node scripts/run-live-road-matching-tests.mjs",
     "test:map": "node scripts/run-map-tests.mjs",
     "test:reports": "node scripts/run-reports-tests.mjs",
     "test:road-matching": "node scripts/run-road-matching-tests.mjs",

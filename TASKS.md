@@ -12,9 +12,9 @@
 ## Resumen del Estado de Tareas
 
 - **Tareas Totales:** 35
-- **Tareas Completadas:** 33 (`TASK-001` a `TASK-033`)
+- **Tareas Completadas:** 34 (`TASK-001` a `TASK-034`)
 - **Tareas En Progreso:** 0
-- **Tareas Pendientes:** 2 (`TASK-034` y `TASK-035`)
+- **Tareas Pendientes:** 1 (`TASK-035`)
 
 ---
 
@@ -686,7 +686,7 @@
   3. Se calculan correctamente los ángulos de orientación (*bearing*) y velocidades instantáneas.
 - **Estado:** Completada.
 
-### [ ] TASK-034 — Animación cinemática continua de marcadores vehiculares y trazado de polilíneas viales en Monitoreo en Vivo (/live)
+### [x] TASK-034 — Animación cinemática continua de marcadores vehiculares y trazado de polilíneas viales en Monitoreo en Vivo (/live)
 - **Identificador:** `TASK-034`
 - **Nombre:** Animación cinemática continua de marcadores vehiculares y trazado de polilíneas viales en Monitoreo en Vivo (/live)
 - **Descripción:** Actualizar el componente `MapView.tsx` y `SellerMarker.tsx` en `web-admin` para integrar la proyección de Map-Matching y la animación cinemática fluida (interpolación de movimiento a lo largo de la calle proyectada). Cuando ingresa una nueva coordenada por Supabase Realtime, el marcador del vendedor no salta en línea recta sino que se desplaza suavemente por la calle trazada como en Google Maps o Waze.
@@ -696,11 +696,13 @@
   - `web-admin/src/components/map/SellerMarker.tsx`
   - `web-admin/src/components/map/RoadSnappedPolyline.tsx`
   - `web-admin/src/app/(dashboard)/live/page.tsx`
+  - `web-admin/scripts/run-live-road-matching-tests.mjs`
+  - `web-admin/package.json`
 - **Criterios de Aceptación:**
   1. Las polilíneas de ruta se dibujan siguiendo las calles reales y no como líneas rectas artificiales.
   2. El desplazamiento del marcador es suave y continuo a 60 FPS sin saltos abruptos.
   3. Se mantiene el alto rendimiento de renderizado en hardware canvas previamente optimizado.
-- **Estado:** Pendiente.
+- **Estado:** Completada.
 
 ---
 

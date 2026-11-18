@@ -11,21 +11,28 @@ export interface SellerMarkerProps {
   map?: L.Map | null;
   onClick?: (seller: SellerLiveState) => void;
   isSelected?: boolean;
+  enableKinematicAnimation?: boolean;
+  animationDurationMs?: number;
 }
 
 /**
  * Genera el SVG del marcador vectorial adaptativo según el estado operativo y rumbo del vendedor.
  *
- * Cumple con el Criterio 1 de TASK-015:
+ * Cumple con el Criterio 1 de TASK-015 y la animación cinemática de TASK-034:
  * - Marcador azul en movimiento con flecha de orientación/rumbo (bearing).
  * - Ámbar detenido.
  * - Verde en visita validada.
  * - Rojo en anomalía / desviación / Mock Location.
  * - Gris sin conexión.
  */
-export function buildSellerMarkerSvg(seller: SellerLiveState, isSelected: boolean = false): string {
+export function buildSellerMarkerSvg(
+  seller: SellerLiveState,
+  isSelected: boolean = false,
+  overrideBearing?: number
+): string {
   const config = OPERATIONAL_STATUS_CONFIGS[seller.status];
-  const { bearingDegrees, status } = seller;
+  const bearingDegrees = overrideBearing !== undefined ? overrideBearing : seller.bearingDegrees;
+  const { status } = seller;
   const color = config.colorHex;
 
   // Anillos de selección o pulsación
@@ -118,18 +125,26 @@ async function getLeaflet() {
 
 /**
  * Componente que enlaza un marcador de vendedor con la instancia activa de Leaflet.
+ * Incorpora animación cinemática continua a 60 FPS con interpolación espacial y angular (TASK-034).
  */
 export default function SellerMarker({
   seller,
   map: externalMap,
   onClick,
   isSelected = false,
+  enableKinematicAnimation = true,
+  animationDurationMs = 1200,
 }: SellerMarkerProps) {
   const contextMap = useMapInstance();
   const map = externalMap || contextMap;
   const markerRef = useRef<L.Marker | null>(null);
   const onClickRef = useRef(onClick);
   const sellerRef = useRef(seller);
+
+  // Referencias para interpolación cinemática fluida (60 FPS)
+  const currentCoordsRef = useRef<[number, number]>([seller.latitude, seller.longitude]);
+  const currentBearingRef = useRef<number>(seller.bearingDegrees);
+  const animFrameIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     onClickRef.current = onClick;
@@ -144,7 +159,7 @@ export default function SellerMarker({
     getLeaflet().then((L) => {
       if (!isMounted || !map) return;
 
-      const html = buildSellerMarkerSvg(seller, isSelected);
+      const html = buildSellerMarkerSvg(seller, isSelected, currentBearingRef.current);
       const customIcon = L.divIcon({
         html,
         className: "routrack-seller-marker-icon",
@@ -154,7 +169,7 @@ export default function SellerMarker({
       });
 
       if (!markerRef.current) {
-        // Crear nuevo marcador
+        // Inicializar nuevo marcador en la posición inicial
         const marker = L.marker([seller.latitude, seller.longitude], {
           icon: customIcon,
           title: seller.sellerName,
@@ -173,22 +188,103 @@ export default function SellerMarker({
         });
 
         markerRef.current = marker;
+        currentCoordsRef.current = [seller.latitude, seller.longitude];
+        currentBearingRef.current = seller.bearingDegrees;
       } else {
-        // Actualizar marcador existente de forma eficiente sin destruir el objeto Leaflet
-        markerRef.current.setLatLng([seller.latitude, seller.longitude]);
-        markerRef.current.setIcon(customIcon);
-        markerRef.current.setPopupContent(renderSellerPopupHtml(seller));
+        const marker = markerRef.current;
+        const targetLat = seller.latitude;
+        const targetLng = seller.longitude;
+        const targetBearing = seller.bearingDegrees;
+
+        const startLat = currentCoordsRef.current[0];
+        const startLng = currentCoordsRef.current[1];
+        const startBearing = currentBearingRef.current;
+
+        const deltaLat = targetLat - startLat;
+        const deltaLng = targetLng - startLng;
+        const approxDist = Math.sqrt(deltaLat * deltaLat + deltaLng * deltaLng);
+
+        // Cancelar animación anterior si aún estaba corriendo
+        if (animFrameIdRef.current !== null) {
+          cancelAnimationFrame(animFrameIdRef.current);
+          animFrameIdRef.current = null;
+        }
+
+        // Si el cambio es minúsculo o es un salto de teletransportación (> 5km), aplicar directamente
+        if (!enableKinematicAnimation || approxDist < 0.000005 || approxDist > 0.05) {
+          marker.setLatLng([targetLat, targetLng]);
+          marker.setIcon(customIcon);
+          marker.setPopupContent(renderSellerPopupHtml(seller));
+          currentCoordsRef.current = [targetLat, targetLng];
+          currentBearingRef.current = targetBearing;
+        } else {
+          // Animación cinemática fluida con interpolación cúbica (60 FPS)
+          const startTime = performance.now();
+          const duration = animationDurationMs;
+
+          // Cálculo del camino más corto para la rotación angular (-180° a 180°)
+          const bearingDiff = (((targetBearing - startBearing + 540) % 360) - 180);
+
+          const animateStep = (now: number) => {
+            if (!isMounted || !markerRef.current) return;
+
+            const elapsed = now - startTime;
+            const progress = Math.min(1.0, elapsed / duration);
+            // Easing cúbico (easeOutCubic) para movimiento vehicular orgánico
+            const ease = 1.0 - Math.pow(1.0 - progress, 3);
+
+            const interpLat = startLat + deltaLat * ease;
+            const interpLng = startLng + deltaLng * ease;
+            const interpBearing = (startBearing + bearingDiff * ease + 360) % 360;
+
+            marker.setLatLng([interpLat, interpLng]);
+            currentCoordsRef.current = [interpLat, interpLng];
+            currentBearingRef.current = interpBearing;
+
+            if (progress < 1.0) {
+              animFrameIdRef.current = requestAnimationFrame(animateStep);
+            } else {
+              // Posición final exacta
+              marker.setLatLng([targetLat, targetLng]);
+              marker.setIcon(customIcon);
+              marker.setPopupContent(renderSellerPopupHtml(seller));
+              currentCoordsRef.current = [targetLat, targetLng];
+              currentBearingRef.current = targetBearing;
+              animFrameIdRef.current = null;
+            }
+          };
+
+          animFrameIdRef.current = requestAnimationFrame(animateStep);
+        }
       }
     });
 
     return () => {
       isMounted = false;
+      if (animFrameIdRef.current !== null) {
+        cancelAnimationFrame(animFrameIdRef.current);
+        animFrameIdRef.current = null;
+      }
     };
-  }, [map, seller.sellerId, seller.latitude, seller.longitude, seller.status, seller.bearingDegrees, isSelected]);
+  }, [
+    map,
+    seller.sellerId,
+    seller.latitude,
+    seller.longitude,
+    seller.status,
+    seller.bearingDegrees,
+    isSelected,
+    enableKinematicAnimation,
+    animationDurationMs,
+  ]);
 
   // Limpieza final al desmontar el marcador
   useEffect(() => {
     return () => {
+      if (animFrameIdRef.current !== null) {
+        cancelAnimationFrame(animFrameIdRef.current);
+        animFrameIdRef.current = null;
+      }
       if (markerRef.current && map) {
         markerRef.current.remove();
         markerRef.current = null;
@@ -198,4 +294,3 @@ export default function SellerMarker({
 
   return null;
 }
-
