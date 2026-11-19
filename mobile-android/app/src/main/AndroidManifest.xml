@@ -17,6 +17,7 @@
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
 
     <application
+        android:name=".RoutrackApplication"
         android:allowBackup="false"
         android:icon="@android:drawable/ic_dialog_map"
         android:label="ROUTRACK"

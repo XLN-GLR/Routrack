@@ -289,6 +289,14 @@
   - Corrección en `MainActivity.kt`: Se implementó un `ViewModelProvider.Factory` explícito para `TrackingViewModel` desacoplándolo de la reflexión, y se añadió la precarga de `SQLiteDatabase.loadLibs` en `onCreate()`.
   - Corrección en `RoutrackDatabase.kt`: Se protegió la inicialización de `SupportFactory` cargando previamente las librerías nativas con manejo de contingencia (`catch (e: Throwable)`).
   - Verificación empírica: Inspección por desensamblado `javap` verificando la presencia de `TrackingViewModel(Application)` y compilación exitosa de `assembleDebug` (`BUILD SUCCESSFUL in 1m 20s`).
+- **[x] FIX-20261119-4 — Autorrecuperación de base de datos SQLCipher, RoutrackApplication y reglas ProGuard:**
+  - Diagnóstico: Se detectó que si en instalaciones previas de la app existía un archivo de base de datos SQLite no cifrado o con clave distinta en `/data/data/.../databases/routrack_secure.db`, SQLCipher arrojaba una excepción fatal (`file is not a database`) al no poder descifrar la cabecera. Asimismo, faltaba la clase global `Application` para precargar binarios nativos y las reglas `proguard-rules.pro` para empaquetado seguro.
+  - Creación de `RoutrackApplication.kt`: Inicialización centralizada de `SQLiteDatabase.loadLibs(this)` en el arranque del proceso para que cualquier Service o Worker disponga de las librerías nativas.
+  - Registro en `AndroidManifest.xml`: Declaración de `android:name=".RoutrackApplication"`.
+  - Autorrecuperación en `RoutrackDatabase.kt`: Verificación de accesibilidad del archivo de base de datos previa a Room. Si el archivo local no coincide con la clave activa o está dañado, se purga de forma segura con `deleteDatabase` para recreación limpia sin caídas.
+  - Manejo de Excepciones en `TrackingViewModel.kt`: Incorporación de `CoroutineExceptionHandler` y bloques `try/catch` defensivos en todos los observadores reactivos (`Flow`) y operaciones de jornada.
+  - Creación de `proguard-rules.pro`: Reglas de ofuscación y preservación para SQLCipher, Room, Ktor y Supabase Serialization.
+  - Verificación empírica: Compilación de `compileDebugKotlin` y empaquetado limpio de APK `assembleDebug` superados con éxito.
 
 ### 4.2. Tareas Pendientes Inmediatas
 - *Ninguna.* Las 35 tareas del plan maestro de desarrollo de ROUTRACK han sido ejecutadas, verificadas empíricamente y superadas al 100%.

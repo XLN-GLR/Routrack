@@ -58,6 +58,35 @@ abstract class RoutrackDatabase : RoomDatabase() {
         }
 
         private fun buildDatabase(appContext: Context, passphrase: ByteArray?): RoutrackDatabase {
+            // Verificación y autorrecuperación de integridad criptográfica
+            if (passphrase != null && passphrase.isNotEmpty()) {
+                try {
+                    net.sqlcipher.database.SQLiteDatabase.loadLibs(appContext)
+                    val dbFile = appContext.getDatabasePath(DATABASE_NAME)
+                    if (dbFile.exists()) {
+                        try {
+                            val factory = SupportFactory(passphrase)
+                            val testHelper = factory.create(
+                                androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration.builder(appContext)
+                                    .name(DATABASE_NAME)
+                                    .callback(object : androidx.sqlite.db.SupportSQLiteOpenHelper.Callback(1) {
+                                        override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {}
+                                        override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+                                    })
+                                    .build()
+                            )
+                            testHelper.writableDatabase
+                            testHelper.close()
+                        } catch (e: Throwable) {
+                            android.util.Log.w("RoutrackDatabase", "Base de datos local no coincide con la clave criptográfica activa o está dañada. Purgando para recreación segura...", e)
+                            appContext.deleteDatabase(DATABASE_NAME)
+                        }
+                    }
+                } catch (t: Throwable) {
+                    android.util.Log.e("RoutrackDatabase", "Aviso: no fue posible inicializar subsistema SQLCipher nativo", t)
+                }
+            }
+
             val builder = Room.databaseBuilder(
                 appContext,
                 RoutrackDatabase::class.java,
@@ -67,7 +96,6 @@ abstract class RoutrackDatabase : RoomDatabase() {
             // Cifrado transparente con SQLCipher si se provee clave criptográfica
             if (passphrase != null && passphrase.isNotEmpty()) {
                 try {
-                    net.sqlcipher.database.SQLiteDatabase.loadLibs(appContext)
                     val factory = SupportFactory(passphrase)
                     builder.openHelperFactory(factory)
                 } catch (e: Throwable) {

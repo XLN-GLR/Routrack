@@ -43,71 +43,91 @@ class TrackingViewModel @JvmOverloads constructor(
     private val _uiState = MutableStateFlow(TrackingUiState())
     val uiState: StateFlow<TrackingUiState> = _uiState.asStateFlow()
 
+    private val trackingExceptionHandler = kotlinx.coroutines.CoroutineExceptionHandler { _, throwable ->
+        android.util.Log.e("TrackingViewModel", "Excepción no capturada en corrutina de telemetría", throwable)
+    }
+
     init {
         observarJornadaYTelemetria()
     }
 
     private fun observarJornadaYTelemetria() {
-        viewModelScope.launch {
-            shiftRepository.observeActiveShift().collect { jornada ->
-                _uiState.update { current ->
-                    current.copy(
-                        activeJornada = jornada,
-                        isTrackingActive = jornada != null
-                    )
-                }
-
-                if (jornada != null) {
-                    observarTelemetriaDeJornada(jornada.id)
-                } else {
+        viewModelScope.launch(trackingExceptionHandler) {
+            try {
+                shiftRepository.observeActiveShift().collect { jornada ->
                     _uiState.update { current ->
                         current.copy(
-                            totalPuntosLocales = 0,
-                            ultimaLatitud = null,
-                            ultimaLongitud = null,
-                            ultimaPrecision = null
+                            activeJornada = jornada,
+                            isTrackingActive = jornada != null
                         )
                     }
+
+                    if (jornada != null) {
+                        observarTelemetriaDeJornada(jornada.id)
+                    } else {
+                        _uiState.update { current ->
+                            current.copy(
+                                totalPuntosLocales = 0,
+                                ultimaLatitud = null,
+                                ultimaLongitud = null,
+                                ultimaPrecision = null
+                            )
+                        }
+                    }
                 }
+            } catch (e: Throwable) {
+                android.util.Log.e("TrackingViewModel", "Error al observar flujo de turno activo", e)
             }
         }
 
         // Observar coordenadas en vivo reportadas por el Foreground Service
-        viewModelScope.launch {
-            LocationForegroundService.lastLocation.collect { loc ->
-                if (loc != null) {
-                    _uiState.update { current ->
-                        current.copy(
-                            ultimaLatitud = loc.latitude,
-                            ultimaLongitud = loc.longitude,
-                            ultimaPrecision = loc.accuracy,
-                            ultimoTimestamp = loc.time
-                        )
+        viewModelScope.launch(trackingExceptionHandler) {
+            try {
+                LocationForegroundService.lastLocation.collect { loc ->
+                    if (loc != null) {
+                        _uiState.update { current ->
+                            current.copy(
+                                ultimaLatitud = loc.latitude,
+                                ultimaLongitud = loc.longitude,
+                                ultimaPrecision = loc.accuracy,
+                                ultimoTimestamp = loc.time
+                            )
+                        }
                     }
                 }
+            } catch (e: Throwable) {
+                android.util.Log.e("TrackingViewModel", "Error al observar flujo de coordenadas en vivo", e)
             }
         }
     }
 
     private fun observarTelemetriaDeJornada(jornadaId: String) {
-        viewModelScope.launch {
-            trackingRepository.observeLocationCount(jornadaId).collect { count ->
-                _uiState.update { it.copy(totalPuntosLocales = count) }
+        viewModelScope.launch(trackingExceptionHandler) {
+            try {
+                trackingRepository.observeLocationCount(jornadaId).collect { count ->
+                    _uiState.update { it.copy(totalPuntosLocales = count) }
+                }
+            } catch (e: Throwable) {
+                android.util.Log.e("TrackingViewModel", "Error al observar conteo de puntos para $jornadaId", e)
             }
         }
 
-        viewModelScope.launch {
-            trackingRepository.observeLastLocation(jornadaId).collect { ultima ->
-                if (ultima != null) {
-                    _uiState.update { current ->
-                        current.copy(
-                            ultimaLatitud = ultima.latitud,
-                            ultimaLongitud = ultima.longitud,
-                            ultimaPrecision = ultima.precision,
-                            ultimoTimestamp = ultima.timestampCaptura
-                        )
+        viewModelScope.launch(trackingExceptionHandler) {
+            try {
+                trackingRepository.observeLastLocation(jornadaId).collect { ultima ->
+                    if (ultima != null) {
+                        _uiState.update { current ->
+                            current.copy(
+                                ultimaLatitud = ultima.latitud,
+                                ultimaLongitud = ultima.longitud,
+                                ultimaPrecision = ultima.precision,
+                                ultimoTimestamp = ultima.timestampCaptura
+                            )
+                        }
                     }
                 }
+            } catch (e: Throwable) {
+                android.util.Log.e("TrackingViewModel", "Error al observar última ubicación para $jornadaId", e)
             }
         }
     }
@@ -117,34 +137,43 @@ class TrackingViewModel @JvmOverloads constructor(
      * LocationForegroundService con notificación obligatoria visible.
      */
     fun iniciarJornada(vendedorId: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(trackingExceptionHandler) {
             _uiState.update { it.copy(isLoading = true, mensajeFeedback = null) }
 
-            val result = shiftRepository.startShift(vendedorId)
-            result.fold(
-                onSuccess = { jornada ->
-                    // Iniciar el servicio en primer plano con notificación visible
-                    LocationForegroundService.startTracking(
-                        getApplication(),
-                        jornada.id,
-                        vendedorId
+            try {
+                val result = shiftRepository.startShift(vendedorId)
+                result.fold(
+                    onSuccess = { jornada ->
+                        // Iniciar el servicio en primer plano con notificación visible
+                        LocationForegroundService.startTracking(
+                            getApplication(),
+                            jornada.id,
+                            vendedorId
+                        )
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                mensajeFeedback = "Jornada iniciada exitosamente."
+                            )
+                        }
+                    },
+                    onFailure = { error ->
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                mensajeFeedback = "Error al iniciar jornada: ${error.localizedMessage}"
+                            )
+                        }
+                    }
+                )
+            } catch (e: Throwable) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        mensajeFeedback = "Error inesperado al iniciar jornada: ${e.localizedMessage}"
                     )
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            mensajeFeedback = "Jornada iniciada exitosamente."
-                        )
-                    }
-                },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            mensajeFeedback = "Error al iniciar jornada: ${error.localizedMessage}"
-                        )
-                    }
                 }
-            )
+            }
         }
     }
 
@@ -152,43 +181,52 @@ class TrackingViewModel @JvmOverloads constructor(
      * Finaliza la jornada activa mediante ShiftRepository y detiene el Foreground Service.
      */
     fun finalizarJornada() {
-        viewModelScope.launch {
+        viewModelScope.launch(trackingExceptionHandler) {
             _uiState.update { it.copy(isLoading = true, mensajeFeedback = null) }
 
-            val jornadaActiva = _uiState.value.activeJornada
-            if (jornadaActiva == null) {
+            try {
+                val jornadaActiva = _uiState.value.activeJornada
+                if (jornadaActiva == null) {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            mensajeFeedback = "No hay ninguna jornada activa para finalizar."
+                        )
+                    }
+                    return@launch
+                }
+
+                val totalPuntos = _uiState.value.totalPuntosLocales
+                val result = shiftRepository.endShift(jornadaActiva.id, totalPuntos)
+
+                result.fold(
+                    onSuccess = {
+                        // Detener el servicio en primer plano
+                        LocationForegroundService.stopTracking(getApplication())
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                mensajeFeedback = "Jornada finalizada correctamente."
+                            )
+                        }
+                    },
+                    onFailure = { error ->
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                mensajeFeedback = "Error al finalizar jornada: ${error.localizedMessage}"
+                            )
+                        }
+                    }
+                )
+            } catch (e: Throwable) {
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        mensajeFeedback = "No hay ninguna jornada activa para finalizar."
+                        mensajeFeedback = "Error inesperado al finalizar jornada: ${e.localizedMessage}"
                     )
                 }
-                return@launch
             }
-
-            val totalPuntos = _uiState.value.totalPuntosLocales
-            val result = shiftRepository.endShift(jornadaActiva.id, totalPuntos)
-
-            result.fold(
-                onSuccess = {
-                    // Detener el servicio en primer plano
-                    LocationForegroundService.stopTracking(getApplication())
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            mensajeFeedback = "Jornada finalizada correctamente."
-                        )
-                    }
-                },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            mensajeFeedback = "Error al finalizar jornada: ${error.localizedMessage}"
-                        )
-                    }
-                }
-            )
         }
     }
 
