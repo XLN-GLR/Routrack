@@ -116,6 +116,7 @@ class AntiTamperingManagerTest {
             precision: Float,
             altitud: Double?,
             velocidad: Float?,
+            bearing: Float?,
             timestamp: Long,
             isMock: Boolean
         ): Result<UbicacionGpsEntity> {

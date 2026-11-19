@@ -1,8 +1,8 @@
 # Memoria Viva del Proyecto — ROUTRACK
 
-**Última Actualización:** 17 de Noviembre de 2026  
+**Última Actualización:** 19 de Noviembre de 2026  
 **Documento:** Estado Vivo y Registro Dinámico de Contexto (Project Memory)  
-**Versión:** 2.0.0  
+**Versión:** 2.1.0  
 **Autor:** Senior Software Engineer, Cloud/Mobile Solutions Architect & Technical Lead  
 
 ---
@@ -268,6 +268,11 @@
   - Pruebas End-to-End en Playwright (`web-admin/e2e/road-matching.spec.ts`): Validación en navegadores reales del motor de Map-Matching libre sobre OpenStreetMap/OSRM a costo $0 USD, renderizado del marcador vehicular con orientación cinemática continua y verificación de ausencia total de APIs comerciales de pago.
   - Orquestador Maestro de Aseguramiento de Calidad (`web-admin/scripts/run-all-tests.mjs`): Ejecución y consolidación formal de las 18 suites de pruebas de la pirámide completa de ROUTRACK, logrando 18 de 18 suites aprobadas (100% PASS).
   - Certificación Cross-Browser y Producción: 6 de 6 pruebas E2E aprobadas en Chromium (5.8s), 6 de 6 pruebas E2E aprobadas en Firefox (11.1s), compilación TypeScript limpia (`tsc --noEmit` con 0 errores) y build de producción de Next.js (`npm run build`) validado con 11/11 rutas estáticas/dinámicas.
+
+### 4.2. Mantenimiento y Calidad de Código Móvil
+- **[x] FIX-20261119 — Alineación de firma en FakeTrackingRepository para generación de APK:**
+  - Corrección en `AntiTamperingManagerTest.kt`: Se añadió el parámetro `bearing: Float?` a la firma del método `recordLocation` en la clase mock `FakeTrackingRepository`, alineándolo con la interfaz `TrackingRepository` modificada en TASK-033.
+  - Verificación empírica: Compilación de pruebas unitarias superada con éxito (`compileDebugUnitTestKotlin`) y construcción completa del binario Android (`assembleDebug`) generando el paquete instalable `app-debug.apk` (27.4 MB).
 
 ### 4.2. Tareas Pendientes Inmediatas
 - *Ninguna.* Las 35 tareas del plan maestro de desarrollo de ROUTRACK han sido ejecutadas, verificadas empíricamente y superadas al 100%.
