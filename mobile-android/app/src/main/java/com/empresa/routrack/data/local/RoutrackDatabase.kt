@@ -66,8 +66,13 @@ abstract class RoutrackDatabase : RoomDatabase() {
 
             // Cifrado transparente con SQLCipher si se provee clave criptográfica
             if (passphrase != null && passphrase.isNotEmpty()) {
-                val factory = SupportFactory(passphrase)
-                builder.openHelperFactory(factory)
+                try {
+                    net.sqlcipher.database.SQLiteDatabase.loadLibs(appContext)
+                    val factory = SupportFactory(passphrase)
+                    builder.openHelperFactory(factory)
+                } catch (e: Throwable) {
+                    android.util.Log.e("RoutrackDatabase", "Aviso: no se pudo cargar SQLCipher nativo, usando SQLite estándar", e)
+                }
             }
 
             return builder

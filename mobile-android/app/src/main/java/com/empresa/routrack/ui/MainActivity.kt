@@ -31,6 +31,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        try {
+            net.sqlcipher.database.SQLiteDatabase.loadLibs(applicationContext)
+        } catch (_: Throwable) {
+        }
         setContent {
             MaterialTheme {
                 Surface(
@@ -65,7 +69,15 @@ fun RoutrackHomeScaffold(
     profile: UserProfile
 ) {
     var currentScreen by remember { mutableStateOf(MainScreen.TRACKING) }
-    val trackingViewModel: TrackingViewModel = viewModel()
+    val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext as android.app.Application
+    val trackingViewModel: TrackingViewModel = viewModel(
+        factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                return TrackingViewModel(appContext) as T
+            }
+        }
+    )
 
     when (currentScreen) {
         MainScreen.TRACKING -> {

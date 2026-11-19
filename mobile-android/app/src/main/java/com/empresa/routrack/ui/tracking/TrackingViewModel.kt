@@ -34,7 +34,7 @@ data class TrackingUiState(
  *
  * Desacoplado enteramente de la persistencia directa de Room mediante ShiftRepository y TrackingRepository.
  */
-class TrackingViewModel(
+class TrackingViewModel @JvmOverloads constructor(
     application: Application,
     private val shiftRepository: ShiftRepository = RepositoryProvider.getShiftRepository(application),
     private val trackingRepository: TrackingRepository = RepositoryProvider.getTrackingRepository(application)

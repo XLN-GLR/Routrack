@@ -283,6 +283,12 @@
   - Corrección en `gradle.properties`: Se estableció `kotlin.compiler.execution.strategy=in-process`, ejecutando el compilador de forma determinista y estable dentro del proceso principal de Gradle sin caídas de daemon.
   - Limpieza en `SyncJornadaWorkerTest.kt`: Corrección de advertencia de casteo redundante.
   - Verificación empírica: Compilación limpia de tareas unitarias y de instrumentación (`compileDebugUnitTestKotlin`, `compileDebugAndroidTestKotlin`) y empaquetado de APK (`assembleDebug`) superados al 100%.
+- **[x] FIX-20261119-3 — Corrección de cierre inesperado (Crash) al iniciar sesión en cliente móvil:**
+  - Diagnóstico: Se identificó que al autenticarse en el APK, la transición a `TrackingScreen` arrojaba una excepción fatal debido a la ausencia del constructor de un parámetro `(Application)` en `TrackingViewModel` requerido por la reflexión de `AndroidViewModelFactory`, sumado a la falta de inicialización previa de librerías nativas de SQLCipher (`SQLiteDatabase.loadLibs`).
+  - Corrección en `TrackingViewModel`: Se anotó el constructor con `@JvmOverloads` garantizando la generación del constructor `(Application)` en bytecode.
+  - Corrección en `MainActivity.kt`: Se implementó un `ViewModelProvider.Factory` explícito para `TrackingViewModel` desacoplándolo de la reflexión, y se añadió la precarga de `SQLiteDatabase.loadLibs` en `onCreate()`.
+  - Corrección en `RoutrackDatabase.kt`: Se protegió la inicialización de `SupportFactory` cargando previamente las librerías nativas con manejo de contingencia (`catch (e: Throwable)`).
+  - Verificación empírica: Inspección por desensamblado `javap` verificando la presencia de `TrackingViewModel(Application)` y compilación exitosa de `assembleDebug` (`BUILD SUCCESSFUL in 1m 20s`).
 
 ### 4.2. Tareas Pendientes Inmediatas
 - *Ninguna.* Las 35 tareas del plan maestro de desarrollo de ROUTRACK han sido ejecutadas, verificadas empíricamente y superadas al 100%.
