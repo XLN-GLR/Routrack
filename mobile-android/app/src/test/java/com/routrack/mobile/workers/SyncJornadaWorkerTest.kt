@@ -91,7 +91,7 @@ class SyncJornadaWorkerTest {
 
     @Test
     fun test_network_exception_classified_correctly() {
-        val netEx = SyncException.NetworkException("Timeout de conexión")
+        val netEx: Any = SyncException.NetworkException("Timeout de conexión")
         assertTrue(netEx is SyncException)
     }
 

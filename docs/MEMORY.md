@@ -278,6 +278,11 @@
   - Habilitación del flujo operativo del vendedor: Control interactivo de turnos laborales (Iniciar / Finalizar Jornada), solicitud y validación de permisos en tiempo real (`ACCESS_FINE_LOCATION`, `POST_NOTIFICATIONS`) y monitor de telemetría local cifrada con Room + HMAC.
   - Flujo de navegación reactivo hacia `AccessibilityPermissionScreen` a través de la barra de acciones superior con retorno seguro.
   - Verificación empírica: Compilación limpia y empaquetado de APK (`assembleDebug`) superado con total éxito (`BUILD SUCCESSFUL in 1m 56s`).
+- **[x] FIX-20261119-2 — Resolución de caída del Daemon de Kotlin con JDK 25 en Android Studio:**
+  - Diagnóstico: El compilador de Kotlin 1.9.24 en su proceso daemon fallaba con `IllegalArgumentException: 25.0.4` (`JavaVersion.parse`) al ejecutarse sobre el JDK 25 predeterminado de Android Studio.
+  - Corrección en `gradle.properties`: Se estableció `kotlin.compiler.execution.strategy=in-process`, ejecutando el compilador de forma determinista y estable dentro del proceso principal de Gradle sin caídas de daemon.
+  - Limpieza en `SyncJornadaWorkerTest.kt`: Corrección de advertencia de casteo redundante.
+  - Verificación empírica: Compilación limpia de tareas unitarias y de instrumentación (`compileDebugUnitTestKotlin`, `compileDebugAndroidTestKotlin`) y empaquetado de APK (`assembleDebug`) superados al 100%.
 
 ### 4.2. Tareas Pendientes Inmediatas
 - *Ninguna.* Las 35 tareas del plan maestro de desarrollo de ROUTRACK han sido ejecutadas, verificadas empíricamente y superadas al 100%.
