@@ -273,6 +273,11 @@
 - **[x] FIX-20261119 — Alineación de firma en FakeTrackingRepository para generación de APK:**
   - Corrección en `AntiTamperingManagerTest.kt`: Se añadió el parámetro `bearing: Float?` a la firma del método `recordLocation` en la clase mock `FakeTrackingRepository`, alineándolo con la interfaz `TrackingRepository` modificada en TASK-033.
   - Verificación empírica: Compilación de pruebas unitarias superada con éxito (`compileDebugUnitTestKotlin`) y construcción completa del binario Android (`assembleDebug`) generando el paquete instalable `app-debug.apk` (27.4 MB).
+- **[x] FEAT-20261119 — Integración de TrackingScreen y Navegación en MainActivity:**
+  - Actualización en `MainActivity.kt`: Se sustituyó el texto de bienvenida temporal por el despliegue completo de `TrackingScreen` con su respectivo `TrackingViewModel`.
+  - Habilitación del flujo operativo del vendedor: Control interactivo de turnos laborales (Iniciar / Finalizar Jornada), solicitud y validación de permisos en tiempo real (`ACCESS_FINE_LOCATION`, `POST_NOTIFICATIONS`) y monitor de telemetría local cifrada con Room + HMAC.
+  - Flujo de navegación reactivo hacia `AccessibilityPermissionScreen` a través de la barra de acciones superior con retorno seguro.
+  - Verificación empírica: Compilación limpia y empaquetado de APK (`assembleDebug`) superado con total éxito (`BUILD SUCCESSFUL in 1m 56s`).
 
 ### 4.2. Tareas Pendientes Inmediatas
 - *Ninguna.* Las 35 tareas del plan maestro de desarrollo de ROUTRACK han sido ejecutadas, verificadas empíricamente y superadas al 100%.
