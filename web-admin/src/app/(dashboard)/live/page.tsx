@@ -32,6 +32,27 @@ import {
   OPERATIONAL_STATUS_CONFIGS,
   INITIAL_LIVE_SELLERS,
 } from "@/types/seller";
+import { createClient } from "@/lib/supabase/client";
+
+function parsePointCoordinates(point: unknown): [number, number] | null {
+  if (!point) return null;
+  if (typeof point === "string") {
+    const match = point.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
+    if (match) {
+      const lng = parseFloat(match[1]);
+      const lat = parseFloat(match[2]);
+      if (!isNaN(lat) && !isNaN(lng)) return [lat, lng];
+    }
+  } else if (typeof point === "object" && point !== null && "coordinates" in point) {
+    const coords = (point as { coordinates: unknown }).coordinates;
+    if (Array.isArray(coords) && coords.length >= 2) {
+      const lng = Number(coords[0]);
+      const lat = Number(coords[1]);
+      if (!isNaN(lat) && !isNaN(lng)) return [lat, lng];
+    }
+  }
+  return null;
+}
 
 export default function LiveMonitoringPage() {
   const [sellers, setSellers] = useState<SellerLiveState[]>(INITIAL_LIVE_SELLERS);
@@ -43,6 +64,112 @@ export default function LiveMonitoringPage() {
   const [showRoadSnappedRoutes, setShowRoadSnappedRoutes] = useState<boolean>(true);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date>(new Date());
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
+
+  // Consulta y carga de jornadas reales desde Supabase
+  const loadLiveSellers = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      const { data: jornadas, error: jornadasError } = await supabase
+        .from("jornadas_laborales")
+        .select("id, vendedor_id, estado, fecha_inicio, bateria_inicio, ubicacion_inicio")
+        .in("estado", ["OPEN", "EN_CURSO"]);
+
+      if (jornadasError || !jornadas || jornadas.length === 0) {
+        return;
+      }
+
+      const vendedorIds = Array.from(new Set(jornadas.map((j) => j.vendedor_id)));
+      const { data: perfiles } = await supabase
+        .from("perfiles")
+        .select("id, nombre_completo, email, telefono")
+        .in("id", vendedorIds);
+
+      const jornadaIds = jornadas.map((j) => j.id);
+      const { data: puntos } = await supabase
+        .from("ubicaciones_gps")
+        .select("jornada_id, vendedor_id, ubicacion, precision_metros, velocidad_ms, orientacion_grados, nivel_bateria, es_simulado, registrado_en")
+        .in("jornada_id", jornadaIds)
+        .order("registrado_en", { ascending: false });
+
+      const realSellers: SellerLiveState[] = jornadas.map((j) => {
+        const perfil = perfiles?.find((p) => p.id === j.vendedor_id);
+        const ultPunto = puntos?.find((pt) => pt.jornada_id === j.id);
+        const coords =
+          parsePointCoordinates(ultPunto?.ubicacion) ||
+          parsePointCoordinates(j.ubicacion_inicio) ||
+          [-0.180653, -78.467834];
+
+        const speedKmh = ultPunto?.velocidad_ms ? Number((ultPunto.velocidad_ms * 3.6).toFixed(1)) : 0;
+        const isMock = ultPunto?.es_simulado ?? false;
+
+        let status: SellerOperationalStatus = "DETENIDO";
+        if (isMock) {
+          status = "DESVIACION";
+        } else if (speedKmh > 5) {
+          status = "EN_RUTA";
+        } else {
+          status = "DETENIDO";
+        }
+
+        return {
+          sellerId: j.vendedor_id,
+          sellerName: perfil?.nombre_completo || `Vendedor ${j.vendedor_id.slice(0, 8)}`,
+          email: perfil?.email || "vendedor@routrack.ec",
+          phone: perfil?.telefono || undefined,
+          shiftId: j.id,
+          latitude: coords[0],
+          longitude: coords[1],
+          accuracyMeters: ultPunto?.precision_metros ? Number(ultPunto.precision_metros.toFixed(1)) : 8.0,
+          speedKmh,
+          bearingDegrees: ultPunto?.orientacion_grados || 0,
+          batteryLevel: ultPunto?.nivel_bateria ?? j.bateria_inicio ?? 100,
+          isMock,
+          status,
+          lastReportTime: ultPunto?.registrado_en || j.fecha_inicio || new Date().toISOString(),
+        };
+      });
+
+      if (realSellers.length > 0) {
+        setSellers((prev) => {
+          // Combinar vendedores reales reemplazando o anteponiendo sobre la cuadrilla de muestra
+          const realIds = new Set(realSellers.map((r) => r.sellerId));
+          const demoRestantes = prev.filter((s) => !realIds.has(s.sellerId) && !s.sellerId.startsWith("demo-"));
+          return [...realSellers, ...demoRestantes];
+        });
+        setLastRefreshedAt(new Date());
+      }
+    } catch (_err) {
+      // En caso de corte de red, se mantiene la cuadrilla local
+    }
+  }, []);
+
+  // Carga inicial y suscripción a cambios Realtime de Supabase
+  useEffect(() => {
+    loadLiveSellers();
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel("realtime-live-sellers")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "ubicaciones_gps" },
+        () => {
+          loadLiveSellers();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "jornadas_laborales" },
+        () => {
+          loadLiveSellers();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadLiveSellers]);
 
   // Auto-refresco simulado cada 15 segundos
   useEffect(() => {
@@ -148,6 +275,7 @@ export default function LiveMonitoringPage() {
 
   // Refrescar manualmente
   const handleManualRefresh = () => {
+    loadLiveSellers();
     setLastRefreshedAt(new Date());
   };
 

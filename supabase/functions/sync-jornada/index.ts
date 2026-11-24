@@ -176,6 +176,23 @@ Deno.serve(async (req: Request) => {
     let eventsPersisted = 0;
     const visitsEvaluation: VisitEvaluationResult[] = [];
 
+    // 6.0. Asegurar la existencia de la jornada en jornadas_laborales (resuelve integridad referencial)
+    const firstPoint = payload.tracking_points[0];
+    const initialLocation = firstPoint 
+      ? `SRID=4326;POINT(${firstPoint.longitude} ${firstPoint.latitude})`
+      : `SRID=4326;POINT(-78.482 -0.1785)`;
+
+    await adminClient
+      .from('jornadas_laborales')
+      .upsert({
+        id: payload.shift_id,
+        organizacion_id: payload.organization_id,
+        vendedor_id: payload.seller_id,
+        fecha_inicio: payload.batch_timestamp,
+        estado: 'OPEN',
+        ubicacion_inicio: initialLocation,
+      }, { onConflict: 'id', ignoreDuplicates: true });
+
     // 6.1. Inserción de Puntos de Telemetría GPS con ON CONFLICT DO NOTHING
     if (payload.tracking_points.length > 0) {
       const rows = payload.tracking_points.map((pt) => ({

@@ -2,6 +2,7 @@ package com.empresa.routrack
 
 import android.app.Application
 import android.util.Log
+import com.routrack.mobile.workers.SyncScheduler
 
 /**
  * Clase de aplicación principal de ROUTRACK Mobile.
@@ -12,6 +13,7 @@ class RoutrackApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         inicializarComponentesNativos()
+        iniciarSincronizadorSegundoPlano()
     }
 
     private fun inicializarComponentesNativos() {
@@ -21,6 +23,15 @@ class RoutrackApplication : Application() {
             Log.i("RoutrackApplication", "Librerías nativas SQLCipher precargadas con éxito.")
         } catch (t: Throwable) {
             Log.e("RoutrackApplication", "Aviso: no fue posible precargar binarios nativos SQLCipher", t)
+        }
+    }
+
+    private fun iniciarSincronizadorSegundoPlano() {
+        try {
+            SyncScheduler.schedulePeriodicSync(this)
+            Log.i("RoutrackApplication", "SyncScheduler periódico registrado con éxito.")
+        } catch (t: Throwable) {
+            Log.e("RoutrackApplication", "Aviso: no se pudo programar SyncScheduler periódico", t)
         }
     }
 }

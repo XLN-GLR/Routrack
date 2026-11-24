@@ -85,6 +85,13 @@ object SyncScheduler {
     }
 
     /**
+     * Alias compatible para encolar sincronización inmediata.
+     */
+    fun scheduleImmediateSync(context: Context) {
+        enqueueImmediateSync(context)
+    }
+
+    /**
      * Cancela todas las tareas de sincronización registradas.
      */
     fun cancelAllSyncWork(context: Context) {

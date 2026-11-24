@@ -8,6 +8,7 @@ import com.empresa.routrack.data.repository.RepositoryProvider
 import com.empresa.routrack.data.repository.ShiftRepository
 import com.empresa.routrack.data.repository.TrackingRepository
 import com.empresa.routrack.service.LocationForegroundService
+import com.routrack.mobile.workers.SyncScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -150,6 +151,11 @@ class TrackingViewModel @JvmOverloads constructor(
                             jornada.id,
                             vendedorId
                         )
+                        try {
+                            SyncScheduler.schedulePeriodicSync(getApplication())
+                            SyncScheduler.scheduleImmediateSync(getApplication())
+                        } catch (_: Throwable) {
+                        }
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
@@ -203,6 +209,10 @@ class TrackingViewModel @JvmOverloads constructor(
                     onSuccess = {
                         // Detener el servicio en primer plano
                         LocationForegroundService.stopTracking(getApplication())
+                        try {
+                            SyncScheduler.scheduleImmediateSync(getApplication())
+                        } catch (_: Throwable) {
+                        }
                         _uiState.update {
                             it.copy(
                                 isLoading = false,

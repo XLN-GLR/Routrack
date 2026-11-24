@@ -309,6 +309,12 @@
   - Corrección en `mobile-android/build.gradle.kts`: Declaración del plugin de procesamiento de símbolos `id("com.google.devtools.ksp") version "1.9.24-1.0.20" apply false`.
   - Corrección en `mobile-android/app/build.gradle.kts`: Aplicación del plugin `id("com.google.devtools.ksp")` e incorporación de `ksp("androidx.room:room-compiler:$roomVersion")`.
   - Verificación empírica: Ejecución exitosa de `kspDebugKotlin`, `compileDebugKotlin` y ensamblado final del APK con `assembleDebug` (`BUILD SUCCESSFUL in 55s`, generación confirmada de `RoutrackDatabase_Impl.java` y `app-debug.apk` de 27.4 MB). Suite de pruebas de regresión ejecutada con 18/18 suites aprobadas al 100%.
+- **[x] FIX-20261123-3 — Sincronización continua móvil con SyncScheduler y enlace de Monitoreo en Vivo en Supabase Realtime:**
+  - Diagnóstico: Tras iniciar jornada exitosamente en el APK, los datos no aparecían en el panel web. Se identificaron 3 causas: (1) `SyncScheduler` nunca era activado en el ciclo de vida de la app móvil; (2) La Edge Function `sync-jornada` no aseguraba la fila padre en `jornadas_laborales` previa a `ubicaciones_gps`, causando conflicto con la llave foránea; (3) El panel web `/live` cargaba únicamente la cuadrilla de muestra estática sin consultar ni suscribirse a Supabase en tiempo real.
+  - Corrección en Android: Invocación de `SyncScheduler.schedulePeriodicSync` y `enqueueImmediateSync` en `RoutrackApplication.kt`, `TrackingViewModel.kt` y `LocationForegroundService.kt`, captura inmediata de última ubicación conocida (`lastLocation`) sin restricción de 5 metros para interiores.
+  - Corrección en Supabase (`sync-jornada/index.ts`): Inserción atómica/upsert en `jornadas_laborales` para cada turno sincronizado.
+  - Corrección en Panel Web (`live/page.tsx`): Integración de `loadLiveSellers` consultando `jornadas_laborales` y suscripción Realtime vía `supabase.channel("realtime-live-sellers")`.
+  - Verificación empírica: Compilación de `compileDebugKotlin`, ensamblado de APK `assembleDebug` (`BUILD SUCCESSFUL`) y orquestador de pruebas con 18/18 suites aprobadas (100%).
 
 ### 4.2. Tareas Pendientes Inmediatas
 - *Ninguna.* Las 35 tareas del plan maestro de desarrollo de ROUTRACK han sido ejecutadas, verificadas empíricamente y superadas al 100%.

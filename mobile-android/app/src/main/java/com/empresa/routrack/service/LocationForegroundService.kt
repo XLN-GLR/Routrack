@@ -18,6 +18,7 @@ import com.empresa.routrack.data.repository.RepositoryProvider
 import com.empresa.routrack.data.repository.TrackingRepository
 import com.empresa.routrack.ui.MainActivity
 import com.routrack.mobile.security.AntiTamperingManager
+import com.routrack.mobile.workers.SyncScheduler
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationAvailability
 import com.google.android.gms.location.LocationCallback
@@ -158,14 +159,20 @@ class LocationForegroundService : Service() {
             metadataJson = "{\"action\":\"START\",\"vendedorId\":\"$currentVendedorId\"}"
         )
 
-        // Configurar solicitud de ubicación con balanceo de consumo de batería
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 15_000L)
+        // Configurar solicitud de ubicación equilibrada para exteriores e interiores
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10_000L)
             .setMinUpdateIntervalMillis(5_000L)
-            .setMinUpdateDistanceMeters(5.0f)
             .setWaitForAccurateLocation(false)
             .build()
 
         try {
+            // Obtener inmediatamente la última ubicación conocida en caché para evitar esperas en interiores
+            fusedLocationClient.lastLocation.addOnSuccessListener { cachedLocation ->
+                if (cachedLocation != null && currentJornadaId.isNotEmpty()) {
+                    processLocationUpdate(cachedLocation)
+                }
+            }
+
             fusedLocationClient.requestLocationUpdates(
                 locationRequest,
                 locationCallback,
@@ -173,6 +180,13 @@ class LocationForegroundService : Service() {
             )
         } catch (_: SecurityException) {
             // Manejado si se revoca el permiso durante la ejecución
+        }
+
+        // Programar sincronización periódica e inmediata hacia Supabase
+        try {
+            SyncScheduler.schedulePeriodicSync(applicationContext)
+            SyncScheduler.scheduleImmediateSync(applicationContext)
+        } catch (_: Throwable) {
         }
     }
 
@@ -187,6 +201,10 @@ class LocationForegroundService : Service() {
                 tipoEvento = BitacoraAuditoriaEntity.EVENTO_SERVICE_STOPPED,
                 metadataJson = "{\"action\":\"STOP\",\"vendedorId\":\"$currentVendedorId\"}"
             )
+            try {
+                SyncScheduler.scheduleImmediateSync(applicationContext)
+            } catch (_: Throwable) {
+            }
         }
 
         _isTracking.value = false
@@ -219,6 +237,11 @@ class LocationForegroundService : Service() {
                 timestamp = location.time,
                 isMock = securityAudit.isMock
             )
+            // Disparar sincronización inmediata tras capturar nueva posición
+            try {
+                SyncScheduler.scheduleImmediateSync(applicationContext)
+            } catch (_: Throwable) {
+            }
         }
     }
 
