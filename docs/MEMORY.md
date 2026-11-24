@@ -304,6 +304,11 @@
   - Resiliencia en `RepositoryProvider.kt`: Inicialización tolerante a fallos en `getDatabase`, aplicando fallback seguro automático a SQLite estándar en caso de discrepancia con SQLCipher o Keystore.
   - Blindaje en `MainActivity.kt`: Protección completa en `RoutrackHomeScaffold` con estado `initError` y pantalla de contingencia con mensaje claro si ocurre algún fallo al instanciar el ViewModel, impidiendo el cierre abrupto de la app.
   - Limpieza de advertencias en `TextMonitoringAccessibilityService.kt`: Inclusión de `@Suppress("DEPRECATION")` en `isPasswordField` eliminando el warning de compilación sobre `recycle()`.
+- **[x] FIX-20261123-2 — Configuración del compilador oficial KSP de Room para generación de RoutrackDatabase_Impl:**
+  - Diagnóstico: Al autenticarse en el APK Android, la pantalla de contingencia defensiva capturó: `Cannot find implementation for com.empresa.routrack.data.local.RoutrackDatabase. RoutrackDatabase_Impl does not exist`. La causa raíz fue la ausencia de la dependencia del procesador de anotaciones/símbolos de Room (`room-compiler`) en `build.gradle.kts`.
+  - Corrección en `mobile-android/build.gradle.kts`: Declaración del plugin de procesamiento de símbolos `id("com.google.devtools.ksp") version "1.9.24-1.0.20" apply false`.
+  - Corrección en `mobile-android/app/build.gradle.kts`: Aplicación del plugin `id("com.google.devtools.ksp")` e incorporación de `ksp("androidx.room:room-compiler:$roomVersion")`.
+  - Verificación empírica: Ejecución exitosa de `kspDebugKotlin`, `compileDebugKotlin` y ensamblado final del APK con `assembleDebug` (`BUILD SUCCESSFUL in 55s`, generación confirmada de `RoutrackDatabase_Impl.java` y `app-debug.apk` de 27.4 MB). Suite de pruebas de regresión ejecutada con 18/18 suites aprobadas al 100%.
 
 ### 4.2. Tareas Pendientes Inmediatas
 - *Ninguna.* Las 35 tareas del plan maestro de desarrollo de ROUTRACK han sido ejecutadas, verificadas empíricamente y superadas al 100%.
