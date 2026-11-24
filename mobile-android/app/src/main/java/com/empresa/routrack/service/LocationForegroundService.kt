@@ -166,13 +166,33 @@ class LocationForegroundService : Service() {
             .build()
 
         try {
-            // Obtener inmediatamente la última ubicación conocida en caché para evitar esperas en interiores
+            // 1. Obtener última ubicación conocida en caché de Google Play Services
             fusedLocationClient.lastLocation.addOnSuccessListener { cachedLocation ->
                 if (cachedLocation != null && currentJornadaId.isNotEmpty()) {
                     processLocationUpdate(cachedLocation)
                 }
             }
 
+            // 2. Fallback con LocationManager nativo del sistema (Network Provider y GPS Provider)
+            val locManager = getSystemService(Context.LOCATION_SERVICE) as? android.location.LocationManager
+            if (locManager != null) {
+                val netLoc = locManager.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
+                val gpsLoc = locManager.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+                val bestCached = gpsLoc ?: netLoc
+                if (bestCached != null && currentJornadaId.isNotEmpty()) {
+                    processLocationUpdate(bestCached)
+                }
+            }
+
+            // 3. Forzar obtención activa inmediata (compatible con interiores mediante WiFi y antenas celulares)
+            fusedLocationClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
+                .addOnSuccessListener { activeLoc ->
+                    if (activeLoc != null && currentJornadaId.isNotEmpty()) {
+                        processLocationUpdate(activeLoc)
+                    }
+                }
+
+            // 4. Suscripción continua a actualizaciones de ubicación
             fusedLocationClient.requestLocationUpdates(
                 locationRequest,
                 locationCallback,
