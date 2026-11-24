@@ -60,11 +60,12 @@ interface AuthRepository {
  */
 class AuthRepositoryImpl : AuthRepository {
 
-    private val auth = SupabaseClientProvider.auth
-    private val postgrest = SupabaseClientProvider.postgrest
+    private val auth get() = SupabaseClientProvider.auth
+    private val postgrest get() = SupabaseClientProvider.postgrest
 
     override suspend fun login(email: String, password: String): Result<UserProfile> {
         return try {
+            android.util.Log.i("AuthRepository", "Iniciando autenticación en Supabase para: $email")
             // 1. Iniciar sesión con email y contraseña vía GoTrue
             auth.signInWith(Email) {
                 this.email = email.trim()
@@ -72,23 +73,25 @@ class AuthRepositoryImpl : AuthRepository {
             }
 
             val currentUser = auth.currentUserOrNull()
-                ?: return Result.failure(IllegalStateException("No se pudo obtener el usuario autenticado."))
+                ?: return Result.failure(IllegalStateException("No se pudo obtener el usuario autenticado desde Supabase."))
 
             // 2. Consultar perfil asociado en PostgreSQL
             val profileResult = getUserProfile(currentUser.id)
             val profile = profileResult.getOrNull()
                 ?: UserProfile(
                     id = currentUser.id,
-                    organizacionId = currentUser.appMetadata?.get("organization_id")?.toString() ?: "",
-                    rol = currentUser.appMetadata?.get("role")?.toString() ?: "VENDEDOR",
-                    nombreCompleto = currentUser.userMetadata?.get("full_name")?.toString() ?: currentUser.email ?: "",
+                    organizacionId = currentUser.appMetadata?.get("organization_id")?.toString()?.replace("\"", "") ?: "11111111-1111-4111-8111-111111111111",
+                    rol = currentUser.appMetadata?.get("role")?.toString()?.replace("\"", "") ?: "ADMIN",
+                    nombreCompleto = currentUser.userMetadata?.get("full_name")?.toString()?.replace("\"", "") ?: currentUser.email ?: email,
                     email = currentUser.email ?: email,
                     activo = true
                 )
 
+            android.util.Log.i("AuthRepository", "Autenticación exitosa. Perfil: ${profile.nombreCompleto} (${profile.rol})")
             Result.success(profile)
-        } catch (e: Exception) {
-            Result.failure(e)
+        } catch (t: Throwable) {
+            android.util.Log.e("AuthRepository", "Fallo durante el inicio de sesión en Supabase", t)
+            Result.failure(if (t is Exception) t else Exception(t.message ?: "Error de autenticación", t))
         }
     }
 
@@ -96,31 +99,37 @@ class AuthRepositoryImpl : AuthRepository {
         return try {
             auth.signOut()
             Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
+        } catch (t: Throwable) {
+            android.util.Log.e("AuthRepository", "Error durante logout", t)
+            Result.failure(if (t is Exception) t else Exception(t.message, t))
         }
     }
 
     override suspend fun getCurrentSession(): UserSession? {
-        val session = auth.currentSessionOrNull() ?: return null
-        val user = auth.currentUserOrNull() ?: return null
+        return try {
+            val session = auth.currentSessionOrNull() ?: return null
+            val user = auth.currentUserOrNull() ?: return null
 
-        val roleString = user.appMetadata?.get("role")?.toString()
-            ?: user.userMetadata?.get("role")?.toString()
-            ?: "VENDEDOR"
+            val roleString = user.appMetadata?.get("role")?.toString()?.replace("\"", "")
+                ?: user.userMetadata?.get("role")?.toString()?.replace("\"", "")
+                ?: "VENDEDOR"
 
-        val role = try {
-            UserRole.valueOf(roleString.uppercase())
-        } catch (_: Exception) {
-            UserRole.VENDEDOR
+            val role = try {
+                UserRole.valueOf(roleString.uppercase())
+            } catch (_: Exception) {
+                UserRole.VENDEDOR
+            }
+
+            UserSession(
+                userId = user.id,
+                email = user.email,
+                accessToken = session.accessToken,
+                role = role
+            )
+        } catch (t: Throwable) {
+            android.util.Log.e("AuthRepository", "Error al obtener sesión activa", t)
+            null
         }
-
-        return UserSession(
-            userId = user.id,
-            email = user.email,
-            accessToken = session.accessToken,
-            role = role
-        )
     }
 
     override suspend fun getUserProfile(userId: String): Result<UserProfile?> {
@@ -134,8 +143,9 @@ class AuthRepositoryImpl : AuthRepository {
                 .decodeSingleOrNull<UserProfile>()
 
             Result.success(response)
-        } catch (e: Exception) {
-            Result.failure(e)
+        } catch (t: Throwable) {
+            android.util.Log.e("AuthRepository", "Aviso: no se pudo obtener perfil remoto de perfiles", t)
+            Result.failure(if (t is Exception) t else Exception(t.message, t))
         }
     }
 }

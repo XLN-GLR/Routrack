@@ -23,9 +23,14 @@ sealed interface LoginUiState {
 /**
  * ViewModel que orquesta el flujo de autenticación en Android.
  */
-class LoginViewModel(
+class LoginViewModel @JvmOverloads constructor(
     private val authRepository: AuthRepository = AuthRepositoryImpl()
 ) : ViewModel() {
+
+    private val loginExceptionHandler = kotlinx.coroutines.CoroutineExceptionHandler { _, throwable ->
+        android.util.Log.e("LoginViewModel", "Excepción no capturada en login coroutine", throwable)
+        _uiState.value = LoginUiState.Error(throwable.localizedMessage ?: "Error de conexión con el servidor.")
+    }
 
     private val _uiState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
@@ -67,24 +72,29 @@ class LoginViewModel(
 
         _uiState.value = LoginUiState.Loading
 
-        viewModelScope.launch {
-            val result = authRepository.login(currentEmail, currentPassword)
-            result.fold(
-                onSuccess = { profile ->
-                    _uiState.value = LoginUiState.Success(profile)
-                },
-                onFailure = { error ->
-                    val userMessage = when {
-                        error.message?.contains("Invalid login credentials", ignoreCase = true) == true ->
-                            "Credenciales inválidas. Compruebe su correo y contraseña."
-                        error.message?.contains("Unable to resolve host", ignoreCase = true) == true ->
-                            "Sin conexión a Internet. Verifique su red móvil o Wi-Fi."
-                        else ->
-                            error.localizedMessage ?: "Ocurrió un error al autenticarse. Intente nuevamente."
+        viewModelScope.launch(loginExceptionHandler) {
+            try {
+                val result = authRepository.login(currentEmail, currentPassword)
+                result.fold(
+                    onSuccess = { profile ->
+                        _uiState.value = LoginUiState.Success(profile)
+                    },
+                    onFailure = { error ->
+                        val userMessage = when {
+                            error.message?.contains("Invalid login credentials", ignoreCase = true) == true ->
+                                "Credenciales inválidas. Compruebe su correo y contraseña."
+                            error.message?.contains("Unable to resolve host", ignoreCase = true) == true ->
+                                "Sin conexión a Internet. Verifique su red móvil o Wi-Fi."
+                            else ->
+                                error.localizedMessage ?: "Ocurrió un error al autenticarse. Intente nuevamente."
+                        }
+                        _uiState.value = LoginUiState.Error(userMessage)
                     }
-                    _uiState.value = LoginUiState.Error(userMessage)
-                }
-            )
+                )
+            } catch (t: Throwable) {
+                android.util.Log.e("LoginViewModel", "Error capturado en login()", t)
+                _uiState.value = LoginUiState.Error(t.localizedMessage ?: "Error inesperado al iniciar sesión.")
+            }
         }
     }
 

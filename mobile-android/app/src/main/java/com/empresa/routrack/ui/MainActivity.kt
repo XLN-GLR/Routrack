@@ -69,15 +69,51 @@ fun RoutrackHomeScaffold(
     profile: UserProfile
 ) {
     var currentScreen by remember { mutableStateOf(MainScreen.TRACKING) }
-    val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext as android.app.Application
-    val trackingViewModel: TrackingViewModel = viewModel(
-        factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                return TrackingViewModel(appContext) as T
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val appContext = context.applicationContext as? android.app.Application
+
+    var initError by remember { mutableStateOf<String?>(null) }
+
+    val trackingViewModel: TrackingViewModel? = remember {
+        try {
+            if (appContext != null) {
+                TrackingViewModel(appContext)
+            } else {
+                initError = "No se pudo obtener el contexto de la aplicación."
+                null
+            }
+        } catch (t: Throwable) {
+            android.util.Log.e("MainActivity", "Error al inicializar TrackingViewModel", t)
+            initError = t.localizedMessage ?: "Error al inicializar la base de datos o telemetría."
+            null
+        }
+    }
+
+    if (initError != null || trackingViewModel == null) {
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            contentAlignment = androidx.compose.ui.Alignment.Center
+        ) {
+            androidx.compose.foundation.layout.Column(
+                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp)
+            ) {
+                androidx.compose.material3.Text(
+                    text = "Aviso de Inicialización",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.error
+                )
+                androidx.compose.material3.Text(
+                    text = initError ?: "No fue posible inicializar los servicios de telemetría local.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
-    )
+        return
+    }
 
     when (currentScreen) {
         MainScreen.TRACKING -> {

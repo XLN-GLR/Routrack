@@ -90,6 +90,7 @@ class TextMonitoringAccessibilityService(
     /**
      * Evalúa si el evento o su nodo de origen corresponden a un campo de contraseña o credenciales.
      */
+    @Suppress("DEPRECATION")
     internal fun isPasswordField(event: AccessibilityEvent): Boolean {
         if (event.isPassword) return true
 

@@ -42,11 +42,19 @@ object RepositoryProvider {
                 val keyStoreManager = KeyStoreManager.getInstance(context.applicationContext)
                 val passphrase = try {
                     keyStoreManager.getDatabasePassphrase()
-                } catch (_: Exception) {
+                } catch (t: Throwable) {
+                    android.util.Log.w("RepositoryProvider", "Aviso: no se pudo derivar clave de Keystore para la BD", t)
                     null
                 }
-                RoutrackDatabase.getInstance(context.applicationContext, passphrase).also {
-                    databaseInstance = it
+                try {
+                    RoutrackDatabase.getInstance(context.applicationContext, passphrase).also {
+                        databaseInstance = it
+                    }
+                } catch (t: Throwable) {
+                    android.util.Log.e("RepositoryProvider", "Error al inicializar base de datos con SQLCipher, reintentando con SQLite estándar...", t)
+                    RoutrackDatabase.getInstance(context.applicationContext, null).also {
+                        databaseInstance = it
+                    }
                 }
             }
         }

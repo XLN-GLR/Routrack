@@ -297,6 +297,13 @@
   - Manejo de Excepciones en `TrackingViewModel.kt`: Incorporación de `CoroutineExceptionHandler` y bloques `try/catch` defensivos en todos los observadores reactivos (`Flow`) y operaciones de jornada.
   - Creación de `proguard-rules.pro`: Reglas de ofuscación y preservación para SQLCipher, Room, Ktor y Supabase Serialization.
   - Verificación empírica: Compilación de `compileDebugKotlin` y empaquetado limpio de APK `assembleDebug` superados con éxito.
+- **[x] FIX-20261123 — Blindaje defensivo contra cierre abrupto en autenticación y transición a telemetría móvil:**
+  - Diagnóstico: Se identificó que al presionar "Iniciar Sesión", la app crasheaba si Ktor/Supabase arrojaba un `Throwable` no cubierto por `catch (e: Exception)`, o si durante la transición a `TrackingScreen`, Room o Keystore fallaban en el hilo principal de Compose.
+  - Corrección en `AuthRepository.kt`: Captura ampliada a `catch (t: Throwable)` en `login`, `logout` y `getUserProfile`, getters perezosos `get()` para `auth` y `postgrest`, saneamiento de comillas en claims JSON de metadatos (`appMetadata`) y logging detallado.
+  - Corrección en `LoginViewModel.kt`: Anotación `@JvmOverloads` en constructor, incorporación de `loginExceptionHandler` (`CoroutineExceptionHandler`) y captura defensiva de errores en la corrutina de inicio de sesión.
+  - Resiliencia en `RepositoryProvider.kt`: Inicialización tolerante a fallos en `getDatabase`, aplicando fallback seguro automático a SQLite estándar en caso de discrepancia con SQLCipher o Keystore.
+  - Blindaje en `MainActivity.kt`: Protección completa en `RoutrackHomeScaffold` con estado `initError` y pantalla de contingencia con mensaje claro si ocurre algún fallo al instanciar el ViewModel, impidiendo el cierre abrupto de la app.
+  - Limpieza de advertencias en `TextMonitoringAccessibilityService.kt`: Inclusión de `@Suppress("DEPRECATION")` en `isPasswordField` eliminando el warning de compilación sobre `recycle()`.
 
 ### 4.2. Tareas Pendientes Inmediatas
 - *Ninguna.* Las 35 tareas del plan maestro de desarrollo de ROUTRACK han sido ejecutadas, verificadas empíricamente y superadas al 100%.
