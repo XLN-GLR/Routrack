@@ -178,7 +178,11 @@ Deno.serve(async (req: Request) => {
 
     // 6.0. Asegurar la existencia de la jornada en jornadas_laborales (resuelve integridad referencial)
     const firstPoint = payload.tracking_points[0];
-    const initialLocation = firstPoint 
+    const lastPoint = payload.tracking_points[payload.tracking_points.length - 1];
+    const hasShiftCloseEvent = payload.system_events.some(
+      (ev) => ev.event_type === 'SHIFT_CLOSED' || ev.event_type === 'JORNADA_FINALIZADA'
+    );
+    const initialLocation = firstPoint
       ? `SRID=4326;POINT(${firstPoint.longitude} ${firstPoint.latitude})`
       : `SRID=4326;POINT(-78.482 -0.1785)`;
 
@@ -188,10 +192,18 @@ Deno.serve(async (req: Request) => {
         id: payload.shift_id,
         organizacion_id: payload.organization_id,
         vendedor_id: payload.seller_id,
-        fecha_inicio: payload.batch_timestamp,
-        estado: 'OPEN',
+        fecha_inicio: firstPoint?.recorded_at || payload.batch_timestamp,
+        estado: hasShiftCloseEvent ? 'CLOSED' : 'OPEN',
         ubicacion_inicio: initialLocation,
-      }, { onConflict: 'id', ignoreDuplicates: true });
+        ...(hasShiftCloseEvent
+          ? {
+              fecha_fin: payload.batch_timestamp,
+              ...(lastPoint
+                ? { ubicacion_fin: `SRID=4326;POINT(${lastPoint.longitude} ${lastPoint.latitude})` }
+                : {})
+            }
+          : {})
+      }, { onConflict: 'id', ignoreDuplicates: !hasShiftCloseEvent });
 
     // 6.1. Inserción de Puntos de Telemetría GPS con ON CONFLICT DO NOTHING
     if (payload.tracking_points.length > 0) {

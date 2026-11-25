@@ -33,29 +33,13 @@ import {
   INITIAL_LIVE_SELLERS,
 } from "@/types/seller";
 import { createClient } from "@/lib/supabase/client";
-
-function parsePointCoordinates(point: unknown): [number, number] | null {
-  if (!point) return null;
-  if (typeof point === "string") {
-    const match = point.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
-    if (match) {
-      const lng = parseFloat(match[1]);
-      const lat = parseFloat(match[2]);
-      if (!isNaN(lat) && !isNaN(lng)) return [lat, lng];
-    }
-  } else if (typeof point === "object" && point !== null && "coordinates" in point) {
-    const coords = (point as { coordinates: unknown }).coordinates;
-    if (Array.isArray(coords) && coords.length >= 2) {
-      const lng = Number(coords[0]);
-      const lat = Number(coords[1]);
-      if (!isNaN(lat) && !isNaN(lng)) return [lat, lng];
-    }
-  }
-  return null;
-}
+import { parsePostgisPoint } from "@/lib/geo/spatial";
 
 export default function LiveMonitoringPage() {
   const [sellers, setSellers] = useState<SellerLiveState[]>(INITIAL_LIVE_SELLERS);
+  const [realShiftIds, setRealShiftIds] = useState<Set<string>>(new Set());
+  const [realRoutesByShift, setRealRoutesByShift] = useState<Record<string, LatLngTuple[]>>({});
+  const [realStartTimeByShift, setRealStartTimeByShift] = useState<Record<string, string>>({});
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
@@ -64,8 +48,9 @@ export default function LiveMonitoringPage() {
   const [showRoadSnappedRoutes, setShowRoadSnappedRoutes] = useState<boolean>(true);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date>(new Date());
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
+  const hasAutoCenteredRealSellerRef = React.useRef<boolean>(false);
 
-  // Consulta y carga de jornadas reales desde Supabase
+  // Consulta y carga de jornadas reales desde Supabase (decodificando PostGIS EWKB / WKT / GeoJSON)
   const loadLiveSellers = useCallback(async () => {
     try {
       const supabase = createClient();
@@ -74,7 +59,19 @@ export default function LiveMonitoringPage() {
         .select("id, vendedor_id, estado, fecha_inicio, bateria_inicio, ubicacion_inicio")
         .in("estado", ["OPEN", "EN_CURSO"]);
 
-      if (jornadasError || !jornadas || jornadas.length === 0) {
+      if (jornadasError || !jornadas) {
+        return;
+      }
+
+      if (jornadas.length === 0) {
+        setRealShiftIds(new Set());
+        setRealRoutesByShift({});
+        setRealStartTimeByShift({});
+        setSellers((prev) => {
+          const demoIds = new Set(INITIAL_LIVE_SELLERS.map((d) => d.sellerId));
+          const demosActuales = prev.filter((s) => demoIds.has(s.sellerId));
+          return demosActuales.length > 0 ? demosActuales : INITIAL_LIVE_SELLERS;
+        });
         return;
       }
 
@@ -89,22 +86,48 @@ export default function LiveMonitoringPage() {
         .from("ubicaciones_gps")
         .select("jornada_id, vendedor_id, ubicacion, precision_metros, velocidad_ms, orientacion_grados, nivel_bateria, es_simulado, registrado_en")
         .in("jornada_id", jornadaIds)
-        .order("registrado_en", { ascending: false });
+        .order("registrado_en", { ascending: true });
+
+      const nextRoutes: Record<string, LatLngTuple[]> = {};
+      const nextStartTimes: Record<string, string> = {};
 
       const realSellers: SellerLiveState[] = jornadas.map((j) => {
         const perfil = perfiles?.find((p) => p.id === j.vendedor_id);
-        const ultPunto = puntos?.find((pt) => pt.jornada_id === j.id);
+        const puntosJornada = (puntos || []).filter((pt) => pt.jornada_id === j.id);
+        const routeCoords: LatLngTuple[] = [];
+
+        const originParsed = parsePostgisPoint(j.ubicacion_inicio);
+        for (const pt of puntosJornada) {
+          const parsed = parsePostgisPoint(pt.ubicacion);
+          if (parsed) {
+            routeCoords.push(parsed);
+          }
+        }
+        if (routeCoords.length === 0 && originParsed) {
+          routeCoords.push(originParsed);
+        }
+
+        nextRoutes[j.id] = routeCoords;
+        nextStartTimes[j.id] = j.fecha_inicio
+          ? new Date(j.fecha_inicio).toLocaleTimeString("es-EC", { hour: "2-digit", minute: "2-digit" })
+          : "Inicio";
+
+        const ultPunto = puntosJornada.length > 0 ? puntosJornada[puntosJornada.length - 1] : null;
         const coords =
-          parsePointCoordinates(ultPunto?.ubicacion) ||
-          parsePointCoordinates(j.ubicacion_inicio) ||
+          parsePostgisPoint(ultPunto?.ubicacion) ||
+          originParsed ||
           [-0.180653, -78.467834];
 
         const speedKmh = ultPunto?.velocidad_ms ? Number((ultPunto.velocidad_ms * 3.6).toFixed(1)) : 0;
         const isMock = ultPunto?.es_simulado ?? false;
+        const lastTimeStr = ultPunto?.registrado_en || j.fecha_inicio || new Date().toISOString();
+        const minutesSinceReport = (Date.now() - new Date(lastTimeStr).getTime()) / 60000;
 
         let status: SellerOperationalStatus = "DETENIDO";
         if (isMock) {
           status = "DESVIACION";
+        } else if (minutesSinceReport > 15) {
+          status = "SIN_CONEXION";
         } else if (speedKmh > 5) {
           status = "EN_RUTA";
         } else {
@@ -125,23 +148,35 @@ export default function LiveMonitoringPage() {
           batteryLevel: ultPunto?.nivel_bateria ?? j.bateria_inicio ?? 100,
           isMock,
           status,
-          lastReportTime: ultPunto?.registrado_en || j.fecha_inicio || new Date().toISOString(),
+          lastReportTime: lastTimeStr,
         };
       });
 
-      if (realSellers.length > 0) {
-        setSellers((prev) => {
-          // Combinar vendedores reales reemplazando o anteponiendo sobre la cuadrilla de muestra
-          const realIds = new Set(realSellers.map((r) => r.sellerId));
-          const demoRestantes = prev.filter((s) => !realIds.has(s.sellerId) && !s.sellerId.startsWith("demo-"));
-          return [...realSellers, ...demoRestantes];
+      const activeRealShiftIds = new Set(realSellers.map((r) => r.shiftId));
+      setRealShiftIds(activeRealShiftIds);
+      setRealRoutesByShift(nextRoutes);
+      setRealStartTimeByShift(nextStartTimes);
+
+      setSellers(() => {
+        const realSellerIdSet = new Set(realSellers.map((r) => r.sellerId));
+        const demos = INITIAL_LIVE_SELLERS.filter((d) => !realSellerIdSet.has(d.sellerId));
+        return [...realSellers, ...demos];
+      });
+      setLastRefreshedAt(new Date());
+
+      if (realSellers.length > 0 && !hasAutoCenteredRealSellerRef.current && mapInstance) {
+        hasAutoCenteredRealSellerRef.current = true;
+        const firstReal = realSellers[0];
+        setSelectedSellerId(firstReal.sellerId);
+        mapInstance.flyTo([firstReal.latitude, firstReal.longitude], 16, {
+          animate: true,
+          duration: 1.0,
         });
-        setLastRefreshedAt(new Date());
       }
     } catch (_err) {
-      // En caso de corte de red, se mantiene la cuadrilla local
+      // En caso de corte de red, se preserva el estado actual sin caídas
     }
-  }, []);
+  }, [mapInstance]);
 
   // Carga inicial y suscripción a cambios Realtime de Supabase
   useEffect(() => {
@@ -171,18 +206,18 @@ export default function LiveMonitoringPage() {
     };
   }, [loadLiveSellers]);
 
-  // Auto-refresco simulado cada 15 segundos
+  // Auto-refresco real con Supabase cada 10s + movimiento simulado solo en cuadrilla de muestra
   useEffect(() => {
     if (!isAutoRefresh) return;
 
     const interval = setInterval(() => {
-      // Pequeño desplazamiento dinámico para simular movimiento real de los vendedores en ruta
+      loadLiveSellers();
       setSellers((prev) =>
         prev.map((seller) => {
-          if (seller.status === "EN_RUTA") {
+          if (!realShiftIds.has(seller.shiftId) && seller.status === "EN_RUTA") {
             const rad = (seller.bearingDegrees * Math.PI) / 180;
-            const deltaLat = (Math.cos(rad) * 0.0003);
-            const deltaLng = (Math.sin(rad) * 0.0003);
+            const deltaLat = Math.cos(rad) * 0.0003;
+            const deltaLng = Math.sin(rad) * 0.0003;
             return {
               ...seller,
               latitude: seller.latitude + deltaLat,
@@ -195,19 +230,23 @@ export default function LiveMonitoringPage() {
         })
       );
       setLastRefreshedAt(new Date());
-    }, 15000);
+    }, 10000);
 
     return () => clearInterval(interval);
-  }, [isAutoRefresh]);
+  }, [isAutoRefresh, loadLiveSellers, realShiftIds]);
 
   // Vendedor actualmente seleccionado
   const selectedSeller = useMemo(() => {
     return sellers.find((s) => s.sellerId === selectedSellerId) || null;
   }, [sellers, selectedSellerId]);
 
-  // Corredor de coordenadas recientes para trazado vial (Map-Matching OSRM - TASK-034)
+  // Corredor de coordenadas reales (si vienen de Supabase) o de muestra para trazado vial OSRM (TASK-034)
   const selectedSellerRoutePoints = useMemo<LatLngTuple[]>(() => {
     if (!selectedSeller) return [];
+    const realRoute = realRoutesByShift[selectedSeller.shiftId];
+    if (realRoute && realRoute.length >= 1) {
+      return realRoute;
+    }
     const baseLat = selectedSeller.latitude;
     const baseLng = selectedSeller.longitude;
     return [
@@ -216,7 +255,7 @@ export default function LiveMonitoringPage() {
       [baseLat - 0.0018, baseLng - 0.0012],
       [baseLat, baseLng],
     ];
-  }, [selectedSeller]);
+  }, [selectedSeller, realRoutesByShift]);
 
   // Filtrado reactivo de vendedores
   const filteredSellers = useMemo(() => {
@@ -497,7 +536,7 @@ export default function LiveMonitoringPage() {
                 point={selectedSellerRoutePoints[0]}
                 sellerName={selectedSeller.sellerName}
                 label="Inicio de Turno"
-                startTime="08:15 AM"
+                startTime={realStartTimeByShift[selectedSeller.shiftId] || "08:15 AM"}
               />
             )}
 
@@ -595,9 +634,16 @@ export default function LiveMonitoringPage() {
                             .slice(0, 2)}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-xs font-semibold text-slate-900 truncate">
-                            {seller.sellerName}
-                          </p>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <p className="text-xs font-semibold text-slate-900 truncate">
+                              {seller.sellerName}
+                            </p>
+                            {realShiftIds.has(seller.shiftId) && (
+                              <span className="inline-flex items-center rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-700 shrink-0">
+                                Real
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
                             <span
                               className="inline-block h-1.5 w-1.5 rounded-full"

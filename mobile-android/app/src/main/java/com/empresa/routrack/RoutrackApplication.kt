@@ -12,6 +12,7 @@ class RoutrackApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        com.empresa.routrack.data.repository.RepositoryProvider.init(this)
         inicializarComponentesNativos()
         iniciarSincronizadorSegundoPlano()
     }

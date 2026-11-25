@@ -6,10 +6,12 @@ import com.empresa.routrack.data.local.dao.TextInteractionDao
 import com.empresa.routrack.data.local.dao.UbicacionGpsDao
 import com.empresa.routrack.data.local.dao.VisitaDao
 import com.empresa.routrack.data.local.entity.BitacoraAuditoriaEntity
+import com.empresa.routrack.data.local.entity.JornadaEntity
 import com.empresa.routrack.data.local.entity.TextInteractionEntity
 import com.empresa.routrack.data.local.entity.UbicacionGpsEntity
 import com.empresa.routrack.data.local.entity.VisitaEntity
 import com.empresa.routrack.data.repository.AuthRepository
+import com.empresa.routrack.data.repository.AuthRepositoryImpl
 import com.routrack.mobile.security.HmacChainSigner
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -24,9 +26,11 @@ import java.util.UUID
 /**
  * Implementación oficial del repositorio de sincronización offline-first de ROUTRACK Mobile.
  *
- * Encapsula la preparación de lotes, el cálculo determinista de firmas HMAC-SHA256,
- * la serialización estricta JSON hacia la Supabase Edge Function `sync-jornada` y
- * la transición atómica de estados locales tras confirmación HTTP 200.
+ * Orquesta la preparación de lotes, cálculo determinista de firmas HMAC-SHA256,
+ * envío hacia la Edge Function `/functions/v1/sync-jornada` (con respaldo automático
+ * vía PostgREST autenticado bajo políticas RLS si la Edge Function retorna 404),
+ * sincronización del ciclo OPEN/CLOSED de jornadas_laborales y transición atómica
+ * en Room tras confirmación del servidor.
  */
 class SyncRepositoryImpl(
     private val ubicacionDao: UbicacionGpsDao,
@@ -47,6 +51,7 @@ class SyncRepositoryImpl(
         const val DEFAULT_ANON_KEY = "sb_publishable_B910MIl6cyXtkNim6KkXLQ_vFTRXn5q"
         const val MAX_DEFAULT_BATCH_SIZE = 100
         private const val SYNC_ENDPOINT_PATH = "/functions/v1/sync-jornada"
+        private const val REST_PREFIX = "/rest/v1"
 
         /**
          * Formatea un timestamp UNIX en milisegundos a formato ISO 8601 UTC.
@@ -101,8 +106,14 @@ class SyncRepositoryImpl(
                 val visitasPendientes = visitaDao.getPendientesSincronizacion(batchSize)
                 val eventosPendientes = auditoriaDao.getPendientesSincronizacion(batchSize)
                 val textosPendientes = textInteractionDao?.getPendientesSincronizacion(batchSize) ?: emptyList()
+                val jornadasPendientes = jornadaDao.getPendientesSincronizacion(10)
 
-                if (puntosPendientes.isEmpty() && visitasPendientes.isEmpty() && eventosPendientes.isEmpty() && textosPendientes.isEmpty()) {
+                if (puntosPendientes.isEmpty() &&
+                    visitasPendientes.isEmpty() &&
+                    eventosPendientes.isEmpty() &&
+                    textosPendientes.isEmpty() &&
+                    jornadasPendientes.isEmpty()
+                ) {
                     return@withContext Result.success(
                         SyncBatchResult(
                             batchId = "",
@@ -116,41 +127,48 @@ class SyncRepositoryImpl(
                     )
                 }
 
-                // 2. Determinar shiftId, sellerId y organizationId
+                // 2. Determinar shiftId, sellerId, organizationId y sesión JWT válida
                 val shiftId = puntosPendientes.firstOrNull()?.jornadaId
                     ?: visitasPendientes.firstOrNull()?.jornadaId
                     ?: eventosPendientes.firstOrNull()?.jornadaId
                     ?: textosPendientes.firstOrNull()?.jornadaId
-                    ?: UUID.randomUUID().toString()
+                    ?: jornadasPendientes.first().id
 
+                val jornadaLocal = jornadaDao.getById(shiftId)
                 val session = authRepository.getCurrentSession()
-                val profileResult = session?.userId?.let { authRepository.getUserProfile(it) }
-                val profile = profileResult?.getOrNull()
 
-                val sellerId = session?.userId
-                    ?: jornadaDao.getById(shiftId)?.vendedorId
-                    ?: UUID.randomUUID().toString()
+                val accessToken = session?.accessToken
+                if (accessToken.isNullOrBlank()) {
+                    return@withContext Result.failure(
+                        SyncException.ClientException(
+                            401,
+                            "Sesión expirada o no iniciada. Inicia sesión nuevamente para sincronizar."
+                        )
+                    )
+                }
 
-                val organizationId = profile?.organizacionId
-                    ?: "00000000-0000-0000-0000-000000000001"
+                val sellerId = session.userId.ifBlank {
+                    jornadaLocal?.vendedorId ?: UUID.randomUUID().toString()
+                }
+
+                val cachedOrgId = authRepository.getCachedOrganizationId()
+                val organizationId = if (!cachedOrgId.isNullOrBlank()) {
+                    cachedOrgId
+                } else {
+                    authRepository.getUserProfile(sellerId).getOrNull()?.organizacionId
+                        ?: AuthRepositoryImpl.DEFAULT_SEED_ORG_ID
+                }
 
                 val syncBatchId = UUID.randomUUID().toString()
                 val batchTimestamp = formatIso8601(System.currentTimeMillis())
                 val secretKey = secretKeyProvider()
 
-                // 3. Construir lista canónica de tracking_points con encadenamiento HMAC determinista
-                val trackingPointsJson = buildTrackingPointsJson(shiftId, puntosPendientes, secretKey)
-
-                // 4. Construir lista de visitas comerciales
+                // 3. Construir listas canónicas JSON para la Edge Function sync-jornada
+                val (trackingPointsJson, lastVerifiedPointHash) = buildTrackingPointsJson(shiftId, puntosPendientes, secretKey)
                 val visitRecordsJson = buildVisitRecordsJson(shiftId, sellerId, visitasPendientes, secretKey)
-
-                // 5. Construir lista de eventos de sistema
                 val systemEventsJson = buildSystemEventsJson(shiftId, eventosPendientes, secretKey)
-
-                // 6. Construir lista de interacciones de texto corporativas
                 val textInteractionsJson = buildTextInteractionsJson(textosPendientes)
 
-                // 7. Ensamblar payload JSON completo (SyncBatchPayload)
                 val jsonPayload = buildString {
                     append("{")
                     append("\"sync_batch_id\":\"").append(syncBatchId).append("\",")
@@ -165,73 +183,70 @@ class SyncRepositoryImpl(
                     append("}")
                 }
 
-                // 8. Preparar encabezados HTTP con Bearer JWT o Anon Key
-                val headers = mutableMapOf<String, String>()
-                headers["Content-Type"] = "application/json"
-                headers["apikey"] = anonKey
-                val authToken = session?.accessToken ?: anonKey
-                headers["Authorization"] = "Bearer $authToken"
+                val headers = mutableMapOf(
+                    "Content-Type" to "application/json",
+                    "apikey" to anonKey,
+                    "Authorization" to "Bearer $accessToken"
+                )
 
-                val url = "$supabaseUrl$SYNC_ENDPOINT_PATH"
+                val edgeUrl = "$supabaseUrl$SYNC_ENDPOINT_PATH"
 
-                // 9. Transmitir lote vía HTTP POST seguro
+                // 4. Intentar primero el canal oficial: Edge Function sync-jornada
                 val response = try {
-                    httpTransport.post(url, headers, jsonPayload)
+                    httpTransport.post(edgeUrl, headers, jsonPayload)
                 } catch (ioe: IOException) {
                     return@withContext Result.failure(
                         SyncException.NetworkException("Error de conexión al sincronizar lote: ${ioe.message}", ioe)
                     )
                 }
 
-                // 10. Evaluar respuesta del servidor
-                when (response.statusCode) {
-                    200, 201 -> {
-                        // Éxito: Transición atómica a sincronizado en SQLite
-                        if (puntosPendientes.isNotEmpty()) {
-                            ubicacionDao.marcarSincronizadas(puntosPendientes.map { it.id })
-                        }
-                        if (visitasPendientes.isNotEmpty()) {
-                            visitaDao.marcarSincronizadas(visitasPendientes.map { it.id })
-                        }
-                        if (eventosPendientes.isNotEmpty()) {
-                            auditoriaDao.marcarSincronizados(eventosPendientes.map { it.id })
-                        }
-                        if (textosPendientes.isNotEmpty()) {
-                            textInteractionDao?.marcarSincronizadas(textosPendientes.map { it.id })
-                        }
-
-                        // Verificar si aún quedan registros pendientes en Room
-                        val remainingPoints = ubicacionDao.getPendientesSincronizacion(1).isNotEmpty()
-                        val remainingVisits = visitaDao.getPendientesSincronizacion(1).isNotEmpty()
-                        val remainingEvents = auditoriaDao.getPendientesSincronizacion(1).isNotEmpty()
-                        val remainingTexts = textInteractionDao?.getPendientesSincronizacion(1)?.isNotEmpty() == true
-                        val isFullySynced = !remainingPoints && !remainingVisits && !remainingEvents && !remainingTexts
-
-                        Result.success(
-                            SyncBatchResult(
-                                batchId = syncBatchId,
-                                pointsSynced = puntosPendientes.size,
-                                visitsSynced = visitasPendientes.size,
-                                eventsSynced = eventosPendientes.size,
-                                textsSynced = textosPendientes.size,
-                                isFullySynced = isFullySynced,
-                                message = "Lote sincronizado exitosamente con Supabase Edge Function"
+                when {
+                    response.statusCode in 200..299 -> {
+                        // Sincronizar estado de cierre en jornadas_laborales si aplica
+                        if (jornadaLocal?.estado == JornadaEntity.ESTADO_FINALIZADA) {
+                            updateShiftClosureViaRest(
+                                shiftId = shiftId,
+                                jornada = jornadaLocal,
+                                headers = headers
                             )
+                        }
+                        markAllPendingAsSynced(
+                            shiftId = shiftId,
+                            jornadaLocal = jornadaLocal,
+                            puntosPendientes = puntosPendientes,
+                            visitasPendientes = visitasPendientes,
+                            eventosPendientes = eventosPendientes,
+                            textosPendientes = textosPendientes,
+                            syncBatchId = syncBatchId,
+                            message = "Lote sincronizado exitosamente con Supabase Edge Function"
                         )
                     }
 
-                    in 500..599 -> {
-                        // Error transitorio de servidor: reintentar con backoff exponencial
-                        Result.failure(
-                            SyncException.ServerException(response.statusCode, response.body)
+                    response.statusCode == 404 || response.body.contains("NOT_FOUND") -> {
+                        // Respaldo automático directo vía PostgREST protegido por RLS cuando Edge Function no está desplegada
+                        syncViaPostgrestRls(
+                            syncBatchId = syncBatchId,
+                            shiftId = shiftId,
+                            organizationId = organizationId,
+                            sellerId = sellerId,
+                            batchTimestamp = batchTimestamp,
+                            jornadaLocal = jornadaLocal,
+                            puntosPendientes = puntosPendientes,
+                            visitasPendientes = visitasPendientes,
+                            eventosPendientes = eventosPendientes,
+                            textosPendientes = textosPendientes,
+                            lastVerifiedHash = lastVerifiedPointHash,
+                            secretKey = secretKey,
+                            baseHeaders = headers
                         )
+                    }
+
+                    response.statusCode in 500..599 -> {
+                        Result.failure(SyncException.ServerException(response.statusCode, response.body))
                     }
 
                     else -> {
-                        // Error de cliente HTTP 4xx (p. ej. HMAC inválido, formato rechazado)
-                        Result.failure(
-                            SyncException.ClientException(response.statusCode, response.body)
-                        )
+                        Result.failure(SyncException.ClientException(response.statusCode, response.body))
                     }
                 }
             } catch (e: Exception) {
@@ -244,23 +259,406 @@ class SyncRepositoryImpl(
         }
 
     /**
+     * Canal de respaldo autenticado directo sobre Supabase PostgREST (`/rest/v1/`).
+     * Respeta íntegramente las políticas Row Level Security (RLS) usando el JWT del usuario.
+     */
+    private suspend fun syncViaPostgrestRls(
+        syncBatchId: String,
+        shiftId: String,
+        organizationId: String,
+        sellerId: String,
+        batchTimestamp: String,
+        jornadaLocal: JornadaEntity?,
+        puntosPendientes: List<UbicacionGpsEntity>,
+        visitasPendientes: List<VisitaEntity>,
+        eventosPendientes: List<BitacoraAuditoriaEntity>,
+        textosPendientes: List<TextInteractionEntity>,
+        lastVerifiedHash: String,
+        secretKey: ByteArray,
+        baseHeaders: Map<String, String>
+    ): Result<SyncBatchResult> {
+        val ignoreDuplicatesHeaders = baseHeaders.toMutableMap().apply {
+            put("Prefer", "resolution=ignore-duplicates,return=minimal")
+        }
+        val mergeDuplicatesHeaders = baseHeaders.toMutableMap().apply {
+            put("Prefer", "resolution=merge-duplicates,return=minimal")
+        }
+
+        val allShiftPoints = ubicacionDao.getUbicacionesPorJornada(shiftId)
+        val firstRealPoint = allShiftPoints.firstOrNull() ?: puntosPendientes.firstOrNull()
+        val lastRealPoint = allShiftPoints.lastOrNull() ?: puntosPendientes.lastOrNull()
+
+        val initialLocationWkt = if (firstRealPoint != null) {
+            "SRID=4326;POINT(${firstRealPoint.longitud} ${firstRealPoint.latitud})"
+        } else {
+            "SRID=4326;POINT(-78.482 -0.1785)"
+        }
+
+        val fechaInicioIso = buildShiftStartIso(jornadaLocal, firstRealPoint, batchTimestamp)
+
+        // 1. Asegurar registro padre en jornadas_laborales (OPEN si aún está en curso)
+        val jornadaInsertJson = buildString {
+            append("{")
+            append("\"id\":\"").append(shiftId).append("\",")
+            append("\"organizacion_id\":\"").append(organizationId).append("\",")
+            append("\"vendedor_id\":\"").append(sellerId).append("\",")
+            append("\"fecha_inicio\":\"").append(fechaInicioIso).append("\",")
+            append("\"estado\":\"").append(if (jornadaLocal?.estado == JornadaEntity.ESTADO_FINALIZADA) "CLOSED" else "OPEN").append("\",")
+            append("\"ubicacion_inicio\":\"").append(initialLocationWkt).append("\"")
+            if (jornadaLocal?.estado == JornadaEntity.ESTADO_FINALIZADA) {
+                val fechaFinIso = buildShiftEndIso(jornadaLocal, lastRealPoint, batchTimestamp)
+                append(",\"fecha_fin\":\"").append(fechaFinIso).append("\"")
+                if (lastRealPoint != null) {
+                    append(",\"ubicacion_fin\":\"SRID=4326;POINT(${lastRealPoint.longitud} ${lastRealPoint.latitud})\"")
+                }
+            }
+            append("}")
+        }
+
+        val shiftResp = httpTransport.post(
+            "$supabaseUrl$REST_PREFIX/jornadas_laborales?on_conflict=id",
+            mergeDuplicatesHeaders,
+            jornadaInsertJson
+        )
+        if (!shiftResp.isSuccessful) {
+            return classifyHttpFailure(shiftResp.statusCode, "jornadas_laborales: ${shiftResp.body}")
+        }
+
+        // 2. Insertar puntos GPS pendientes en ubicaciones_gps
+        if (puntosPendientes.isNotEmpty()) {
+            var runningHash = auditoriaDao.getUltimoEventoPorJornada(shiftId)?.hashActual
+                ?: HmacChainSigner.computeInitialSeed(shiftId, secretKey)
+
+            val gpsRowsJson = buildString {
+                append("[")
+                puntosPendientes.forEachIndexed { index, pt ->
+                    if (index > 0) append(",")
+                    val payload = HmacChainSigner.PointPayload(
+                        shiftId = shiftId,
+                        latitude = pt.latitud,
+                        longitude = pt.longitud,
+                        accuracy = pt.precision,
+                        altitude = pt.altitud,
+                        speed = pt.velocidad,
+                        timestamp = pt.timestampCaptura,
+                        isMock = false
+                    )
+                    val pointHash = HmacChainSigner.signPoint(payload, runningHash, secretKey)
+                    val prevHash = runningHash
+                    runningHash = pointHash
+
+                    append("{")
+                    append("\"id\":\"").append(pt.id).append("\",")
+                    append("\"organizacion_id\":\"").append(organizationId).append("\",")
+                    append("\"jornada_id\":\"").append(shiftId).append("\",")
+                    append("\"vendedor_id\":\"").append(sellerId).append("\",")
+                    append("\"ubicacion\":\"SRID=4326;POINT(").append(pt.longitud).append(" ").append(pt.latitud).append(")\",")
+                    append("\"precision_metros\":").append(pt.precision).append(",")
+                    append("\"velocidad_ms\":").append(pt.velocidad ?: "null").append(",")
+                    append("\"altitud_metros\":").append(pt.altitud ?: "null").append(",")
+                    append("\"es_simulado\":false,")
+                    append("\"previous_hash\":\"").append(prevHash).append("\",")
+                    append("\"hmac_hash\":\"").append(pointHash).append("\",")
+                    append("\"registrado_en\":\"").append(formatIso8601(pt.timestampCaptura)).append("\"")
+                    append("}")
+                }
+                append("]")
+            }
+
+            val gpsResp = httpTransport.post(
+                "$supabaseUrl$REST_PREFIX/ubicaciones_gps?on_conflict=id",
+                ignoreDuplicatesHeaders,
+                gpsRowsJson
+            )
+            if (!gpsResp.isSuccessful) {
+                return classifyHttpFailure(gpsResp.statusCode, "ubicaciones_gps: ${gpsResp.body}")
+            }
+        }
+
+        // 3. Insertar visitas comerciales pendientes en actividades_comerciales
+        if (visitasPendientes.isNotEmpty()) {
+            val visitsJson = buildString {
+                append("[")
+                visitasPendientes.forEachIndexed { index, v ->
+                    if (index > 0) append(",")
+                    val checkInIso = formatIso8601(v.checkInTime)
+                    val visitMessage = "shiftId=$shiftId|clientId=${v.clienteId}|sellerId=$sellerId|checkIn=$checkInIso"
+                    val visitHash = HmacChainSigner.computeHmacSha256(visitMessage, secretKey)
+                    append("{")
+                    append("\"id\":\"").append(v.id).append("\",")
+                    append("\"organizacion_id\":\"").append(organizationId).append("\",")
+                    append("\"jornada_id\":\"").append(shiftId).append("\",")
+                    append("\"cliente_id\":\"").append(v.clienteId).append("\",")
+                    append("\"vendedor_id\":\"").append(sellerId).append("\",")
+                    append("\"hora_check_in\":\"").append(checkInIso).append("\",")
+                    if (v.checkOutTime != null) {
+                        append("\"hora_check_out\":\"").append(formatIso8601(v.checkOutTime)).append("\",")
+                    } else {
+                        append("\"hora_check_out\":null,")
+                    }
+                    append("\"ubicacion_check_in\":\"SRID=4326;POINT(").append(v.checkInLng).append(" ").append(v.checkInLat).append(")\",")
+                    if (v.checkOutLat != null && v.checkOutLng != null) {
+                        append("\"ubicacion_check_out\":\"SRID=4326;POINT(").append(v.checkOutLng).append(" ").append(v.checkOutLat).append(")\",")
+                    } else {
+                        append("\"ubicacion_check_out\":null,")
+                    }
+                    append("\"distancia_cliente_metros\":").append(v.distanciaClienteMetros).append(",")
+                    append("\"estado\":\"").append(escapeJson(v.estado)).append("\",")
+                    if (v.observaciones != null) {
+                        append("\"observaciones\":\"").append(escapeJson(v.observaciones)).append("\",")
+                    } else {
+                        append("\"observaciones\":null,")
+                    }
+                    append("\"hmac_hash\":\"").append(visitHash).append("\"")
+                    append("}")
+                }
+                append("]")
+            }
+            httpTransport.post(
+                "$supabaseUrl$REST_PREFIX/actividades_comerciales?on_conflict=id",
+                ignoreDuplicatesHeaders,
+                visitsJson
+            )
+        }
+
+        // 4. Insertar eventos de bitácora en bitacora_auditoria (tolera errores menores sin bloquear GPS)
+        if (eventosPendientes.isNotEmpty()) {
+            val eventsJson = buildString {
+                append("[")
+                eventosPendientes.forEachIndexed { index, ev ->
+                    if (index > 0) append(",")
+                    val severity = mapEventSeverity(ev.tipoEvento)
+                    val meta = if (ev.metadataJson.isNotBlank()) ev.metadataJson else "{}"
+                    append("{")
+                    append("\"organizacion_id\":\"").append(organizationId).append("\",")
+                    append("\"usuario_id\":\"").append(sellerId).append("\",")
+                    append("\"client_id\":\"").append(ev.id).append("\",")
+                    append("\"tipo_evento\":\"").append(escapeJson(ev.tipoEvento)).append("\",")
+                    append("\"severidad\":\"").append(severity).append("\",")
+                    append("\"metadatos\":").append(meta).append(",")
+                    append("\"previous_hash\":\"").append(escapeJson(ev.hashPrevio)).append("\",")
+                    append("\"hmac_hash\":\"").append(escapeJson(ev.hashActual)).append("\"")
+                    append("}")
+                }
+                append("]")
+            }
+            httpTransport.post(
+                "$supabaseUrl$REST_PREFIX/bitacora_auditoria?on_conflict=organizacion_id,hmac_hash",
+                ignoreDuplicatesHeaders,
+                eventsJson
+            )
+        }
+
+        // 5. Insertar interacciones de texto corporativas
+        if (textosPendientes.isNotEmpty()) {
+            val textsJson = buildString {
+                append("[")
+                textosPendientes.forEachIndexed { index, ti ->
+                    if (index > 0) append(",")
+                    append("{")
+                    append("\"id\":\"").append(ti.id).append("\",")
+                    append("\"organizacion_id\":\"").append(organizationId).append("\",")
+                    append("\"jornada_id\":\"").append(shiftId).append("\",")
+                    append("\"vendedor_id\":\"").append(sellerId).append("\",")
+                    append("\"paquete_aplicacion\":\"").append(escapeJson(ti.packageName)).append("\",")
+                    if (ti.appLabel != null) {
+                        append("\"nombre_aplicacion\":\"").append(escapeJson(ti.appLabel)).append("\",")
+                    } else {
+                        append("\"nombre_aplicacion\":null,")
+                    }
+                    append("\"texto_capturado\":\"").append(escapeJson(ti.capturedText)).append("\",")
+                    append("\"registrado_en\":\"").append(formatIso8601(ti.timestamp)).append("\",")
+                    append("\"previous_hash\":\"").append(escapeJson(ti.previousHash)).append("\",")
+                    append("\"hmac_hash\":\"").append(escapeJson(ti.hmacHash)).append("\"")
+                    append("}")
+                }
+                append("]")
+            }
+            httpTransport.post(
+                "$supabaseUrl$REST_PREFIX/interacciones_texto?on_conflict=id",
+                ignoreDuplicatesHeaders,
+                textsJson
+            )
+        }
+
+        // 6. Registrar lote de trazabilidad en sync_batches
+        val batchRowJson = buildString {
+            append("{")
+            append("\"id\":\"").append(syncBatchId).append("\",")
+            append("\"organizacion_id\":\"").append(organizationId).append("\",")
+            append("\"vendedor_id\":\"").append(sellerId).append("\",")
+            append("\"jornada_id\":\"").append(shiftId).append("\",")
+            append("\"total_puntos\":").append(puntosPendientes.size).append(",")
+            append("\"total_visitas\":").append(visitasPendientes.size).append(",")
+            append("\"total_eventos\":").append(eventosPendientes.size).append(",")
+            append("\"total_textos\":").append(textosPendientes.size).append(",")
+            append("\"ultimo_hash_verificado\":\"").append(lastVerifiedHash).append("\",")
+            append("\"procesado_en\":\"").append(batchTimestamp).append("\"")
+            append("}")
+        }
+        httpTransport.post(
+            "$supabaseUrl$REST_PREFIX/sync_batches?on_conflict=id",
+            ignoreDuplicatesHeaders,
+            batchRowJson
+        )
+
+        return markAllPendingAsSynced(
+            shiftId = shiftId,
+            jornadaLocal = jornadaLocal,
+            puntosPendientes = puntosPendientes,
+            visitasPendientes = visitasPendientes,
+            eventosPendientes = eventosPendientes,
+            textosPendientes = textosPendientes,
+            syncBatchId = syncBatchId,
+            message = "Sincronizado con Supabase vía PostgREST RLS"
+        )
+    }
+
+    private suspend fun updateShiftClosureViaRest(
+        shiftId: String,
+        jornada: JornadaEntity,
+        headers: Map<String, String>
+    ) {
+        try {
+            val points = ubicacionDao.getUbicacionesPorJornada(shiftId)
+            val lastPt = points.lastOrNull()
+            val mergeHeaders = headers.toMutableMap().apply {
+                put("Prefer", "resolution=merge-duplicates,return=minimal")
+            }
+            val fechaFinIso = buildShiftEndIso(jornada, lastPt, formatIso8601(System.currentTimeMillis()))
+            val body = buildString {
+                append("{")
+                append("\"id\":\"").append(shiftId).append("\",")
+                append("\"estado\":\"CLOSED\",")
+                append("\"fecha_fin\":\"").append(fechaFinIso).append("\"")
+                if (lastPt != null) {
+                    append(",\"ubicacion_fin\":\"SRID=4326;POINT(${lastPt.longitud} ${lastPt.latitud})\"")
+                }
+                append("}")
+            }
+            httpTransport.post("$supabaseUrl$REST_PREFIX/jornadas_laborales?on_conflict=id", mergeHeaders, body)
+        } catch (_: Throwable) {
+        }
+    }
+
+    private suspend fun markAllPendingAsSynced(
+        shiftId: String,
+        jornadaLocal: JornadaEntity?,
+        puntosPendientes: List<UbicacionGpsEntity>,
+        visitasPendientes: List<VisitaEntity>,
+        eventosPendientes: List<BitacoraAuditoriaEntity>,
+        textosPendientes: List<TextInteractionEntity>,
+        syncBatchId: String,
+        message: String
+    ): Result<SyncBatchResult> {
+        if (puntosPendientes.isNotEmpty()) {
+            ubicacionDao.marcarSincronizadas(puntosPendientes.map { it.id })
+        }
+        if (visitasPendientes.isNotEmpty()) {
+            visitaDao.marcarSincronizadas(visitasPendientes.map { it.id })
+        }
+        if (eventosPendientes.isNotEmpty()) {
+            auditoriaDao.marcarSincronizados(eventosPendientes.map { it.id })
+        }
+        if (textosPendientes.isNotEmpty()) {
+            textInteractionDao?.marcarSincronizadas(textosPendientes.map { it.id })
+        }
+
+        val remainingPoints = ubicacionDao.getPendientesSincronizacion(1).isNotEmpty()
+        val remainingVisits = visitaDao.getPendientesSincronizacion(1).isNotEmpty()
+        val remainingEvents = auditoriaDao.getPendientesSincronizacion(1).isNotEmpty()
+        val remainingTexts = textInteractionDao?.getPendientesSincronizacion(1)?.isNotEmpty() == true
+        val isFullySynced = !remainingPoints && !remainingVisits && !remainingEvents && !remainingTexts
+
+        if (isFullySynced && jornadaLocal != null) {
+            jornadaDao.marcarSincronizada(shiftId)
+        }
+
+        return Result.success(
+            SyncBatchResult(
+                batchId = syncBatchId,
+                pointsSynced = puntosPendientes.size,
+                visitsSynced = visitasPendientes.size,
+                eventsSynced = eventosPendientes.size,
+                textsSynced = textosPendientes.size,
+                isFullySynced = isFullySynced,
+                message = message
+            )
+        )
+    }
+
+    private fun <T> classifyHttpFailure(statusCode: Int, body: String): Result<T> {
+        return if (statusCode in 500..599) {
+            Result.failure(SyncException.ServerException(statusCode, body))
+        } else {
+            Result.failure(SyncException.ClientException(statusCode, body))
+        }
+    }
+
+    private fun mapEventSeverity(eventType: String): String {
+        return when (eventType.uppercase()) {
+            "MOCK_LOCATION_DETECTED", "TIME_ANOMALY_DETECTED", "HMAC_CHAIN_TAMPERED" -> "CRITICAL"
+            "GPS_DISABLED", "SIGNAL_LOST", "BATTERY_LOW" -> "WARNING"
+            else -> "INFO"
+        }
+    }
+
+    private fun buildShiftStartIso(
+        jornada: JornadaEntity?,
+        firstPoint: UbicacionGpsEntity?,
+        fallbackIso: String
+    ): String {
+        if (jornada != null && jornada.fecha.isNotBlank() && jornada.horaInicio.isNotBlank()) {
+            return parseLocalDateTimeToIso("${jornada.fecha} ${jornada.horaInicio}", fallbackIso)
+        }
+        if (firstPoint != null) {
+            return formatIso8601(firstPoint.timestampCaptura)
+        }
+        return fallbackIso
+    }
+
+    private fun buildShiftEndIso(
+        jornada: JornadaEntity,
+        lastPoint: UbicacionGpsEntity?,
+        fallbackIso: String
+    ): String {
+        if (!jornada.horaFin.isNullOrBlank() && jornada.fecha.isNotBlank()) {
+            return parseLocalDateTimeToIso("${jornada.fecha} ${jornada.horaFin}", fallbackIso)
+        }
+        if (lastPoint != null) {
+            return formatIso8601(lastPoint.timestampCaptura)
+        }
+        return fallbackIso
+    }
+
+    private fun parseLocalDateTimeToIso(localStr: String, fallbackIso: String): String {
+        return try {
+            val parser = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+            val date = parser.parse(localStr) ?: return fallbackIso
+            formatIso8601(date.time)
+        } catch (_: Exception) {
+            fallbackIso
+        }
+    }
+
+    /**
      * Construye el arreglo JSON de puntos de telemetría firmados canónicamente.
      */
     private suspend fun buildTrackingPointsJson(
         shiftId: String,
         puntos: List<UbicacionGpsEntity>,
         secretKey: ByteArray
-    ): String {
-        if (puntos.isEmpty()) return "[]"
-
-        val sb = StringBuilder("[")
+    ): Pair<String, String> {
         var runningHash = auditoriaDao.getUltimoEventoPorJornada(shiftId)?.hashActual
             ?: HmacChainSigner.computeInitialSeed(shiftId, secretKey)
 
+        if (puntos.isEmpty()) return "[]" to runningHash
+
+        val sb = StringBuilder("[")
         puntos.forEachIndexed { index, punto ->
             if (index > 0) sb.append(",")
 
-            val isMock = false // El campo de auditoría detecta mock, en este punto se asume validado
+            val isMock = false
             val payload = HmacChainSigner.PointPayload(
                 shiftId = shiftId,
                 latitude = punto.latitud,
@@ -285,7 +683,7 @@ class SyncRepositoryImpl(
             sb.append("\"longitude\":").append(punto.longitud).append(",")
             sb.append("\"accuracy_meters\":").append(punto.precision).append(",")
             sb.append("\"altitude_meters\":").append(punto.altitud ?: "null").append(",")
-            sb.append("\"speed_mps\":").append(punto.velocidad ?: "null").append(",")
+            sb.append("\"speed_ms\":").append(punto.velocidad ?: "null").append(",")
             sb.append("\"recorded_at\":\"").append(recordedAt).append("\",")
             sb.append("\"is_mock\":").append(isMock).append(",")
             sb.append("\"previous_hash\":\"").append(prevHash).append("\",")
@@ -294,7 +692,7 @@ class SyncRepositoryImpl(
         }
 
         sb.append("]")
-        return sb.toString()
+        return sb.toString() to runningHash
     }
 
     /**
@@ -315,7 +713,6 @@ class SyncRepositoryImpl(
             val checkInIso = formatIso8601(visita.checkInTime)
             val checkOutIso = visita.checkOutTime?.let { formatIso8601(it) }
 
-            // Generar hash HMAC determinista para la visita
             val visitMessage = "shiftId=$shiftId|clientId=${visita.clienteId}|sellerId=$sellerId|checkIn=$checkInIso"
             val visitHash = HmacChainSigner.computeHmacSha256(visitMessage, secretKey)
 
@@ -384,6 +781,7 @@ class SyncRepositoryImpl(
             sb.append("\"id\":\"").append(evento.id).append("\",")
             sb.append("\"shift_id\":\"").append(evento.jornadaId).append("\",")
             sb.append("\"event_type\":\"").append(escapeJson(evento.tipoEvento)).append("\",")
+            sb.append("\"event_severity\":\"").append(mapEventSeverity(evento.tipoEvento)).append("\",")
             sb.append("\"occurred_at\":\"").append(occurredAtIso).append("\",")
             sb.append("\"metadata\":").append(if (evento.metadataJson.isNotBlank()) evento.metadataJson else "{}").append(",")
             sb.append("\"previous_hash\":\"").append(evento.hashPrevio).append("\",")

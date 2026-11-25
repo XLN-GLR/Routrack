@@ -1,8 +1,8 @@
 # Memoria Viva del Proyecto — ROUTRACK
 
-**Última Actualización:** 19 de Noviembre de 2026  
+**Última Actualización:** 25 de Noviembre de 2026  
 **Documento:** Estado Vivo y Registro Dinámico de Contexto (Project Memory)  
-**Versión:** 2.1.0  
+**Versión:** 2.2.0  
 **Autor:** Senior Software Engineer, Cloud/Mobile Solutions Architect & Technical Lead  
 
 ---
@@ -315,6 +315,13 @@
   - Corrección en Supabase (`sync-jornada/index.ts`): Inserción atómica/upsert en `jornadas_laborales` para cada turno sincronizado.
   - Corrección en Panel Web (`live/page.tsx`): Integración de `loadLiveSellers` consultando `jornadas_laborales` y suscripción Realtime vía `supabase.channel("realtime-live-sellers")`.
   - Verificación empírica: Compilación de `compileDebugKotlin`, ensamblado de APK `assembleDebug` (`BUILD SUCCESSFUL`) y orquestador de pruebas con 18/18 suites aprobadas (100%).
+- **[x] FIX-20261125 — Robustecimiento multicanal GPS (Fused + Satellite + Network Provider), Sincronización Dual PostgREST RLS / Edge Function y decodificación EWKB en panel web:**
+  - Diagnóstico: La app móvil mostraba "Esperando señal GPS..." indefinidamente en exteriores debido a que `FusedLocationProviderClient` dependía exclusivamente del bloqueo fino de satélites por hardware y la falta de fallback al `LocationManager` nativo cuando los servicios de Google Play demoraban o la configuración de ubicación del sistema no estaba calibrada. Adicionalmente, la Edge Function en Supabase retornaba 404 por no estar desplegada en la nube, y las coordenadas espaciales devueltas por PostgREST en formato hexadecimal PostGIS EWKB no eran parseadas por Leaflet en el panel web.
+  - Corrección en Android (`LocationForegroundService.kt` y `TrackingScreen.kt`): Implementación de triple motor de captura (`FusedLocationProviderClient` + `LocationManager.GPS_PROVIDER` + `LocationManager.NETWORK_PROVIDER`), obtención inmediata con `getCurrentLocation` (Balanced) al encender el servicio, integración de diálogo del sistema `LocationSettingsRequest` / `ResolvableApiException` para solicitar encendido del GPS si está desactivado, alerta visual clara si solo se otorgó permiso de ubicación aproximada, e indicador visual con botón de sincronización manual instantánea.
+  - Persistencia de Sesión y Resiliencia en Android (`AuthRepository.kt`, `RepositoryProvider.kt`): Almacenamiento seguro cifrado en Keystore de `userId`, `organizationId` y `refreshToken` para permitir que el proceso de sincronización en segundo plano (`SyncJornadaWorker`) restaure el token de sesión GoTrue sin depender de la UI.
+  - Sincronización Dual Autónoma (`SyncRepositoryImpl.kt`): Arquitectura de respaldo transparente que intenta el endpoint `/functions/v1/sync-jornada` y, si este responde HTTP 404 (función no desplegada), conmuta automáticamente a PostgREST directo (`/rest/v1/jornadas_laborales`, `/rest/v1/ubicaciones_gps`, etc.) autenticado con el token Bearer del usuario bajo aislamiento Row Level Security (RLS).
+  - Decodificación Geoespacial Web (`spatial.ts`, `live/page.tsx`, `routes/page.tsx`): Soporte completo para decodificación binaria de geometrías PostGIS EWKB en hexadecimal (`0101000020E61000...`), trazado continuo de polilíneas reales de la jornada activa, auto-centrado del mapa al primer reporte del vendedor y polling reactivo de respaldo cada 10s complementando Supabase Realtime.
+  - Verificación empírica: Ensamblado exitoso del APK debug (`assembleDebug`, `BUILD SUCCESSFUL in 10s`, `app-debug.apk` de 27.5 MB), compilación de producción de Next.js (`npm run build`, 11/11 rutas estáticas), y orquestador de pruebas con 18/18 suites aprobadas al 100%.
 
 ### 4.2. Tareas Pendientes Inmediatas
 - *Ninguna.* Las 35 tareas del plan maestro de desarrollo de ROUTRACK han sido ejecutadas, verificadas empíricamente y superadas al 100%.

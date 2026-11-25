@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import type L from "leaflet";
+import { createClient } from "@/lib/supabase/client";
+import { parsePostgisPoint } from "@/lib/geo/spatial";
 import {
   Route,
   Calendar,
@@ -236,13 +238,110 @@ const MOCK_ROUTE_POINTS: RoutePoint[] = [
 ];
 
 export default function RoutesHistoryPage() {
+  const [sellerOptions, setSellerOptions] = useState(AVAILABLE_SELLERS);
   const [selectedSellerId, setSelectedSellerId] = useState<string>("vendedor-001");
   const [selectedDate, setSelectedDate] = useState<string>("2026-11-08");
+  const [realPoints, setRealPoints] = useState<RoutePoint[] | null>(null);
   const [showDeviations, setShowDeviations] = useState<boolean>(true);
   const [showStops, setShowStops] = useState<boolean>(true);
   const [enableRoadMatching, setEnableRoadMatching] = useState<boolean>(true);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [activeTab, setActiveTab] = useState<"stops" | "deviations">("deviations");
+
+  // Cargar usuarios reales registrados en Supabase y preseleccionar si hay jornadas recientes
+  useEffect(() => {
+    let active = true;
+    async function loadProfiles() {
+      try {
+        const supabase = createClient();
+        const { data: perfiles } = await supabase
+          .from("perfiles")
+          .select("id, nombre_completo, email")
+          .eq("activo", true);
+
+        if (active && perfiles && perfiles.length > 0) {
+          const reales = perfiles.map((p) => ({
+            id: p.id,
+            name: `${p.nombre_completo} (Real)`,
+            email: p.email,
+          }));
+          setSellerOptions([...reales, ...AVAILABLE_SELLERS]);
+        }
+      } catch {
+        // Fallback silencioso a vendedores demo
+      }
+    }
+    loadProfiles();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Consultar puntos reales cuando el usuario selecciona un vendedor real
+  useEffect(() => {
+    const isDemo = AVAILABLE_SELLERS.some((d) => d.id === selectedSellerId);
+    if (isDemo) {
+      setRealPoints(null);
+      return;
+    }
+
+    let active = true;
+    async function loadRealRoute() {
+      try {
+        const supabase = createClient();
+        const { data: jornadas } = await supabase
+          .from("jornadas_laborales")
+          .select("id, fecha_inicio")
+          .eq("vendedor_id", selectedSellerId)
+          .order("fecha_inicio", { ascending: false })
+          .limit(5);
+
+        if (!active || !jornadas || jornadas.length === 0) {
+          setRealPoints([]);
+          return;
+        }
+
+        const jornadaDelDia =
+          jornadas.find((j) => j.fecha_inicio?.startsWith(selectedDate)) || jornadas[0];
+
+        const { data: pts } = await supabase
+          .from("ubicaciones_gps")
+          .select("id, jornada_id, ubicacion, precision_metros, velocidad_ms, orientacion_grados, es_simulado, registrado_en")
+          .eq("jornada_id", jornadaDelDia.id)
+          .order("registrado_en", { ascending: true });
+
+        if (!active) return;
+
+        const mapped: RoutePoint[] = [];
+        for (const p of pts || []) {
+          const coords = parsePostgisPoint(p.ubicacion);
+          if (coords) {
+            mapped.push({
+              id: p.id,
+              shiftId: p.jornada_id,
+              latitude: coords[0],
+              longitude: coords[1],
+              accuracyMeters: p.precision_metros || 10,
+              speedKmh: p.velocidad_ms ? Number((p.velocidad_ms * 3.6).toFixed(1)) : 0,
+              bearingDegrees: p.orientacion_grados || 0,
+              isMock: Boolean(p.es_simulado),
+              recordedAt: p.registrado_en,
+            });
+          }
+        }
+        setRealPoints(mapped);
+        if (mapped.length > 0 && mapInstance) {
+          mapInstance.flyTo([mapped[0].latitude, mapped[0].longitude], 16, { animate: true });
+        }
+      } catch {
+        if (active) setRealPoints([]);
+      }
+    }
+    loadRealRoute();
+    return () => {
+      active = false;
+    };
+  }, [selectedSellerId, selectedDate, mapInstance]);
 
   const handleMapReady = useCallback((map: L.Map) => {
     setMapInstance(map);
@@ -250,10 +349,11 @@ export default function RoutesHistoryPage() {
 
   // Puntos de ruta ordenados cronológicamente
   const points = useMemo(() => {
-    return sortPointsChronologically(MOCK_ROUTE_POINTS);
-  }, []);
+    const source = realPoints !== null ? realPoints : MOCK_ROUTE_POINTS;
+    return sortPointsChronologically(source);
+  }, [realPoints]);
 
-  const stops = MOCK_ROUTE_STOPS;
+  const stops = realPoints !== null ? [] : MOCK_ROUTE_STOPS;
 
   // Criterio 3: Métricas consolidadas de la jornada
   const metrics = useMemo(() => {
@@ -321,7 +421,7 @@ export default function RoutesHistoryPage() {
               onChange={(e) => setSelectedSellerId(e.target.value)}
               className="rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-7 text-xs font-semibold text-slate-700 shadow-xs focus:border-blue-600 focus:outline-none cursor-pointer"
             >
-              {AVAILABLE_SELLERS.map((seller) => (
+              {sellerOptions.map((seller) => (
                 <option key={seller.id} value={seller.id}>
                   {seller.name}
                 </option>

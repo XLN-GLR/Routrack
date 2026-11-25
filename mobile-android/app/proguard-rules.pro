@@ -1,4 +1,4 @@
-u8q1A# Reglas ProGuard / R8 para ROUTRACK Mobile
+# Reglas ProGuard / R8 para ROUTRACK Mobile
 
 # SQLCipher
 -keep class net.sqlcipher.** { *; }

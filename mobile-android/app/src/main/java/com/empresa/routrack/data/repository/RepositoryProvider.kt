@@ -16,6 +16,15 @@ import kotlinx.coroutines.Dispatchers
 object RepositoryProvider {
 
     @Volatile
+    private var appContextRef: Context? = null
+
+    fun init(context: Context) {
+        appContextRef = context.applicationContext
+    }
+
+    fun getAppContext(): Context? = appContextRef
+
+    @Volatile
     private var databaseInstance: RoutrackDatabase? = null
 
     @Volatile
@@ -32,6 +41,9 @@ object RepositoryProvider {
 
     @Volatile
     private var textInteractionRepositoryInstance: TextInteractionRepository? = null
+
+    @Volatile
+    private var authRepositoryInstance: AuthRepository? = null
 
     @Volatile
     private var unifiedRepositoryInstance: com.empresa.routrack.data.RoutrackRepository? = null
@@ -70,14 +82,21 @@ object RepositoryProvider {
         }
     }
 
+    private fun getAuditHmacKeyProvider(): () -> ByteArray {
+        return {
+            "ROUTRACK_LOCAL_DEFAULT_SECRET_KEY".toByteArray(java.nio.charset.StandardCharsets.UTF_8)
+        }
+    }
+
     /**
      * Retorna la instancia singleton de ShiftRepository.
      */
     fun getShiftRepository(context: Context): ShiftRepository {
+        init(context)
         return shiftRepositoryInstance ?: synchronized(this) {
             shiftRepositoryInstance ?: run {
                 val db = getDatabase(context)
-                val secretKeyProvider = getSecretKeyProvider(context)
+                val secretKeyProvider = getAuditHmacKeyProvider()
                 ShiftRepositoryImpl(
                     jornadaDao = db.jornadaDao(),
                     auditoriaDao = db.bitacoraAuditoriaDao(),
@@ -92,10 +111,11 @@ object RepositoryProvider {
      * Retorna la instancia singleton de TrackingRepository.
      */
     fun getTrackingRepository(context: Context): TrackingRepository {
+        init(context)
         return trackingRepositoryInstance ?: synchronized(this) {
             trackingRepositoryInstance ?: run {
                 val db = getDatabase(context)
-                val secretKeyProvider = getSecretKeyProvider(context)
+                val secretKeyProvider = getAuditHmacKeyProvider()
                 TrackingRepositoryImpl(
                     ubicacionDao = db.ubicacionGpsDao(),
                     auditoriaDao = db.bitacoraAuditoriaDao(),
@@ -110,10 +130,11 @@ object RepositoryProvider {
      * Retorna la instancia singleton de VisitRepository.
      */
     fun getVisitRepository(context: Context): VisitRepository {
+        init(context)
         return visitRepositoryInstance ?: synchronized(this) {
             visitRepositoryInstance ?: run {
                 val db = getDatabase(context)
-                val secretKeyProvider = getSecretKeyProvider(context)
+                val secretKeyProvider = getAuditHmacKeyProvider()
                 VisitRepositoryImpl(
                     visitaDao = db.visitaDao(),
                     auditoriaDao = db.bitacoraAuditoriaDao(),
@@ -128,10 +149,11 @@ object RepositoryProvider {
      * Retorna la instancia singleton de TextInteractionRepository.
      */
     fun getTextInteractionRepository(context: Context): TextInteractionRepository {
+        init(context)
         return textInteractionRepositoryInstance ?: synchronized(this) {
             textInteractionRepositoryInstance ?: run {
                 val db = getDatabase(context)
-                val secretKeyProvider = getSecretKeyProvider(context)
+                val secretKeyProvider = getAuditHmacKeyProvider()
                 TextInteractionRepositoryImpl(
                     textInteractionDao = db.textInteractionDao(),
                     secretKeyProvider = secretKeyProvider,
@@ -142,9 +164,22 @@ object RepositoryProvider {
     }
 
     /**
+     * Retorna la instancia singleton de AuthRepository con contexto persistente.
+     */
+    fun getAuthRepository(context: Context): AuthRepository {
+        init(context)
+        return authRepositoryInstance ?: synchronized(this) {
+            authRepositoryInstance ?: AuthRepositoryImpl(context.applicationContext).also {
+                authRepositoryInstance = it
+            }
+        }
+    }
+
+    /**
      * Retorna el repositorio unificado de ROUTRACK Mobile.
      */
     fun getUnifiedRepository(context: Context): com.empresa.routrack.data.RoutrackRepository {
+        init(context)
         return unifiedRepositoryInstance ?: synchronized(this) {
             unifiedRepositoryInstance ?: object : com.empresa.routrack.data.RoutrackRepository {
                 override val shifts: ShiftRepository = getShiftRepository(context)
@@ -158,16 +193,17 @@ object RepositoryProvider {
      * Retorna la instancia singleton de SyncRepository.
      */
     fun getSyncRepository(context: Context): SyncRepository {
+        init(context)
         return syncRepositoryInstance ?: synchronized(this) {
             syncRepositoryInstance ?: run {
                 val db = getDatabase(context)
-                val secretKeyProvider = getSecretKeyProvider(context)
+                val secretKeyProvider = getAuditHmacKeyProvider()
                 SyncRepositoryImpl(
                     ubicacionDao = db.ubicacionGpsDao(),
                     visitaDao = db.visitaDao(),
                     auditoriaDao = db.bitacoraAuditoriaDao(),
                     jornadaDao = db.jornadaDao(),
-                    authRepository = AuthRepositoryImpl(),
+                    authRepository = getAuthRepository(context),
                     secretKeyProvider = secretKeyProvider,
                     textInteractionDao = db.textInteractionDao(),
                     ioDispatcher = Dispatchers.IO

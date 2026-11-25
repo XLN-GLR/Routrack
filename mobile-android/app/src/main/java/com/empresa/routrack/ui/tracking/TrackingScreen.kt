@@ -1,9 +1,15 @@
 package com.empresa.routrack.ui.tracking
 
 import android.Manifest
+import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.LocationManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -33,10 +40,12 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -55,13 +64,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.google.android.gms.common.api.ResolvableApiException
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.LocationSettingsRequest
+import com.google.android.gms.location.Priority
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 /**
  * Pantalla principal de control de turno y monitoreo de rastreo para el vendedor de campo.
- * Provee visualización reactiva de telemetría local, solicitud de permisos y botones de inicio/fin de jornada.
+ * Provee visualización reactiva de telemetría local, solicitud de permisos de ubicación precisa,
+ * resolución automática del GPS del dispositivo, estado de sincronización y control de jornada.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,8 +92,7 @@ fun TrackingScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollState = rememberScrollState()
 
-    // Gestión reactiva de permisos de ubicación y notificaciones
-    var permissionsGranted by remember {
+    var fineLocationGranted by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
                 context,
@@ -87,12 +101,75 @@ fun TrackingScreen(
         )
     }
 
+    var anyLocationGranted by remember {
+        mutableStateOf(
+            fineLocationGranted || ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    var isDeviceGpsEnabled by remember {
+        val lm = context.getSystemService(LocationManager::class.java)
+        val enabled = try {
+            lm?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true ||
+                lm?.isProviderEnabled(LocationManager.NETWORK_PROVIDER) == true
+        } catch (_: Throwable) {
+            true
+        }
+        mutableStateOf(enabled)
+    }
+
+    val gpsSettingsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        isDeviceGpsEnabled = result.resultCode == Activity.RESULT_OK
+        if (isDeviceGpsEnabled) {
+            viewModel.reanudarServicioSiActivo()
+        }
+    }
+
+    fun checkAndPromptDeviceLocationSettings() {
+        val req = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10_000L).build()
+        val settingsReq = LocationSettingsRequest.Builder()
+            .addLocationRequest(req)
+            .setAlwaysShow(true)
+            .build()
+
+        LocationServices.getSettingsClient(context)
+            .checkLocationSettings(settingsReq)
+            .addOnSuccessListener {
+                isDeviceGpsEnabled = true
+                viewModel.reanudarServicioSiActivo()
+            }
+            .addOnFailureListener { ex ->
+                isDeviceGpsEnabled = false
+                if (ex is ResolvableApiException) {
+                    try {
+                        val intentSenderReq = IntentSenderRequest.Builder(ex.resolution).build()
+                        gpsSettingsLauncher.launch(intentSenderReq)
+                    } catch (_: Throwable) {
+                    }
+                }
+            }
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
-        val fineLocation = results[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
-        val coarseLocation = results[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
-        permissionsGranted = fineLocation || coarseLocation
+        val fine = results[Manifest.permission.ACCESS_FINE_LOCATION]
+            ?: (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+        val coarse = results[Manifest.permission.ACCESS_COARSE_LOCATION]
+            ?: (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+
+        fineLocationGranted = fine
+        anyLocationGranted = fine || coarse
+
+        if (anyLocationGranted) {
+            checkAndPromptDeviceLocationSettings()
+            viewModel.reanudarServicioSiActivo()
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -104,6 +181,7 @@ fun TrackingScreen(
             permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
         }
         permissionLauncher.launch(permissionsToRequest.toTypedArray())
+        checkAndPromptDeviceLocationSettings()
     }
 
     LaunchedEffect(uiState.mensajeFeedback) {
@@ -157,39 +235,84 @@ fun TrackingScreen(
                 .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Alerta de permisos faltantes si aplica
-            if (!permissionsGranted) {
+            // Alerta de permisos faltantes o ubicación aproximada
+            if (!anyLocationGranted || !fineLocationGranted) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Permisos de Localización Requeridos",
+                            text = if (!anyLocationGranted) "Permisos de Localización Requeridos" else "Se requiere Ubicación Precisa",
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Para registrar tus trayectorias laborales conforme a la normativa, se requiere acceso a la ubicación precisa y notificaciones.",
+                            text = if (!anyLocationGranted) {
+                                "Para registrar tu recorrido y mostrarlo en el panel web, debes conceder permiso de ubicación precisa y notificaciones."
+                            } else {
+                                "Actualmente solo tienes Ubicación Aproximada. Habilita 'Usar ubicación precisa' en los ajustes de la aplicación para obtener señal GPS satelital."
+                            },
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = {
-                                val perms = mutableListOf(
-                                    Manifest.permission.ACCESS_FINE_LOCATION,
-                                    Manifest.permission.ACCESS_COARSE_LOCATION
-                                )
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    perms.add(Manifest.permission.POST_NOTIFICATIONS)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = {
+                                    val perms = mutableListOf(
+                                        Manifest.permission.ACCESS_FINE_LOCATION,
+                                        Manifest.permission.ACCESS_COARSE_LOCATION
+                                    )
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        perms.add(Manifest.permission.POST_NOTIFICATIONS)
+                                    }
+                                    permissionLauncher.launch(perms.toTypedArray())
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Text("Conceder Permisos")
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                        data = Uri.fromParts("package", context.packageName, null)
+                                    }
+                                    context.startActivity(intent)
                                 }
-                                permissionLauncher.launch(perms.toTypedArray())
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Text("Ajustes")
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Alerta si el GPS global del dispositivo está apagado
+            if (!isDeviceGpsEnabled) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "GPS del Dispositivo Desactivado",
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF92400E)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "El interruptor de Ubicación de tu teléfono está apagado. Enciéndelo para adquirir señal GPS.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF92400E)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = { checkAndPromptDeviceLocationSettings() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706))
                         ) {
-                            Text("Conceder Permisos")
+                            Text("Activar Ubicación ahora")
                         }
                     }
                 }
@@ -346,6 +469,14 @@ fun TrackingScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium
                             )
+                            if (!uiState.gpsDiagnosticMessage.isNullOrBlank()) {
+                                Text(
+                                    text = uiState.gpsDiagnosticMessage!!,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (uiState.ultimaLatitud != null) Color(0xFF16A34A) else Color(0xFFD97706),
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                            }
                         }
 
                         Column(horizontalAlignment = Alignment.End) {
@@ -378,6 +509,57 @@ fun TrackingScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Estado de Sincronización con Supabase / Panel Web
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Conexión Panel Web (Pendientes: ${uiState.pendingSyncCount})",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = uiState.syncStatusMessage ?: if (uiState.pendingSyncCount == 0) {
+                                    "Sincronizado con la nube"
+                                } else {
+                                    "Listo para sincronizar"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (uiState.syncStatusMessage?.startsWith("Pendiente") == true ||
+                                    uiState.syncStatusMessage?.startsWith("Sin conexión") == true
+                                ) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    Color(0xFF2563EB)
+                                }
+                            )
+                        }
+
+                        TextButton(
+                            onClick = { viewModel.sincronizarAhora() },
+                            enabled = !uiState.isSyncing
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Sincronizar ahora",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (uiState.isSyncing) "Enviando..." else "Sincronizar",
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
                 }
             }
 
@@ -397,7 +579,8 @@ fun TrackingScreen(
                 if (!uiState.isTrackingActive) {
                     Button(
                         onClick = {
-                            if (permissionsGranted) {
+                            if (anyLocationGranted) {
+                                checkAndPromptDeviceLocationSettings()
                                 viewModel.iniciarJornada(vendedorId)
                             } else {
                                 val perms = mutableListOf(
