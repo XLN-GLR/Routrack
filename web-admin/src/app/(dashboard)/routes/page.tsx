@@ -242,6 +242,7 @@ export default function RoutesHistoryPage() {
   const [selectedSellerId, setSelectedSellerId] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [realPoints, setRealPoints] = useState<RoutePoint[] | null>(null);
+  const [realStops, setRealStops] = useState<RouteStop[]>([]);
   const [showDeviations, setShowDeviations] = useState<boolean>(true);
   const [showStops, setShowStops] = useState<boolean>(true);
   const [enableRoadMatching, setEnableRoadMatching] = useState<boolean>(true);
@@ -332,6 +333,28 @@ export default function RoutesHistoryPage() {
           }
         }
         setRealPoints(mapped);
+
+        // Cargar clientes autorizados como paradas de referencia para cálculo de desvíos
+        const { data: clientsData } = await supabase
+          .from("clientes")
+          .select("id, nombre, direccion, ubicacion, radio_tolerancia_metros")
+          .eq("activo", true);
+
+        const mappedStops: RouteStop[] = [];
+        for (const c of clientsData || []) {
+          const coords = parsePostgisPoint(c.ubicacion);
+          if (coords) {
+            mappedStops.push({
+              id: c.id,
+              name: c.nombre,
+              address: c.direccion,
+              latitude: coords[0],
+              longitude: coords[1],
+              toleranceRadiusMeters: c.radio_tolerancia_metros || 50,
+            });
+          }
+        }
+        setRealStops(mappedStops);
         if (mapped.length > 0 && mapInstance) {
           mapInstance.flyTo([mapped[0].latitude, mapped[0].longitude], 16, { animate: true });
         }
@@ -354,7 +377,7 @@ export default function RoutesHistoryPage() {
     return sortPointsChronologically(realPoints || []);
   }, [realPoints]);
 
-  const stops: RouteStop[] = [];
+  const stops = realStops;
 
   // Criterio 3: Métricas consolidadas de la jornada
   const metrics = useMemo(() => {
