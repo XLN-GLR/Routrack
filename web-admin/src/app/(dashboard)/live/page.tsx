@@ -57,13 +57,23 @@ export default function LiveMonitoringPage() {
       const { data: jornadas, error: jornadasError } = await supabase
         .from("jornadas_laborales")
         .select("id, vendedor_id, estado, fecha_inicio, bateria_inicio, ubicacion_inicio")
-        .in("estado", ["OPEN", "EN_CURSO"]);
+        .in("estado", ["OPEN", "EN_CURSO"])
+        .order("fecha_inicio", { ascending: false });
 
       if (jornadasError || !jornadas) {
         return;
       }
 
-      if (jornadas.length === 0) {
+      // Si un vendedor tiene más de una jornada en estado abierto, tomar la más reciente
+      const latestJornadaBySeller = new Map<string, (typeof jornadas)[0]>();
+      for (const j of jornadas) {
+        if (!latestJornadaBySeller.has(j.vendedor_id)) {
+          latestJornadaBySeller.set(j.vendedor_id, j);
+        }
+      }
+      const jornadasFiltradas = Array.from(latestJornadaBySeller.values());
+
+      if (jornadasFiltradas.length === 0) {
         setRealShiftIds(new Set());
         setRealRoutesByShift({});
         setRealStartTimeByShift({});
@@ -75,13 +85,13 @@ export default function LiveMonitoringPage() {
         return;
       }
 
-      const vendedorIds = Array.from(new Set(jornadas.map((j) => j.vendedor_id)));
+      const vendedorIds = Array.from(new Set(jornadasFiltradas.map((j) => j.vendedor_id)));
       const { data: perfiles } = await supabase
         .from("perfiles")
         .select("id, nombre_completo, email, telefono")
         .in("id", vendedorIds);
 
-      const jornadaIds = jornadas.map((j) => j.id);
+      const jornadaIds = jornadasFiltradas.map((j) => j.id);
       const { data: puntos } = await supabase
         .from("ubicaciones_gps")
         .select("jornada_id, vendedor_id, ubicacion, precision_metros, velocidad_ms, orientacion_grados, nivel_bateria, es_simulado, registrado_en")
@@ -91,7 +101,7 @@ export default function LiveMonitoringPage() {
       const nextRoutes: Record<string, LatLngTuple[]> = {};
       const nextStartTimes: Record<string, string> = {};
 
-      const realSellers: SellerLiveState[] = jornadas.map((j) => {
+      const realSellers: SellerLiveState[] = jornadasFiltradas.map((j) => {
         const perfil = perfiles?.find((p) => p.id === j.vendedor_id);
         const puntosJornada = (puntos || []).filter((pt) => pt.jornada_id === j.id);
         const routeCoords: LatLngTuple[] = [];
@@ -128,7 +138,7 @@ export default function LiveMonitoringPage() {
           status = "DESVIACION";
         } else if (minutesSinceReport > 15) {
           status = "SIN_CONEXION";
-        } else if (speedKmh > 5) {
+        } else if (speedKmh >= 1.5) {
           status = "EN_RUTA";
         } else {
           status = "DETENIDO";

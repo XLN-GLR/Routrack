@@ -127,12 +127,23 @@ class SyncRepositoryImpl(
                     )
                 }
 
-                // 2. Determinar shiftId, sellerId, organizationId y sesión JWT válida
-                val shiftId = puntosPendientes.firstOrNull()?.jornadaId
-                    ?: visitasPendientes.firstOrNull()?.jornadaId
-                    ?: eventosPendientes.firstOrNull()?.jornadaId
-                    ?: textosPendientes.firstOrNull()?.jornadaId
-                    ?: jornadasPendientes.first().id
+                // 2. Determinar shiftId con prioridad a la jornada activa en curso
+                val jornadaActiva = jornadaDao.getJornadaActiva()
+                val shiftId = if (jornadaActiva != null && (puntosPendientes.any { it.jornadaId == jornadaActiva.id } || !jornadaActiva.sincronizado)) {
+                    jornadaActiva.id
+                } else {
+                    puntosPendientes.firstOrNull()?.jornadaId
+                        ?: visitasPendientes.firstOrNull()?.jornadaId
+                        ?: eventosPendientes.firstOrNull()?.jornadaId
+                        ?: textosPendientes.firstOrNull()?.jornadaId
+                        ?: jornadasPendientes.first().id
+                }
+
+                // Filtrar estrictamente los registros correspondientes a este shiftId para coherencia atómica
+                val puntosDelShift = puntosPendientes.filter { it.jornadaId == shiftId }
+                val visitasDelShift = visitasPendientes.filter { it.jornadaId == shiftId }
+                val eventosDelShift = eventosPendientes.filter { it.jornadaId == shiftId }
+                val textosDelShift = textosPendientes.filter { it.jornadaId == shiftId }
 
                 val jornadaLocal = jornadaDao.getById(shiftId)
                 val session = authRepository.getCurrentSession()
@@ -163,11 +174,28 @@ class SyncRepositoryImpl(
                 val batchTimestamp = formatIso8601(System.currentTimeMillis())
                 val secretKey = secretKeyProvider()
 
+                val headers = mutableMapOf(
+                    "Content-Type" to "application/json",
+                    "apikey" to anonKey,
+                    "Authorization" to "Bearer $accessToken"
+                )
+
+                // 2.1. Asegurar el cierre de cualquier jornada anterior que haya finalizado pero siga pendiente en Room
+                for (jp in jornadasPendientes) {
+                    if (jp.id != shiftId && jp.estado == JornadaEntity.ESTADO_FINALIZADA) {
+                        try {
+                            updateShiftClosureViaRest(jp.id, jp, headers)
+                            jornadaDao.marcarSincronizada(jp.id)
+                        } catch (_: Throwable) {
+                        }
+                    }
+                }
+
                 // 3. Construir listas canónicas JSON para la Edge Function sync-jornada
-                val (trackingPointsJson, lastVerifiedPointHash) = buildTrackingPointsJson(shiftId, puntosPendientes, secretKey)
-                val visitRecordsJson = buildVisitRecordsJson(shiftId, sellerId, visitasPendientes, secretKey)
-                val systemEventsJson = buildSystemEventsJson(shiftId, eventosPendientes, secretKey)
-                val textInteractionsJson = buildTextInteractionsJson(textosPendientes)
+                val (trackingPointsJson, lastVerifiedPointHash) = buildTrackingPointsJson(shiftId, puntosDelShift, secretKey)
+                val visitRecordsJson = buildVisitRecordsJson(shiftId, sellerId, visitasDelShift, secretKey)
+                val systemEventsJson = buildSystemEventsJson(shiftId, eventosDelShift, secretKey)
+                val textInteractionsJson = buildTextInteractionsJson(textosDelShift)
 
                 val jsonPayload = buildString {
                     append("{")
@@ -182,12 +210,6 @@ class SyncRepositoryImpl(
                     append("\"text_interactions\":").append(textInteractionsJson)
                     append("}")
                 }
-
-                val headers = mutableMapOf(
-                    "Content-Type" to "application/json",
-                    "apikey" to anonKey,
-                    "Authorization" to "Bearer $accessToken"
-                )
 
                 val edgeUrl = "$supabaseUrl$SYNC_ENDPOINT_PATH"
 
@@ -213,10 +235,10 @@ class SyncRepositoryImpl(
                         markAllPendingAsSynced(
                             shiftId = shiftId,
                             jornadaLocal = jornadaLocal,
-                            puntosPendientes = puntosPendientes,
-                            visitasPendientes = visitasPendientes,
-                            eventosPendientes = eventosPendientes,
-                            textosPendientes = textosPendientes,
+                            puntosPendientes = puntosDelShift,
+                            visitasPendientes = visitasDelShift,
+                            eventosPendientes = eventosDelShift,
+                            textosPendientes = textosDelShift,
                             syncBatchId = syncBatchId,
                             message = "Lote sincronizado exitosamente con Supabase Edge Function"
                         )
@@ -231,10 +253,10 @@ class SyncRepositoryImpl(
                             sellerId = sellerId,
                             batchTimestamp = batchTimestamp,
                             jornadaLocal = jornadaLocal,
-                            puntosPendientes = puntosPendientes,
-                            visitasPendientes = visitasPendientes,
-                            eventosPendientes = eventosPendientes,
-                            textosPendientes = textosPendientes,
+                            puntosPendientes = puntosDelShift,
+                            visitasPendientes = visitasDelShift,
+                            eventosPendientes = eventosDelShift,
+                            textosPendientes = textosDelShift,
                             lastVerifiedHash = lastVerifiedPointHash,
                             secretKey = secretKey,
                             baseHeaders = headers
@@ -570,7 +592,7 @@ class SyncRepositoryImpl(
         val remainingTexts = textInteractionDao?.getPendientesSincronizacion(1)?.isNotEmpty() == true
         val isFullySynced = !remainingPoints && !remainingVisits && !remainingEvents && !remainingTexts
 
-        if (isFullySynced && jornadaLocal != null) {
+        if (jornadaLocal != null) {
             jornadaDao.marcarSincronizada(shiftId)
         }
 

@@ -37,8 +37,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
@@ -111,6 +113,8 @@ class LocationForegroundService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var trackingRepository: TrackingRepository
+    private lateinit var syncRepository: com.routrack.mobile.data.repository.SyncRepository
+    private var liveSyncJob: kotlinx.coroutines.Job? = null
     private var locationManager: LocationManager? = null
     private var currentJornadaId: String = ""
     private var currentVendedorId: String = ""
@@ -170,6 +174,7 @@ class LocationForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         trackingRepository = RepositoryProvider.getTrackingRepository(applicationContext)
+        syncRepository = RepositoryProvider.getSyncRepository(applicationContext)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         locationManager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager
         createNotificationChannel()
@@ -403,9 +408,35 @@ class LocationForegroundService : Service() {
             SyncScheduler.schedulePeriodicSync(applicationContext)
         } catch (_: Throwable) {
         }
+
+        // Iniciar bucle de sincronización en caliente continua (cada 12s) para tiempo real fehaciente
+        startLiveSyncLoop()
+    }
+
+    private fun startLiveSyncLoop() {
+        liveSyncJob?.cancel()
+        liveSyncJob = serviceScope.launch {
+            delay(2_000L)
+            while (isActive && _isTracking.value) {
+                if (currentJornadaId.isNotEmpty()) {
+                    try {
+                        val pending = syncRepository.getPendingCount()
+                        if (pending > 0) {
+                            syncRepository.syncPendingBatch(100)
+                        }
+                    } catch (e: Throwable) {
+                        Log.w(TAG, "Sync en vivo en segundo plano postergado: ${e.message}")
+                    }
+                }
+                delay(12_000L)
+            }
+        }
     }
 
     private fun stopForegroundTracking() {
+        liveSyncJob?.cancel()
+        liveSyncJob = null
+
         try {
             fusedLocationClient.removeLocationUpdates(locationCallback)
         } catch (_: Exception) {
@@ -452,6 +483,10 @@ class LocationForegroundService : Service() {
                 lastPersistedLng == location.longitude
         if (isDuplicateBurst) return
 
+        val prevLat = lastPersistedLat
+        val prevLng = lastPersistedLng
+        val prevTimeMs = lastPersistedWallTimeMs
+
         lastPersistedWallTimeMs = nowWallMs
         lastPersistedLat = location.latitude
         lastPersistedLng = location.longitude
@@ -465,6 +500,22 @@ class LocationForegroundService : Service() {
 
         val safeTimestamp = if (location.time > 1_700_000_000_000L) location.time else nowWallMs
 
+        // Cálculo cinemático de velocidad real: usa sensor o deriva por distancia geodésica si el chip reporta 0
+        val rawSpeed = if (location.hasSpeed() && location.speed > 0f) location.speed else null
+        val calculatedSpeed = if (rawSpeed != null) {
+            rawSpeed
+        } else if (!prevLat.isNaN() && !prevLng.isNaN() && prevTimeMs > 0) {
+            val deltaSec = (nowWallMs - prevTimeMs) / 1000f
+            if (deltaSec in 2f..120f) {
+                val distArray = FloatArray(1)
+                Location.distanceBetween(prevLat, prevLng, location.latitude, location.longitude, distArray)
+                val distMeters = distArray[0]
+                if (distMeters in 2f..2000f) {
+                    distMeters / deltaSec
+                } else null
+            } else null
+        } else null
+
         serviceScope.launch {
             trackingRepository.recordLocation(
                 shiftId = activeShiftId,
@@ -472,15 +523,19 @@ class LocationForegroundService : Service() {
                 longitud = location.longitude,
                 precision = location.accuracy,
                 altitud = if (location.hasAltitude()) location.altitude else null,
-                velocidad = if (location.hasSpeed()) location.speed else null,
+                velocidad = calculatedSpeed,
                 bearing = if (location.hasBearing()) location.bearing else null,
                 timestamp = safeTimestamp,
                 isMock = securityAudit.isMock
             )
-            // Sincronizar después de persistir en Room para evitar condición de carrera
+            // Sincronización en caliente inmediata al persistir en Room
             try {
-                SyncScheduler.enqueueImmediateSync(applicationContext)
+                syncRepository.syncPendingBatch(100)
             } catch (_: Throwable) {
+                try {
+                    SyncScheduler.enqueueImmediateSync(applicationContext)
+                } catch (_: Throwable) {
+                }
             }
         }
     }

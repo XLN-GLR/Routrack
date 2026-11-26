@@ -79,7 +79,7 @@ object SyncScheduler {
 
         WorkManager.getInstance(context).enqueueUniqueWork(
             IMMEDIATE_SYNC_WORK_NAME,
-            ExistingWorkPolicy.REPLACE,
+            ExistingWorkPolicy.KEEP,
             immediateWorkRequest
         )
     }
