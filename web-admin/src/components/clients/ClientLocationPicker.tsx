@@ -291,7 +291,7 @@ export default function ClientLocationPicker({
       <div className="grid grid-cols-2 gap-3 pt-1">
         <div>
           <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
-            Latitud (WGS84)
+            Latitud GPS
           </label>
           <div className="relative">
             <input
@@ -313,7 +313,7 @@ export default function ClientLocationPicker({
 
         <div>
           <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
-            Longitud (WGS84)
+            Longitud GPS
           </label>
           <div className="relative">
             <input

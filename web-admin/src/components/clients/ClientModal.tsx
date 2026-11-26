@@ -316,7 +316,7 @@ export default function ClientModal({
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                 <MapPin className="h-3.5 w-3.5 text-blue-600" />
-                Ubicación Espacial y Geocerca (PostGIS WGS84)
+                Ubicación Geográfica y Geocerca Satelital
               </h3>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] text-slate-500 font-medium">Tolerancia:</span>

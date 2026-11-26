@@ -30,8 +30,16 @@ class ShiftRepositoryImpl(
         return jornadaDao.observeJornadaActiva().flowOn(ioDispatcher)
     }
 
+    override fun observeActiveShiftForSeller(sellerId: String): Flow<JornadaEntity?> {
+        return jornadaDao.observeJornadaActivaPorVendedor(sellerId).flowOn(ioDispatcher)
+    }
+
     override suspend fun getActiveShift(): JornadaEntity? = withContext(ioDispatcher) {
         jornadaDao.getJornadaActiva()
+    }
+
+    override suspend fun getActiveShiftForSeller(sellerId: String): JornadaEntity? = withContext(ioDispatcher) {
+        jornadaDao.getJornadaActivaPorVendedor(sellerId)
     }
 
     override suspend fun getShiftById(id: String): JornadaEntity? = withContext(ioDispatcher) {
@@ -40,10 +48,10 @@ class ShiftRepositoryImpl(
 
     override suspend fun startShift(sellerId: String): Result<JornadaEntity> = withContext(ioDispatcher) {
         try {
-            val activa = jornadaDao.getJornadaActiva()
+            val activa = jornadaDao.getJornadaActivaPorVendedor(sellerId)
             if (activa != null) {
                 return@withContext Result.failure(
-                    IllegalStateException("Ya existe una jornada activa en curso con id: ${activa.id}")
+                    IllegalStateException("Ya existe una jornada activa en curso para este usuario con id: ${activa.id}")
                 )
             }
 

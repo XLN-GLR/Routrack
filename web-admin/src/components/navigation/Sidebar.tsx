@@ -204,7 +204,7 @@ export function Sidebar({
                 <span className="font-semibold text-emerald-400">0 USD / mes</span>
               </div>
               <div className="flex items-center justify-between text-[11px] text-slate-500">
-                <span>Supabase + PostGIS</span>
+                <span>Infraestructura Cloud</span>
                 <span>v1.0.0</span>
               </div>
             </div>

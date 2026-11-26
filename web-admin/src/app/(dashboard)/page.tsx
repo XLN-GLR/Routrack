@@ -285,7 +285,7 @@ export default function DashboardHomePage() {
             </h1>
             <p className="mt-2 text-sm text-slate-300 leading-relaxed">
               Métricas consolidadas de cobertura comercial, kilómetros recorridos y
-              validación geodésica mediante PostGIS (ST_DWithin) a costo $0 USD.
+              validación automática de geocercas satelitales en tiempo real.
             </p>
           </div>
 
@@ -382,7 +382,7 @@ export default function DashboardHomePage() {
             </div>
             <h3 className="font-semibold text-slate-900">Histórico de Rutas</h3>
             <p className="text-xs text-slate-500 mt-1">
-              Polilíneas completas de jornada, análisis de kilometraje y detección espacial de desvíos en PostGIS.
+              Polilíneas completas de jornada, análisis de kilometraje y detección espacial de desvíos en ruta.
             </p>
           </Link>
 
@@ -430,7 +430,7 @@ export default function DashboardHomePage() {
             </div>
             <h3 className="font-semibold text-slate-900">Bitácora de Auditoría</h3>
             <p className="text-xs text-slate-500 mt-1">
-              Historial inmutable append-only de incidentes, apagados de GPS y verificación de cadena HMAC.
+              Historial inmutable de incidentes, apagados de GPS y verificación de sellos de seguridad.
             </p>
           </Link>
 

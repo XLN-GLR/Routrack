@@ -462,7 +462,7 @@ export default function VisitsPage() {
             Supervisión de Visitas y Acuerdos de Precios
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Audita en tiempo real las visitas en campo, verificación espacial de geocercas PostGIS (`ST_DWithin`) y precios pactados inmutables.
+            Audita en tiempo real las visitas en campo, verificación espacial de geocercas y acuerdos comerciales pactados.
           </p>
         </div>
 

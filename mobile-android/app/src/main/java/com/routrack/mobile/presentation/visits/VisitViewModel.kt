@@ -9,11 +9,13 @@ import com.empresa.routrack.data.repository.VisitRepository
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
@@ -241,6 +243,7 @@ class VisitViewModel(
     )
 
     private var loadedClients: List<AssignedClient> = defaultAssignedClients
+    private var timerJob: Job? = null
 
     private val _uiState = MutableStateFlow<VisitUiState>(
         VisitUiState.ClientList(clients = defaultAssignedClients)
@@ -249,7 +252,6 @@ class VisitViewModel(
 
     init {
         refreshVisitedStatus()
-        startElapsedTimer()
     }
 
     fun refreshClients() {
@@ -336,6 +338,7 @@ class VisitViewModel(
 
                 recordResult.fold(
                     onSuccess = { visita ->
+                        startElapsedTimer()
                         _uiState.value = VisitUiState.ActiveVisit(
                             visitId = visita.id,
                             shiftId = shiftId,
@@ -513,6 +516,8 @@ class VisitViewModel(
 
                 updateResult.fold(
                     onSuccess = {
+                        timerJob?.cancel()
+                        timerJob = null
                         _uiState.value = VisitUiState.Completed(
                             visitId = current.visitId,
                             clientName = current.client.nombre,
@@ -656,11 +661,17 @@ class VisitViewModel(
                     }
                     if (mapped.isNotEmpty()) {
                         loadedClients = mapped
-                        android.util.Log.i("VisitViewModel", "Sincronizados exitosamente ${mapped.size} clientes en vivo desde Supabase.")
+                        try {
+                            android.util.Log.i("VisitViewModel", "Sincronizados exitosamente ${mapped.size} clientes en vivo desde Supabase.")
+                        } catch (_: Throwable) {
+                        }
                     }
                 }
             } catch (t: Throwable) {
-                android.util.Log.w("VisitViewModel", "Aviso: no se pudo sincronizar clientes desde Supabase, usando catálogo local", t)
+                try {
+                    android.util.Log.w("VisitViewModel", "Aviso: no se pudo sincronizar clientes desde Supabase, usando catálogo local", t)
+                } catch (_: Throwable) {
+                }
             }
 
             // 2. Asociar visitas de la jornada actual
@@ -690,14 +701,25 @@ class VisitViewModel(
         }
     }
 
+    fun stopElapsedTimer() {
+        timerJob?.cancel()
+        timerJob = null
+    }
+
     private fun startElapsedTimer() {
-        viewModelScope.launch {
-            while (true) {
+        timerJob?.cancel()
+        timerJob = viewModelScope.launch {
+            while (isActive) {
                 delay(1000)
-                _uiState.update { current ->
-                    if (current is VisitUiState.ActiveVisit && !current.isCompleting) {
-                        current.copy(elapsedSeconds = current.elapsedSeconds + 1)
-                    } else current
+                val current = _uiState.value
+                if (current is VisitUiState.ActiveVisit && !current.isCompleting) {
+                    _uiState.update { state ->
+                        if (state is VisitUiState.ActiveVisit && !state.isCompleting) {
+                            state.copy(elapsedSeconds = state.elapsedSeconds + 1)
+                        } else state
+                    }
+                } else {
+                    break
                 }
             }
         }

@@ -126,6 +126,16 @@ class ShiftRepositoryTest {
 
         override fun observeJornadaActiva(): Flow<JornadaEntity?> = activeFlow.asStateFlow()
 
+        override suspend fun getJornadaActivaPorVendedor(vendedorId: String): JornadaEntity? =
+            list.firstOrNull { it.vendedorId == vendedorId && it.estado == JornadaEntity.ESTADO_EN_CURSO }
+
+        override fun observeJornadaActivaPorVendedor(vendedorId: String): Flow<JornadaEntity?> =
+            kotlinx.coroutines.flow.flow {
+                activeFlow.collect { j ->
+                    emit(if (j?.vendedorId == vendedorId) j else null)
+                }
+            }
+
         override suspend fun getJornadasPendientesSincronizacion(): List<JornadaEntity> =
             list.filter { !it.sincronizado }
 

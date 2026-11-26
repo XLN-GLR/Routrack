@@ -260,7 +260,7 @@ export default function VisitDetailModal({
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                 <MapPin className="h-3.5 w-3.5 text-blue-600" />
-                Auditoría Cartográfica de la Visita (PostGIS WGS84)
+                Ubicación y Geocerca de la Visita
               </h3>
               <span className="text-[11px] font-mono font-medium text-slate-600">
                 Distancia real: <strong>{visit.distancia_cliente_metros} m</strong> / Tolerancia:{" "}
@@ -418,7 +418,7 @@ export default function VisitDetailModal({
           <div className="rounded-xl border border-slate-200 bg-slate-900 p-3.5 text-white">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Firma Criptográfica HMAC-SHA256 Inmutable
+                Sello Digital de Seguridad (Inmutable)
               </span>
               <button
                 type="button"

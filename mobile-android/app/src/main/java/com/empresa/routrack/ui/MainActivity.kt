@@ -1,5 +1,8 @@
 package com.empresa.routrack.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -9,10 +12,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -20,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.empresa.routrack.data.repository.RepositoryProvider
 import com.empresa.routrack.data.repository.UserProfile
@@ -28,10 +34,15 @@ import com.empresa.routrack.ui.auth.LoginViewModel
 import com.empresa.routrack.ui.settings.AccessibilityPermissionScreen
 import com.empresa.routrack.ui.tracking.TrackingScreen
 import com.empresa.routrack.ui.tracking.TrackingViewModel
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.routrack.mobile.presentation.visits.HighAccuracyLocationProvider
 import com.routrack.mobile.presentation.visits.LocationResult
 import com.routrack.mobile.presentation.visits.VisitCheckInScreen
 import com.routrack.mobile.presentation.visits.VisitViewModel
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 /**
  * Actividad Principal de ROUTRACK Mobile.
@@ -54,8 +65,30 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     var activeProfile by remember { mutableStateOf<UserProfile?>(null) }
+                    var isCheckingSession by remember { mutableStateOf(true) }
 
-                    if (activeProfile == null) {
+                    LaunchedEffect(Unit) {
+                        try {
+                            val authRepo = RepositoryProvider.getAuthRepository(applicationContext)
+                            val cached = authRepo.getCachedProfile()
+                            if (cached != null) {
+                                activeProfile = cached
+                            }
+                        } catch (t: Throwable) {
+                            android.util.Log.e("MainActivity", "Error al restaurar sesión previa", t)
+                        } finally {
+                            isCheckingSession = false
+                        }
+                    }
+
+                    if (isCheckingSession) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    } else if (activeProfile == null) {
                         LoginScreen(
                             viewModel = loginViewModel,
                             onLoginSuccess = { profile ->
@@ -63,7 +96,12 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     } else {
-                        RoutrackHomeScaffold(profile = activeProfile!!)
+                        RoutrackHomeScaffold(
+                            profile = activeProfile!!,
+                            onLogout = {
+                                activeProfile = null
+                            }
+                        )
                     }
                 }
             }
@@ -79,7 +117,8 @@ private enum class MainScreen {
 
 @Composable
 fun RoutrackHomeScaffold(
-    profile: UserProfile
+    profile: UserProfile,
+    onLogout: () -> Unit
 ) {
     var currentScreen by remember { mutableStateOf(MainScreen.TRACKING) }
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -102,18 +141,141 @@ fun RoutrackHomeScaffold(
         }
     }
 
+    LaunchedEffect(profile.id) {
+        trackingViewModel?.configurarVendedor(profile.id)
+    }
+
+    val fusedLocationClient = remember {
+        LocationServices.getFusedLocationProviderClient(context)
+    }
+
     val visitViewModel: VisitViewModel? = remember {
         try {
             if (appContext != null && trackingViewModel != null) {
                 val visitRepo = RepositoryProvider.getVisitRepository(appContext)
                 val shiftRepo = RepositoryProvider.getShiftRepository(appContext)
                 val locationProvider = HighAccuracyLocationProvider {
-                    val s = trackingViewModel.uiState.value
-                    LocationResult(
-                        latitude = s.ultimaLatitud ?: -0.190123,
-                        longitude = s.ultimaLongitud ?: -78.487654,
-                        accuracyMeters = s.ultimaPrecision ?: 15f
-                    )
+                    suspendCancellableCoroutine { continuation ->
+                        try {
+                            val fineGranted = ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.ACCESS_FINE_LOCATION
+                            ) == PackageManager.PERMISSION_GRANTED
+                            val coarseGranted = ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            ) == PackageManager.PERMISSION_GRANTED
+
+                            if (!fineGranted && !coarseGranted) {
+                                val s = trackingViewModel.uiState.value
+                                continuation.resume(
+                                    LocationResult(
+                                        latitude = s.ultimaLatitud ?: 0.0,
+                                        longitude = s.ultimaLongitud ?: 0.0,
+                                        accuracyMeters = s.ultimaPrecision ?: 100f
+                                    )
+                                )
+                                return@suspendCancellableCoroutine
+                            }
+
+                            val priority = if (fineGranted) {
+                                Priority.PRIORITY_HIGH_ACCURACY
+                            } else {
+                                Priority.PRIORITY_BALANCED_POWER_ACCURACY
+                            }
+
+                            val cts = CancellationTokenSource()
+                            fusedLocationClient.getCurrentLocation(priority, cts.token)
+                                .addOnSuccessListener { loc ->
+                                    if (loc != null) {
+                                        continuation.resume(
+                                            LocationResult(
+                                                latitude = loc.latitude,
+                                                longitude = loc.longitude,
+                                                accuracyMeters = loc.accuracy,
+                                                isMock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) loc.isMock else false
+                                            )
+                                        )
+                                    } else {
+                                        fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
+                                            if (lastLoc != null) {
+                                                continuation.resume(
+                                                    LocationResult(
+                                                        latitude = lastLoc.latitude,
+                                                        longitude = lastLoc.longitude,
+                                                        accuracyMeters = lastLoc.accuracy,
+                                                        isMock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) lastLoc.isMock else false
+                                                    )
+                                                )
+                                            } else {
+                                                val s = trackingViewModel.uiState.value
+                                                continuation.resume(
+                                                    LocationResult(
+                                                        latitude = s.ultimaLatitud ?: 0.0,
+                                                        longitude = s.ultimaLongitud ?: 0.0,
+                                                        accuracyMeters = s.ultimaPrecision ?: 50f
+                                                    )
+                                                )
+                                            }
+                                        }.addOnFailureListener {
+                                            val s = trackingViewModel.uiState.value
+                                            continuation.resume(
+                                                LocationResult(
+                                                    latitude = s.ultimaLatitud ?: 0.0,
+                                                    longitude = s.ultimaLongitud ?: 0.0,
+                                                    accuracyMeters = s.ultimaPrecision ?: 50f
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+                                .addOnFailureListener {
+                                    fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
+                                        if (lastLoc != null) {
+                                            continuation.resume(
+                                                LocationResult(
+                                                    latitude = lastLoc.latitude,
+                                                    longitude = lastLoc.longitude,
+                                                    accuracyMeters = lastLoc.accuracy,
+                                                    isMock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) lastLoc.isMock else false
+                                                )
+                                            )
+                                        } else {
+                                            val s = trackingViewModel.uiState.value
+                                            continuation.resume(
+                                                LocationResult(
+                                                    latitude = s.ultimaLatitud ?: 0.0,
+                                                    longitude = s.ultimaLongitud ?: 0.0,
+                                                    accuracyMeters = s.ultimaPrecision ?: 50f
+                                                )
+                                            )
+                                        }
+                                    }.addOnFailureListener {
+                                        val s = trackingViewModel.uiState.value
+                                        continuation.resume(
+                                            LocationResult(
+                                                latitude = s.ultimaLatitud ?: 0.0,
+                                                longitude = s.ultimaLongitud ?: 0.0,
+                                                accuracyMeters = s.ultimaPrecision ?: 50f
+                                            )
+                                        )
+                                    }
+                                }
+
+                            continuation.invokeOnCancellation {
+                                cts.cancel()
+                            }
+                        } catch (e: Exception) {
+                            val s = trackingViewModel.uiState.value
+                            continuation.resume(
+                                LocationResult(
+                                    latitude = s.ultimaLatitud ?: 0.0,
+                                    longitude = s.ultimaLongitud ?: 0.0,
+                                    accuracyMeters = s.ultimaPrecision ?: 50f
+                                )
+                            )
+                        }
+                    }
                 }
                 VisitViewModel(
                     visitRepository = visitRepo,
@@ -166,7 +328,8 @@ fun RoutrackHomeScaffold(
                 },
                 onNavigateToVisits = {
                     currentScreen = MainScreen.VISITS
-                }
+                },
+                onLogout = onLogout
             )
         }
         MainScreen.VISITS -> {

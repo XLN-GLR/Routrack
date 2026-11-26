@@ -299,8 +299,8 @@ export function PerformanceChart({
       <div className="flex items-center gap-2 pt-2 border-t border-slate-100 text-[11px] text-slate-500">
         <Info className="h-3.5 w-3.5 text-blue-500 shrink-0" />
         <span>
-          Las visitas se categorizan de forma automática en el motor PostGIS
-          mediante la función <code>ST_DWithin(cliente.ubicacion, checkin.ubicacion, radio)</code>.
+          Las visitas se categorizan de forma automática en el sistema
+          mediante la verificación del radio de cobertura satelital en el momento del check-in.
         </span>
       </div>
     </div>

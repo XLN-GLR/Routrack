@@ -56,6 +56,7 @@ interface AuthRepository {
     suspend fun getCurrentSession(): UserSession?
     suspend fun getUserProfile(userId: String): Result<UserProfile?>
     suspend fun getCachedOrganizationId(): String? = null
+    suspend fun getCachedProfile(): UserProfile? = null
 }
 
 /**
@@ -73,6 +74,7 @@ class AuthRepositoryImpl @JvmOverloads constructor(
         private const val KEY_ORG_ID = "org_id"
         private const val KEY_ROLE = "role"
         private const val KEY_EMAIL = "email"
+        private const val KEY_NAME = "name"
         private const val KEY_REFRESH_TOKEN_ENC = "rt_enc"
         const val DEFAULT_SEED_ORG_ID = "11111111-1111-4111-8111-111111111111"
     }
@@ -224,6 +226,22 @@ class AuthRepositoryImpl @JvmOverloads constructor(
         return readPlainPref(KEY_ORG_ID)
     }
 
+    override suspend fun getCachedProfile(): UserProfile? {
+        val userId = readPlainPref(KEY_USER_ID) ?: return null
+        val orgId = readPlainPref(KEY_ORG_ID) ?: DEFAULT_SEED_ORG_ID
+        val role = readPlainPref(KEY_ROLE) ?: "VENDEDOR"
+        val email = readPlainPref(KEY_EMAIL) ?: ""
+        val name = readPlainPref(KEY_NAME) ?: if (email.isNotBlank()) email else "Vendedor"
+        return UserProfile(
+            id = userId,
+            organizacionId = orgId,
+            rol = role,
+            nombreCompleto = name,
+            email = email,
+            activo = true
+        )
+    }
+
     private val resolvedContext: Context?
         get() = (context ?: RepositoryProvider.getAppContext())?.applicationContext
 
@@ -236,6 +254,7 @@ class AuthRepositoryImpl @JvmOverloads constructor(
                 .putString(KEY_ORG_ID, profile.organizacionId)
                 .putString(KEY_ROLE, profile.rol)
                 .putString(KEY_EMAIL, profile.email)
+                .putString(KEY_NAME, profile.nombreCompleto)
                 .apply()
 
             if (!refreshToken.isNullOrBlank()) {

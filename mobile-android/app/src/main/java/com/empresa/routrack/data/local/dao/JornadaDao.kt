@@ -29,6 +29,12 @@ interface JornadaDao {
     @Query("SELECT * FROM jornadas WHERE estado = 'EN_CURSO' ORDER BY fecha DESC, horaInicio DESC LIMIT 1")
     fun observeJornadaActiva(): Flow<JornadaEntity?>
 
+    @Query("SELECT * FROM jornadas WHERE vendedorId = :vendedorId AND estado = 'EN_CURSO' ORDER BY fecha DESC, horaInicio DESC LIMIT 1")
+    suspend fun getJornadaActivaPorVendedor(vendedorId: String): JornadaEntity?
+
+    @Query("SELECT * FROM jornadas WHERE vendedorId = :vendedorId AND estado = 'EN_CURSO' ORDER BY fecha DESC, horaInicio DESC LIMIT 1")
+    fun observeJornadaActivaPorVendedor(vendedorId: String): Flow<JornadaEntity?>
+
     @Query("SELECT * FROM jornadas WHERE sincronizado = 0 ORDER BY fecha ASC")
     suspend fun getJornadasPendientesSincronizacion(): List<JornadaEntity>
 

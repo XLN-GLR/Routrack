@@ -450,13 +450,13 @@ export default function ClientsPage() {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-600">
             <MapPin className="h-4 w-4" />
-            <span>Puntos de Venta y Geocercas PostGIS</span>
+            <span>Puntos de Venta y Geocercas</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 mt-1">
             Gestión y Georreferenciación de Clientes
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Administra el catálogo de clientes comerciales, coordenadas exactas WGS84 y radios de tolerancia para validación de visitas presenciales.
+            Administra el catálogo de clientes comerciales, coordenadas GPS exactas y radios de tolerancia para validación de visitas presenciales.
           </p>
         </div>
 
@@ -516,7 +516,7 @@ export default function ClientsPage() {
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-bold text-indigo-600">{stats.avgRadius} m</span>
-            <span className="text-[11px] text-slate-400 font-medium">tolerancia ST_DWithin</span>
+            <span className="text-[11px] text-slate-400 font-medium">radio de cobertura</span>
           </div>
         </div>
       </div>
@@ -559,7 +559,7 @@ export default function ClientsPage() {
                 <th scope="col" className="px-4 py-3">Cliente / Razón Social</th>
                 <th scope="col" className="px-4 py-3">RUC / Cédula</th>
                 <th scope="col" className="px-4 py-3">Dirección Física</th>
-                <th scope="col" className="px-4 py-3">Coordenadas WGS84</th>
+                <th scope="col" className="px-4 py-3">Coordenadas GPS</th>
                 <th scope="col" className="px-4 py-3 text-center">Geocerca</th>
                 <th scope="col" className="px-4 py-3 text-center">Estado</th>
                 <th scope="col" className="px-4 py-3 text-right">Acciones</th>

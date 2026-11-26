@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -87,12 +88,14 @@ fun TrackingScreen(
     nombreVendedor: String = "Vendedor",
     onNavigateToAccessibility: (() -> Unit)? = null,
     onNavigateToVisits: (() -> Unit)? = null,
+    onLogout: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollState = rememberScrollState()
+    var showLogoutDialog by remember { mutableStateOf(false) }
 
     var fineLocationGranted by remember {
         mutableStateOf(
@@ -217,6 +220,15 @@ fun TrackingScreen(
                                 imageVector = Icons.Default.Settings,
                                 contentDescription = "Configuración de Accesibilidad y Monitoreo",
                                 tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    if (onLogout != null) {
+                        IconButton(onClick = { showLogoutDialog = true }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                                contentDescription = "Cerrar Sesión",
+                                tint = MaterialTheme.colorScheme.error
                             )
                         }
                     }
@@ -361,7 +373,7 @@ fun TrackingScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     val detalleEstado = if (uiState.isTrackingActive) {
-                        "Monitoreo en segundo plano activo con notificación visible. Los puntos capturados se protegen con cifrado local AES-256."
+                        "Monitoreo en segundo plano activo con notificación visible. Los puntos capturados se resguardan de forma segura en el dispositivo."
                     } else {
                         "Jornada laboral detenida. El servicio de ubicación no realiza ningún registro fuera del turno activo."
                     }
@@ -403,7 +415,7 @@ fun TrackingScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Telemetría Local (Room + HMAC)",
+                        text = "Telemetría de Ruta en Vivo",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -418,7 +430,7 @@ fun TrackingScreen(
                     ) {
                         Column {
                             Text(
-                                text = "Puntos Locales Almacenados",
+                                text = "Puntos de recorrido registrados",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -437,7 +449,7 @@ fun TrackingScreen(
                             )
                         ) {
                             Text(
-                                text = "HMAC Encadenado",
+                                text = "Registro Protegido",
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -661,6 +673,42 @@ fun TrackingScreen(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+        }
+
+        if (showLogoutDialog) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showLogoutDialog = false },
+                title = {
+                    Text(text = "Cerrar Sesión", fontWeight = FontWeight.Bold)
+                },
+                text = {
+                    Text(
+                        text = if (uiState.isTrackingActive) {
+                            "Tienes una jornada activa en curso. Al cerrar sesión se detendrá el rastreo de ruta en este dispositivo. ¿Deseas continuar?"
+                        } else {
+                            "¿Estás seguro de que deseas cerrar tu sesión en este dispositivo?"
+                        }
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showLogoutDialog = false
+                            viewModel.cerrarSesion {
+                                onLogout?.invoke()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Cerrar Sesión")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showLogoutDialog = false }) {
+                        Text("Cancelar")
+                    }
+                }
             )
         }
     }

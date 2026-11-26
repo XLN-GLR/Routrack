@@ -508,9 +508,8 @@ export default function AuditPage() {
         <div className="flex items-center gap-2 text-purple-900">
           <Info className="h-4 w-4 text-purple-600 shrink-0" />
           <span>
-            <strong>Garantía de Inmutabilidad LOPDP:</strong> Cada evento
-            contiene la firma criptográfica Hash_n = HMAC(Payload_n || Hash_n-1, K).
-            La base de datos rechaza inserciones con hashes discrepantes.
+            <strong>Garantía de Seguridad e Inmutabilidad LOPDP:</strong> Cada evento
+            contiene un sello digital encadenado. El servidor rechaza cualquier inserción o intento de alteración de registros.
           </span>
         </div>
 

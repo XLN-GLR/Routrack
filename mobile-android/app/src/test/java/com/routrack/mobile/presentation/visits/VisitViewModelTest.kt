@@ -171,7 +171,7 @@ class VisitViewModelTest {
         val vm = createViewModel()
         // El fake provider está a ~2m del cliente (tolerancia es 50m)
         vm.performCheckIn(testClient)
-        testDispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.runCurrent()
 
         val state = vm.uiState.value
         assertTrue(state is VisitUiState.ActiveVisit)
@@ -179,6 +179,7 @@ class VisitViewModelTest {
         assertEquals(VisitaEntity.ESTADO_VERIFICADA, active.geofenceStatus)
         assertTrue(active.isVerifiedGeofence)
         assertTrue(active.distanceToClientMeters <= testClient.radioToleranciaMetros)
+        vm.stopElapsedTimer()
     }
 
     @Test
@@ -189,7 +190,7 @@ class VisitViewModelTest {
 
         val vm = createViewModel()
         vm.performCheckIn(testClient)
-        testDispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.runCurrent()
 
         val state = vm.uiState.value
         assertTrue(state is VisitUiState.ActiveVisit)
@@ -197,6 +198,7 @@ class VisitViewModelTest {
         assertEquals(VisitaEntity.ESTADO_FUERA_DE_RANGO, active.geofenceStatus)
         assertFalse(active.isVerifiedGeofence)
         assertTrue(active.distanceToClientMeters > testClient.radioToleranciaMetros)
+        vm.stopElapsedTimer()
     }
 
     // -------------------------------------------------------------------------
@@ -207,7 +209,7 @@ class VisitViewModelTest {
     fun `performCheckIn persiste inmediatamente en Room con sincronizado false`() = runTest(testDispatcher) {
         val vm = createViewModel()
         vm.performCheckIn(testClient)
-        testDispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.runCurrent()
 
         val savedVisits = fakeVisitRepository.savedVisits
         assertEquals(1, savedVisits.size)
@@ -217,13 +219,14 @@ class VisitViewModelTest {
         assertEquals(testClient.id, visita.clienteId)
         assertEquals("seller-test-456", visita.vendedorId)
         assertFalse("El registro debe persistirse con sincronizado = false (PENDING)", visita.sincronizado)
+        vm.stopElapsedTimer()
     }
 
     @Test
     fun `performCheckOut consolida acuerdos y persiste en Room conservando sincronizado false`() = runTest(testDispatcher) {
         val vm = createViewModel()
         vm.performCheckIn(testClient)
-        testDispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.runCurrent()
 
         // Agregar dos acuerdos comerciales
         vm.addCommercialAgreement("Aceite 1L", 10, 2.50, 0.0) // 25.0
@@ -233,7 +236,7 @@ class VisitViewModelTest {
 
         // Finalizar visita
         vm.performCheckOut()
-        testDispatcher.scheduler.advanceUntilIdle()
+        testDispatcher.scheduler.runCurrent()
 
         val state = vm.uiState.value
         assertTrue(state is VisitUiState.Completed)
@@ -253,6 +256,7 @@ class VisitViewModelTest {
         assertEquals(2, json.getJSONArray("agreements").length())
         assertEquals(52.0, json.getDouble("total_amount"), 0.01)
         assertEquals("2026-11-15", json.getString("promised_delivery_date"))
+        vm.stopElapsedTimer()
     }
 }
 
@@ -361,7 +365,11 @@ class FakeShiftRepository : ShiftRepository {
     )
 
     override fun observeActiveShift(): Flow<JornadaEntity?> = flowOf(activeShift)
+    override fun observeActiveShiftForSeller(sellerId: String): Flow<JornadaEntity?> =
+        flowOf(if (activeShift?.vendedorId == sellerId) activeShift else null)
     override suspend fun getActiveShift(): JornadaEntity? = activeShift
+    override suspend fun getActiveShiftForSeller(sellerId: String): JornadaEntity? =
+        if (activeShift?.vendedorId == sellerId) activeShift else null
     override suspend fun getShiftById(id: String): JornadaEntity? = if (activeShift?.id == id) activeShift else null
     override suspend fun startShift(sellerId: String): Result<JornadaEntity> = Result.success(activeShift!!)
     override suspend fun endShift(shiftId: String, totalPoints: Int): Result<JornadaEntity> = Result.success(activeShift!!)

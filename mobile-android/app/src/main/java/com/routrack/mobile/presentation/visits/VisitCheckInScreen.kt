@@ -230,7 +230,7 @@ private fun ClientListContent(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
-                            contentDescription = "Sincronizar clientes desde Supabase",
+                            contentDescription = "Actualizar cartera de clientes",
                             tint = Color(0xFF1D4ED8),
                             modifier = Modifier.size(18.dp)
                         )
@@ -758,7 +758,7 @@ private fun ActiveVisitContent(
                     strokeWidth = 2.dp
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "Finalizando y Guardando en Room...", fontWeight = FontWeight.Bold)
+                Text(text = "Finalizando y Guardando registro...", fontWeight = FontWeight.Bold)
             } else {
                 Icon(Icons.Default.Check, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
@@ -1100,7 +1100,7 @@ private fun CompletedVisitContent(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "Guardado localmente en SQLite Room con estado PENDING. Se sincronizará automáticamente al detectar conexión.",
+                        text = "Guardado en el dispositivo (pendiente de sincronización). Se enviará automáticamente al detectar conexión con el servidor.",
                         style = MaterialTheme.typography.labelSmall,
                         color = Color(0xFF475569),
                         modifier = Modifier.padding(10.dp),

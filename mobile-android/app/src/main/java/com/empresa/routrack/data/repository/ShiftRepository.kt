@@ -17,9 +17,19 @@ interface ShiftRepository {
     fun observeActiveShift(): Flow<JornadaEntity?>
 
     /**
+     * Emite reactivamente la jornada laboral activa en curso del vendedor especificado.
+     */
+    fun observeActiveShiftForSeller(sellerId: String): Flow<JornadaEntity?>
+
+    /**
      * Consulta síncrona/suspendida de la jornada laboral actualmente en curso.
      */
     suspend fun getActiveShift(): JornadaEntity?
+
+    /**
+     * Consulta síncrona/suspendida de la jornada laboral activa del vendedor especificado.
+     */
+    suspend fun getActiveShiftForSeller(sellerId: String): JornadaEntity?
 
     /**
      * Consulta una jornada laboral por su identificador único.

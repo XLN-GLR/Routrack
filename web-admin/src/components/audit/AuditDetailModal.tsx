@@ -287,7 +287,7 @@ export function AuditDetailModal({
                   </p>
                 </div>
               </div>
-              <span className="text-[11px] text-slate-500">SRID: 4326 (WGS84)</span>
+              <span className="text-[11px] text-slate-500">Estándar Satelital GPS</span>
             </div>
           )}
 

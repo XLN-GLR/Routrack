@@ -267,8 +267,8 @@ export default function VisitTable({
           <span>
             Mostrando <strong>{filteredVisits.length}</strong> de <strong>{visits.length}</strong> visitas registradas
           </span>
-          <span className="text-[11px] text-slate-400 font-mono">
-            PostGIS ST_DWithin &bull; Tolerancia elipsoidal WGS84
+          <span className="text-[11px] text-slate-400 font-medium">
+            Validación de Geocerca Satelital en Tiempo Real
           </span>
         </div>
       </div>
