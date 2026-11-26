@@ -33,7 +33,7 @@ import {
   INITIAL_LIVE_SELLERS,
 } from "@/types/seller";
 import { createClient } from "@/lib/supabase/client";
-import { parsePostgisPoint } from "@/lib/geo/spatial";
+import { parsePostgisPoint, smoothRoutePolyline } from "@/lib/geo/spatial";
 
 export default function LiveMonitoringPage() {
   const [sellers, setSellers] = useState<SellerLiveState[]>(INITIAL_LIVE_SELLERS);
@@ -56,18 +56,21 @@ export default function LiveMonitoringPage() {
       const supabase = createClient();
       const { data: jornadas, error: jornadasError } = await supabase
         .from("jornadas_laborales")
-        .select("id, vendedor_id, estado, fecha_inicio, bateria_inicio, ubicacion_inicio")
-        .in("estado", ["OPEN", "EN_CURSO"])
-        .order("fecha_inicio", { ascending: false });
+        .select("id, vendedor_id, estado, fecha_inicio, fecha_fin, bateria_inicio, bateria_fin, ubicacion_inicio, ubicacion_fin")
+        .order("fecha_inicio", { ascending: false })
+        .limit(50);
 
       if (jornadasError || !jornadas) {
         return;
       }
 
-      // Si un vendedor tiene más de una jornada en estado abierto, tomar la más reciente
+      // Desduplicar por vendedor: priorizar jornada abierta ('OPEN' o 'EN_CURSO') si existe, sino la más reciente
       const latestJornadaBySeller = new Map<string, (typeof jornadas)[0]>();
       for (const j of jornadas) {
-        if (!latestJornadaBySeller.has(j.vendedor_id)) {
+        const existing = latestJornadaBySeller.get(j.vendedor_id);
+        if (!existing) {
+          latestJornadaBySeller.set(j.vendedor_id, j);
+        } else if (existing.estado === "CLOSED" && (j.estado === "OPEN" || j.estado === "EN_CURSO")) {
           latestJornadaBySeller.set(j.vendedor_id, j);
         }
       }
@@ -102,39 +105,50 @@ export default function LiveMonitoringPage() {
       const nextStartTimes: Record<string, string> = {};
 
       const realSellers: SellerLiveState[] = jornadasFiltradas.map((j) => {
+        const isClosed = j.estado === "CLOSED";
         const perfil = perfiles?.find((p) => p.id === j.vendedor_id);
         const puntosJornada = (puntos || []).filter((pt) => pt.jornada_id === j.id);
         const routeCoords: LatLngTuple[] = [];
 
-        const originParsed = parsePostgisPoint(j.ubicacion_inicio);
-        for (const pt of puntosJornada) {
-          const parsed = parsePostgisPoint(pt.ubicacion);
-          if (parsed) {
-            routeCoords.push(parsed);
+        // Solo si la jornada está ACTIVA (OPEN) mostramos la polilínea del trayecto
+        if (!isClosed) {
+          const originParsed = parsePostgisPoint(j.ubicacion_inicio);
+          for (const pt of puntosJornada) {
+            const parsed = parsePostgisPoint(pt.ubicacion);
+            if (parsed) {
+              routeCoords.push(parsed);
+            }
           }
-        }
-        if (routeCoords.length === 0 && originParsed) {
-          routeCoords.push(originParsed);
+          if (routeCoords.length === 0 && originParsed) {
+            routeCoords.push(originParsed);
+          }
+          // Suavizado estético de curva con algoritmo de Chaikin para eliminar zigzags bruscos
+          nextRoutes[j.id] = smoothRoutePolyline(routeCoords, 2);
+        } else {
+          // Si la jornada FINALIZÓ, la polilínea del trayecto anterior se oculta para dejar el mapa limpio
+          nextRoutes[j.id] = [];
         }
 
-        nextRoutes[j.id] = routeCoords;
         nextStartTimes[j.id] = j.fecha_inicio
           ? new Date(j.fecha_inicio).toLocaleTimeString("es-EC", { hour: "2-digit", minute: "2-digit" })
           : "Inicio";
 
         const ultPunto = puntosJornada.length > 0 ? puntosJornada[puntosJornada.length - 1] : null;
         const coords =
+          (isClosed ? parsePostgisPoint(j.ubicacion_fin) : null) ||
           parsePostgisPoint(ultPunto?.ubicacion) ||
-          originParsed ||
+          parsePostgisPoint(j.ubicacion_inicio) ||
           [-0.180653, -78.467834];
 
-        const speedKmh = ultPunto?.velocidad_ms ? Number((ultPunto.velocidad_ms * 3.6).toFixed(1)) : 0;
+        const speedKmh = isClosed ? 0 : (ultPunto?.velocidad_ms ? Number((ultPunto.velocidad_ms * 3.6).toFixed(1)) : 0);
         const isMock = ultPunto?.es_simulado ?? false;
-        const lastTimeStr = ultPunto?.registrado_en || j.fecha_inicio || new Date().toISOString();
+        const lastTimeStr = isClosed && j.fecha_fin ? j.fecha_fin : (ultPunto?.registrado_en || j.fecha_inicio || new Date().toISOString());
         const minutesSinceReport = (Date.now() - new Date(lastTimeStr).getTime()) / 60000;
 
         let status: SellerOperationalStatus = "DETENIDO";
-        if (isMock) {
+        if (isClosed) {
+          status = "SIN_CONEXION";
+        } else if (isMock) {
           status = "DESVIACION";
         } else if (minutesSinceReport > 15) {
           status = "SIN_CONEXION";
@@ -155,10 +169,11 @@ export default function LiveMonitoringPage() {
           accuracyMeters: ultPunto?.precision_metros ? Number(ultPunto.precision_metros.toFixed(1)) : 8.0,
           speedKmh,
           bearingDegrees: ultPunto?.orientacion_grados || 0,
-          batteryLevel: ultPunto?.nivel_bateria ?? j.bateria_inicio ?? 100,
+          batteryLevel: ultPunto?.nivel_bateria ?? (isClosed ? j.bateria_fin : j.bateria_inicio) ?? 100,
           isMock,
           status,
           lastReportTime: lastTimeStr,
+          deviationReason: isClosed ? "Jornada Concluida" : undefined,
         };
       });
 
@@ -657,13 +672,19 @@ export default function LiveMonitoringPage() {
                           <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
                             <span
                               className="inline-block h-1.5 w-1.5 rounded-full"
-                              style={{ backgroundColor: config.colorHex }}
+                              style={{ backgroundColor: seller.deviationReason === "Jornada Concluida" ? "#64748B" : config.colorHex }}
                             />
-                            <span className="truncate">{config.label}</span>
-                            <span>•</span>
-                            <span className="font-mono text-slate-700">
-                              {seller.speedKmh.toFixed(0)} km/h
+                            <span className="truncate">
+                              {seller.deviationReason === "Jornada Concluida" ? "Jornada Concluida" : config.label}
                             </span>
+                            {seller.deviationReason !== "Jornada Concluida" && (
+                              <>
+                                <span>•</span>
+                                <span className="font-mono text-slate-700">
+                                  {seller.speedKmh.toFixed(0)} km/h
+                                </span>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>

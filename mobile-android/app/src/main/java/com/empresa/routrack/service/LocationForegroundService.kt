@@ -475,6 +475,11 @@ class LocationForegroundService : Service() {
         val providerLabel = location.provider ?: "Fused"
         _locationDiagnostic.value = "Señal adquirida vía $providerLabel (±${location.accuracy.toInt()} m)"
 
+        // Descartar lecturas con precisión sumamente degradada si ya tenemos posición previa confiable
+        if (location.accuracy > 35.0f && !lastPersistedLat.isNaN() && !lastPersistedLng.isNaN()) {
+            return
+        }
+
         // Deduplicación anti-rebote para evitar duplicados simultáneos entre Fused y LocationManager
         val nowWallMs = System.currentTimeMillis()
         val isDuplicateBurst =
@@ -487,9 +492,32 @@ class LocationForegroundService : Service() {
         val prevLng = lastPersistedLng
         val prevTimeMs = lastPersistedWallTimeMs
 
+        // Filtro cinemático de suavizado (EMA) para amortiguar ruido de satélites en calles y evitar zigzags
+        var targetLat = location.latitude
+        var targetLng = location.longitude
+        var distMeters = 0f
+
+        if (!prevLat.isNaN() && !prevLng.isNaN() && prevTimeMs > 0) {
+            val distArray = FloatArray(1)
+            Location.distanceBetween(prevLat, prevLng, location.latitude, location.longitude, distArray)
+            distMeters = distArray[0]
+
+            // Si el movimiento es menor a 2.5 metros, se considera ruido estático del GPS
+            if (distMeters < 2.5f && (nowWallMs - prevTimeMs) < 15_000L) {
+                return
+            }
+
+            // Suavizado cinemático para trayectos peatonales (entre 2.5m y 40m)
+            if (distMeters in 2.5f..40.0f) {
+                val alpha = if (location.accuracy <= 10.0f) 0.80 else 0.65
+                targetLat = prevLat + (location.latitude - prevLat) * alpha
+                targetLng = prevLng + (location.longitude - prevLng) * alpha
+            }
+        }
+
         lastPersistedWallTimeMs = nowWallMs
-        lastPersistedLat = location.latitude
-        lastPersistedLng = location.longitude
+        lastPersistedLat = targetLat
+        lastPersistedLng = targetLng
 
         val securityAudit = AntiTamperingManager.inspectAndAuditLocation(
             location = location,
@@ -506,21 +534,16 @@ class LocationForegroundService : Service() {
             rawSpeed
         } else if (!prevLat.isNaN() && !prevLng.isNaN() && prevTimeMs > 0) {
             val deltaSec = (nowWallMs - prevTimeMs) / 1000f
-            if (deltaSec in 2f..120f) {
-                val distArray = FloatArray(1)
-                Location.distanceBetween(prevLat, prevLng, location.latitude, location.longitude, distArray)
-                val distMeters = distArray[0]
-                if (distMeters in 2f..2000f) {
-                    distMeters / deltaSec
-                } else null
+            if (deltaSec in 2f..120f && distMeters in 2f..2000f) {
+                distMeters / deltaSec
             } else null
         } else null
 
         serviceScope.launch {
             trackingRepository.recordLocation(
                 shiftId = activeShiftId,
-                latitud = location.latitude,
-                longitud = location.longitude,
+                latitud = targetLat,
+                longitud = targetLng,
                 precision = location.accuracy,
                 altitud = if (location.hasAltitude()) location.altitude else null,
                 velocidad = calculatedSpeed,

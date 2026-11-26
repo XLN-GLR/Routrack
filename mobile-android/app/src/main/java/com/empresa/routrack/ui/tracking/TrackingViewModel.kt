@@ -2,7 +2,12 @@ package com.empresa.routrack.ui.tracking
 
 import android.Manifest
 import android.app.Application
+import android.content.Context
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -36,6 +41,7 @@ data class TrackingUiState(
     val pendingSyncCount: Int = 0,
     val syncStatusMessage: String? = null,
     val isSyncing: Boolean = false,
+    val isOnline: Boolean = true,
     val isLoading: Boolean = false,
     val mensajeFeedback: String? = null
 )
@@ -59,6 +65,8 @@ class TrackingViewModel @JvmOverloads constructor(
 
     private var telemetryJob: Job? = null
     private var observedJornadaId: String? = null
+    private val connectivityManager = application.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     private val trackingExceptionHandler = CoroutineExceptionHandler { _, throwable ->
         android.util.Log.e("TrackingViewModel", "Excepción no capturada en corrutina de telemetría", throwable)
@@ -67,6 +75,7 @@ class TrackingViewModel @JvmOverloads constructor(
     init {
         observarJornadaYTelemetria()
         refrescarPendientesSincronizacion()
+        iniciarMonitorConectividad()
     }
 
     private fun hasLocationPermission(): Boolean {
@@ -374,6 +383,62 @@ class TrackingViewModel @JvmOverloads constructor(
             try {
                 val count = syncRepository.getPendingCount()
                 _uiState.update { it.copy(pendingSyncCount = count) }
+            } catch (_: Throwable) {
+            }
+        }
+    }
+
+    private fun iniciarMonitorConectividad() {
+        val cm = connectivityManager ?: return
+        val request = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                viewModelScope.launch {
+                    val wasOffline = !_uiState.value.isOnline
+                    val pendingCount = syncRepository.getPendingCount()
+                    _uiState.update { it.copy(isOnline = true) }
+
+                    if (wasOffline || pendingCount > 0) {
+                        _uiState.update {
+                            it.copy(
+                                syncStatusMessage = "Conexión restablecida. Sincronizando datos...",
+                                mensajeFeedback = "Conexión a internet restablecida. Sincronizando datos de la jornada acumulados offline..."
+                            )
+                        }
+                        ejecutarSincronizacionInmediata(silencioso = false)
+                    }
+                }
+            }
+
+            override fun onLost(network: Network) {
+                viewModelScope.launch {
+                    _uiState.update {
+                        it.copy(
+                            isOnline = false,
+                            syncStatusMessage = "Modo fuera de línea: Guardando en dispositivo",
+                            mensajeFeedback = "Sin conexión a internet. Los datos de la jornada se guardan de forma segura localmente."
+                        )
+                    }
+                }
+            }
+        }
+
+        networkCallback = callback
+        try {
+            cm.registerNetworkCallback(request, callback)
+        } catch (t: Throwable) {
+            android.util.Log.w("TrackingViewModel", "No se pudo registrar NetworkCallback: ${t.localizedMessage}")
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        networkCallback?.let { cb ->
+            try {
+                connectivityManager?.unregisterNetworkCallback(cb)
             } catch (_: Throwable) {
             }
         }
