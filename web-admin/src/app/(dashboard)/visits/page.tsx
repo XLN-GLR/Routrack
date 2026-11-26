@@ -12,7 +12,8 @@ import {
   ShieldCheck,
   Calendar,
 } from "lucide-react";
-import type { VisitRecord, VisitFilters, VisitKpis } from "@/types/visit";
+import type { VisitRecord, VisitFilters, VisitKpis, VisitAgreementsPayload } from "@/types/visit";
+import { parseWKTPoint, parseEwkbHexPoint } from "@/types/client";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 import VisitTable from "@/components/visits/VisitTable";
 import VisitDetailModal from "@/components/visits/VisitDetailModal";
@@ -258,6 +259,46 @@ function VisitsErrorState({
   );
 }
 
+interface RawVisitRow {
+  id: string;
+  organizacion_id: string;
+  jornada_id: string;
+  cliente_id: string;
+  vendedor_id: string;
+  hora_check_in: string;
+  hora_check_out: string | null;
+  ubicacion_check_in: string | { type: string; coordinates: [number, number] } | null;
+  ubicacion_check_out: string | { type: string; coordinates: [number, number] } | null;
+  distancia_cliente_metros: number;
+  estado: string;
+  observaciones: string | null;
+  precios_pactados_compromisos: VisitAgreementsPayload | null;
+  hmac_hash: string;
+  created_at: string;
+  clientes?: {
+    nombre?: string;
+    nombre_comercial?: string | null;
+    identificacion_fiscal?: string | null;
+    direccion?: string;
+    radio_tolerancia_metros?: number;
+    ubicacion?: string | { type: string; coordinates: [number, number] } | null;
+  } | null;
+  perfiles?: {
+    nombre_completo?: string;
+  } | null;
+}
+
+function parseGeoCoords(geo: string | { type: string; coordinates: [number, number] } | null | undefined): { lat: number; lng: number } {
+  if (!geo) return { lat: 0, lng: 0 };
+  if (typeof geo === "string") {
+    const p = parseWKTPoint(geo) || parseEwkbHexPoint(geo);
+    if (p) return p;
+  } else if (typeof geo === "object" && Array.isArray(geo.coordinates) && geo.coordinates.length >= 2) {
+    return { lng: geo.coordinates[0], lat: geo.coordinates[1] };
+  }
+  return { lat: 0, lng: 0 };
+}
+
 export default function VisitsPage() {
   const [visits, setVisits] = useState<VisitRecord[]>([]);
   const [selectedVisit, setSelectedVisit] = useState<VisitRecord | null>(null);
@@ -275,7 +316,7 @@ export default function VisitsPage() {
     fecha: new Date().toISOString().slice(0, 10),
   });
 
-  // Carga de visitas desde Supabase con manejo resiliente
+  // Carga de visitas desde Supabase con manejo resiliente y unión con clientes y perfiles
   const loadVisits = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage(null);
@@ -292,19 +333,66 @@ export default function VisitsPage() {
           vendedor_id,
           hora_check_in,
           hora_check_out,
+          ubicacion_check_in,
+          ubicacion_check_out,
           distancia_cliente_metros,
           estado,
           observaciones,
           precios_pactados_compromisos,
           hmac_hash,
-          created_at
+          created_at,
+          clientes (
+            nombre,
+            nombre_comercial,
+            identificacion_fiscal,
+            direccion,
+            radio_tolerancia_metros,
+            ubicacion
+          ),
+          perfiles (
+            nombre_completo
+          )
         `)
         .order("hora_check_in", { ascending: false });
 
       if (error) {
         setVisits([]);
       } else if (data && data.length > 0) {
-        setVisits(data as unknown as VisitRecord[]);
+        const rawRows = data as unknown as RawVisitRow[];
+        const mapped: VisitRecord[] = rawRows.map((row) => {
+          const checkIn = parseGeoCoords(row.ubicacion_check_in);
+          const checkOut = row.ubicacion_check_out ? parseGeoCoords(row.ubicacion_check_out) : null;
+          const clienteLoc = parseGeoCoords(row.clientes?.ubicacion);
+
+          return {
+            id: row.id,
+            organizacion_id: row.organizacion_id,
+            jornada_id: row.jornada_id,
+            cliente_id: row.cliente_id,
+            cliente_nombre: row.clientes?.nombre || "Cliente en ruta",
+            cliente_nombre_comercial: row.clientes?.nombre_comercial || null,
+            cliente_identificacion: row.clientes?.identificacion_fiscal || "",
+            cliente_direccion: row.clientes?.direccion || "Dirección no registrada",
+            cliente_lat: clienteLoc.lat,
+            cliente_lng: clienteLoc.lng,
+            cliente_radio_tolerancia: row.clientes?.radio_tolerancia_metros ?? 50,
+            vendedor_id: row.vendedor_id,
+            vendedor_nombre: row.perfiles?.nombre_completo || "Asesor Comercial",
+            hora_check_in: row.hora_check_in,
+            hora_check_out: row.hora_check_out,
+            check_in_lat: checkIn.lat,
+            check_in_lng: checkIn.lng,
+            check_out_lat: checkOut ? checkOut.lat : null,
+            check_out_lng: checkOut ? checkOut.lng : null,
+            distancia_cliente_metros: Number(row.distancia_cliente_metros) || 0,
+            estado: (row.estado as VisitRecord["estado"]) || "VERIFIED",
+            observaciones: row.observaciones,
+            precios_pactados_compromisos: row.precios_pactados_compromisos,
+            hmac_hash: row.hmac_hash,
+            created_at: row.created_at,
+          };
+        });
+        setVisits(mapped);
       } else {
         setVisits([]);
       }
@@ -322,6 +410,18 @@ export default function VisitsPage() {
   useEffect(() => {
     loadVisits();
   }, [loadVisits]);
+
+  // Lista dinámica de vendedores derivados de las visitas
+  const sellersList = useMemo(() => {
+    const map = new Map<string, string>();
+    visits.forEach((v) => {
+      if (v.vendedor_id && v.vendedor_nombre) {
+        map.set(v.vendedor_id, v.vendedor_nombre);
+      }
+    });
+    const fromVisits = Array.from(map.entries()).map(([id, nombre]) => ({ id, nombre }));
+    return fromVisits.length > 0 ? fromVisits : MOCK_SELLERS;
+  }, [visits]);
 
   // Selección de visita para inspección cartográfica (Criterio 2)
   const handleSelectVisit = (visit: VisitRecord) => {
@@ -447,7 +547,7 @@ export default function VisitsPage() {
             onSelectVisit={handleSelectVisit}
             filters={filters}
             onFilterChange={setFilters}
-            sellers={MOCK_SELLERS}
+            sellers={sellersList}
           />
         </>
       )}

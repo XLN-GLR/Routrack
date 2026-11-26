@@ -436,6 +436,9 @@ class SyncRepositoryImpl(
                     } else {
                         append("\"observaciones\":null,")
                     }
+                    if (v.acuerdosJson != null) {
+                        append("\"precios_pactados_compromisos\":").append(v.acuerdosJson).append(",")
+                    }
                     append("\"hmac_hash\":\"").append(visitHash).append("\"")
                     append("}")
                 }
@@ -769,7 +772,11 @@ class SyncRepositoryImpl(
             } else {
                 sb.append("\"notes\":null,")
             }
-            sb.append("\"agreements\":null,")
+            if (visita.acuerdosJson != null) {
+                sb.append("\"agreements\":").append(visita.acuerdosJson).append(",")
+            } else {
+                sb.append("\"agreements\":null,")
+            }
             sb.append("\"hmac_hash\":\"").append(visitHash).append("\"")
             sb.append("}")
         }
