@@ -8,11 +8,13 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
@@ -77,8 +79,32 @@ class LocationForegroundService : Service() {
         private val _activeJornadaId = MutableStateFlow<String?>(null)
         val activeJornadaId = _activeJornadaId.asStateFlow()
 
+        private val _activeVendedorId = MutableStateFlow<String?>(null)
+        val activeVendedorId = _activeVendedorId.asStateFlow()
+
+        private val _batteryLevel = MutableStateFlow(100)
+        val batteryLevel = _batteryLevel.asStateFlow()
+
         private val _locationDiagnostic = MutableStateFlow<String?>(null)
         val locationDiagnostic = _locationDiagnostic.asStateFlow()
+
+        fun getBatteryPercentage(context: Context): Int {
+            return try {
+                val bm = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
+                val cap = bm?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
+                val level = if (cap in 0..100) cap else {
+                    val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+                    val batteryStatus = context.registerReceiver(null, filter)
+                    val l = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+                    val s = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+                    if (l >= 0 && s > 0) (l * 100) / s else 100
+                }
+                _batteryLevel.value = level
+                level
+            } catch (_: Throwable) {
+                100
+            }
+        }
 
         fun startTracking(context: Context, jornadaId: String, vendedorId: String) {
             val intent = Intent(context, LocationForegroundService::class.java).apply {
@@ -249,6 +275,9 @@ class LocationForegroundService : Service() {
         }
 
         _isTracking.value = true
+        _activeJornadaId.value = currentJornadaId
+        _activeVendedorId.value = currentVendedorId
+        getBatteryPercentage(this)
         _locationDiagnostic.value = "Buscando señal GPS y triangulación de red..."
 
         // Registrar evento SERVICE_STARTED en bitácora y luego programar sync
@@ -418,7 +447,34 @@ class LocationForegroundService : Service() {
         liveSyncJob = serviceScope.launch {
             delay(2_000L)
             while (isActive && _isTracking.value) {
-                if (currentJornadaId.isNotEmpty()) {
+                val activeShift = currentJornadaId
+                if (activeShift.isNotEmpty()) {
+                    val now = System.currentTimeMillis()
+                    // Actualizar nivel de batería en cada iteración del bucle
+                    getBatteryPercentage(applicationContext)
+
+                    // Si el celular está inmóvil por más de 25s, emitir latido en reposo con velocidad 0.0 km/h
+                    if (lastPersistedWallTimeMs > 0 && (now - lastPersistedWallTimeMs) >= 25_000L &&
+                        !lastPersistedLat.isNaN() && !lastPersistedLng.isNaN()
+                    ) {
+                        try {
+                            lastPersistedWallTimeMs = now
+                            trackingRepository.recordLocation(
+                                shiftId = activeShift,
+                                latitud = lastPersistedLat,
+                                longitud = lastPersistedLng,
+                                precision = _lastLocation.value?.accuracy ?: 5.0f,
+                                altitud = _lastLocation.value?.altitude,
+                                velocidad = 0.0f,
+                                bearing = _lastLocation.value?.bearing,
+                                timestamp = now,
+                                isMock = false
+                            )
+                        } catch (e: Throwable) {
+                            Log.w(TAG, "Latido de reposo falló: ${e.message}")
+                        }
+                    }
+
                     try {
                         val pending = syncRepository.getPendingCount()
                         if (pending > 0) {
@@ -456,8 +512,10 @@ class LocationForegroundService : Service() {
         }
 
         currentJornadaId = ""
+        currentVendedorId = ""
         _isTracking.value = false
         _activeJornadaId.value = null
+        _activeVendedorId.value = null
         _lastLocation.value = null
         _locationDiagnostic.value = null
         lastPersistedWallTimeMs = 0L
@@ -470,8 +528,9 @@ class LocationForegroundService : Service() {
         val activeShiftId = currentJornadaId
         if (activeShiftId.isEmpty()) return
 
-        // Actualizar UI inmediatamente con la coordenada más reciente recibida
+        // Actualizar UI y nivel de batería inmediatamente
         _lastLocation.value = location
+        getBatteryPercentage(this)
         val providerLabel = location.provider ?: "Fused"
         _locationDiagnostic.value = "Señal adquirida vía $providerLabel (±${location.accuracy.toInt()} m)"
 
@@ -492,26 +551,52 @@ class LocationForegroundService : Service() {
         val prevLng = lastPersistedLng
         val prevTimeMs = lastPersistedWallTimeMs
 
-        // Filtro cinemático de suavizado (EMA) para amortiguar ruido de satélites en calles y evitar zigzags
+        // Filtro cinemático de suavizado (EMA) y detección rigurosa de reposo a 0.0 km/h
         var targetLat = location.latitude
         var targetLng = location.longitude
         var distMeters = 0f
+        var calculatedSpeed: Float? = null
 
         if (!prevLat.isNaN() && !prevLng.isNaN() && prevTimeMs > 0) {
             val distArray = FloatArray(1)
             Location.distanceBetween(prevLat, prevLng, location.latitude, location.longitude, distArray)
             distMeters = distArray[0]
 
-            // Si el movimiento es menor a 2.5 metros, se considera ruido estático del GPS
-            if (distMeters < 2.5f && (nowWallMs - prevTimeMs) < 15_000L) {
-                return
-            }
+            // Si el desplazamiento es menor a 3.0 metros, el teléfono está quieto (ruido estático de satélites)
+            if (distMeters < 3.0f) {
+                // Si ya se registró un punto hace menos de 15 segundos, omitir para no saturar Room
+                if ((nowWallMs - prevTimeMs) < 15_000L) {
+                    return
+                }
+                // Si pasaron 15s o más sin moverse, emitir punto de reposo exacto a 0.0 km/h fijando coordenadas
+                targetLat = prevLat
+                targetLng = prevLng
+                calculatedSpeed = 0.0f
+            } else {
+                // Desplazamiento real (> 3.0m): Suavizado cinemático (EMA) para amortiguar zigzags
+                if (distMeters in 3.0f..40.0f) {
+                    val alpha = if (location.accuracy <= 10.0f) 0.80 else 0.65
+                    targetLat = prevLat + (location.latitude - prevLat) * alpha
+                    targetLng = prevLng + (location.longitude - prevLng) * alpha
+                }
 
-            // Suavizado cinemático para trayectos peatonales (entre 2.5m y 40m)
-            if (distMeters in 2.5f..40.0f) {
-                val alpha = if (location.accuracy <= 10.0f) 0.80 else 0.65
-                targetLat = prevLat + (location.latitude - prevLat) * alpha
-                targetLng = prevLng + (location.longitude - prevLng) * alpha
+                // Cálculo cinemático de velocidad para movimiento real
+                if (location.hasSpeed()) {
+                    val s = location.speed
+                    calculatedSpeed = if (s < 0.35f) 0.0f else s // Umbral peatonal (< 1.2 km/h es estático)
+                } else {
+                    val deltaSec = (nowWallMs - prevTimeMs) / 1000f
+                    if (deltaSec in 2f..120f) {
+                        val derived = distMeters / deltaSec
+                        calculatedSpeed = if (derived < 0.35f) 0.0f else derived
+                    }
+                }
+            }
+        } else {
+            // Primer punto capturado de la jornada
+            if (location.hasSpeed()) {
+                val s = location.speed
+                calculatedSpeed = if (s < 0.35f) 0.0f else s
             }
         }
 
@@ -527,17 +612,6 @@ class LocationForegroundService : Service() {
         )
 
         val safeTimestamp = if (location.time > 1_700_000_000_000L) location.time else nowWallMs
-
-        // Cálculo cinemático de velocidad real: usa sensor o deriva por distancia geodésica si el chip reporta 0
-        val rawSpeed = if (location.hasSpeed() && location.speed > 0f) location.speed else null
-        val calculatedSpeed = if (rawSpeed != null) {
-            rawSpeed
-        } else if (!prevLat.isNaN() && !prevLng.isNaN() && prevTimeMs > 0) {
-            val deltaSec = (nowWallMs - prevTimeMs) / 1000f
-            if (deltaSec in 2f..120f && distMeters in 2f..2000f) {
-                distMeters / deltaSec
-            } else null
-        } else null
 
         serviceScope.launch {
             trackingRepository.recordLocation(

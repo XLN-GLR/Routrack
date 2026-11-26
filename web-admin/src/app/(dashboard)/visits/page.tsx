@@ -259,7 +259,7 @@ function VisitsErrorState({
 }
 
 export default function VisitsPage() {
-  const [visits, setVisits] = useState<VisitRecord[]>(INITIAL_MOCK_VISITS);
+  const [visits, setVisits] = useState<VisitRecord[]>([]);
   const [selectedVisit, setSelectedVisit] = useState<VisitRecord | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -272,7 +272,7 @@ export default function VisitsPage() {
     vendedor_id: "ALL",
     estado: "ALL",
     search_query: "",
-    fecha: "2026-11-08", // Fecha de jornada activa por defecto
+    fecha: new Date().toISOString().slice(0, 10),
   });
 
   // Carga de visitas desde Supabase con manejo resiliente
@@ -302,13 +302,11 @@ export default function VisitsPage() {
         .order("hora_check_in", { ascending: false });
 
       if (error) {
-        // En entorno local de pruebas mantenemos los mocks sin interrumpir
-        setVisits(INITIAL_MOCK_VISITS);
+        setVisits([]);
       } else if (data && data.length > 0) {
-        // Si hay datos en Supabase, los transformamos asegurando tipado estricto
-        setVisits((prev) => (data.length > 0 ? prev : INITIAL_MOCK_VISITS));
+        setVisits(data as unknown as VisitRecord[]);
       } else {
-        setVisits(INITIAL_MOCK_VISITS);
+        setVisits([]);
       }
     } catch (err) {
       setErrorMessage(

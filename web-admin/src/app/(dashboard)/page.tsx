@@ -200,10 +200,18 @@ export default function DashboardHomePage() {
         .lte("fecha_inicio", `${selectedDate}T23:59:59`);
 
       if (jornadasError) {
-        // En desarrollo local o sandbox sin red, cargar dataset representativo
-        setSellers(DEMO_SELLERS);
-        setHourlyData(DEMO_HOURLY_DATA);
+        setSellers([]);
+        setHourlyData([]);
       } else if (jornadas && jornadas.length > 0) {
+        // Consultar perfiles para nombres reales
+        const vendedorIds = Array.from(new Set(jornadas.map((j) => j.vendedor_id)));
+        const { data: perfiles } = await supabase
+          .from("perfiles")
+          .select("id, nombre_completo")
+          .in("id", vendedorIds);
+
+        const nombreMap = new Map((perfiles || []).map((p) => [p.id, p.nombre_completo]));
+
         // Consultar actividades asociadas a estas jornadas
         const jornadaIds = jornadas.map((j) => j.id);
         const { data: visitas } = await supabase
@@ -220,29 +228,22 @@ export default function DashboardHomePage() {
 
           return {
             vendedorId: j.vendedor_id,
-            nombre: `Asesor (${j.vendedor_id.slice(0, 8)})`,
-            kilometros: j.kilometros_totales || 25.0,
+            nombre: nombreMap.get(j.vendedor_id) || `Asesor (${j.vendedor_id.slice(0, 8)})`,
+            kilometros: j.kilometros_totales || 0.0,
             visitasVerificadas: verif,
             visitasFueraRango: outRange,
             totalVisitas: totalV,
             tasaEfectividad: totalV > 0 ? (verif / totalV) * 100 : 100,
-            montoAcordado: 1200.0,
-            estadoTurno: j.estado === "ABIERTA" ? "EN_RUTA" : "FINALIZADO",
+            montoAcordado: 0.0,
+            estadoTurno: j.estado === "OPEN" ? "EN_RUTA" : "FINALIZADO",
           };
         });
 
         setSellers(mappedSellers);
-        setHourlyData(DEMO_HOURLY_DATA);
+        setHourlyData([]);
       } else {
-        // Si no hay jornadas en esa fecha, usar DEMO si es hoy, o vaciar si es otra fecha
-        const today = new Date().toISOString().slice(0, 10);
-        if (selectedDate === today) {
-          setSellers(DEMO_SELLERS);
-          setHourlyData(DEMO_HOURLY_DATA);
-        } else {
-          setSellers([]);
-          setHourlyData([]);
-        }
+        setSellers([]);
+        setHourlyData([]);
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.message.includes("network")) {

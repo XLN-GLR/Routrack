@@ -104,7 +104,7 @@ const INITIAL_MOCK_CLIENTS: Client[] = [
 ];
 
 export default function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>(INITIAL_MOCK_CLIENTS);
+  const [clients, setClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
 

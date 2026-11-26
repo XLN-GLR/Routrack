@@ -238,9 +238,9 @@ const MOCK_ROUTE_POINTS: RoutePoint[] = [
 ];
 
 export default function RoutesHistoryPage() {
-  const [sellerOptions, setSellerOptions] = useState(AVAILABLE_SELLERS);
-  const [selectedSellerId, setSelectedSellerId] = useState<string>("vendedor-001");
-  const [selectedDate, setSelectedDate] = useState<string>("2026-11-08");
+  const [sellerOptions, setSellerOptions] = useState<{ id: string; name: string; email?: string }[]>([]);
+  const [selectedSellerId, setSelectedSellerId] = useState<string>("");
+  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [realPoints, setRealPoints] = useState<RoutePoint[] | null>(null);
   const [showDeviations, setShowDeviations] = useState<boolean>(true);
   const [showStops, setShowStops] = useState<boolean>(true);
@@ -248,7 +248,7 @@ export default function RoutesHistoryPage() {
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [activeTab, setActiveTab] = useState<"stops" | "deviations">("deviations");
 
-  // Cargar usuarios reales registrados en Supabase y preseleccionar si hay jornadas recientes
+  // Cargar usuarios reales registrados en Supabase
   useEffect(() => {
     let active = true;
     async function loadProfiles() {
@@ -262,13 +262,16 @@ export default function RoutesHistoryPage() {
         if (active && perfiles && perfiles.length > 0) {
           const reales = perfiles.map((p) => ({
             id: p.id,
-            name: `${p.nombre_completo} (Real)`,
+            name: p.nombre_completo,
             email: p.email,
           }));
-          setSellerOptions([...reales, ...AVAILABLE_SELLERS]);
+          setSellerOptions(reales);
+          setSelectedSellerId((prev) => (prev ? prev : reales[0].id));
+        } else {
+          setSellerOptions([]);
         }
       } catch {
-        // Fallback silencioso a vendedores demo
+        if (active) setSellerOptions([]);
       }
     }
     loadProfiles();
@@ -279,9 +282,8 @@ export default function RoutesHistoryPage() {
 
   // Consultar puntos reales cuando el usuario selecciona un vendedor real
   useEffect(() => {
-    const isDemo = AVAILABLE_SELLERS.some((d) => d.id === selectedSellerId);
-    if (isDemo) {
-      setRealPoints(null);
+    if (!selectedSellerId) {
+      setRealPoints([]);
       return;
     }
 
@@ -349,11 +351,10 @@ export default function RoutesHistoryPage() {
 
   // Puntos de ruta ordenados cronológicamente
   const points = useMemo(() => {
-    const source = realPoints !== null ? realPoints : MOCK_ROUTE_POINTS;
-    return sortPointsChronologically(source);
+    return sortPointsChronologically(realPoints || []);
   }, [realPoints]);
 
-  const stops = realPoints !== null ? [] : MOCK_ROUTE_STOPS;
+  const stops: RouteStop[] = [];
 
   // Criterio 3: Métricas consolidadas de la jornada
   const metrics = useMemo(() => {

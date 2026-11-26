@@ -318,6 +318,8 @@ class SyncRepositoryImpl(
 
         val fechaInicioIso = buildShiftStartIso(jornadaLocal, firstRealPoint, batchTimestamp)
 
+        val currentBattery = com.empresa.routrack.service.LocationForegroundService.batteryLevel.value
+
         // 1. Asegurar registro padre en jornadas_laborales (OPEN si aún está en curso)
         val jornadaInsertJson = buildString {
             append("{")
@@ -326,10 +328,12 @@ class SyncRepositoryImpl(
             append("\"vendedor_id\":\"").append(sellerId).append("\",")
             append("\"fecha_inicio\":\"").append(fechaInicioIso).append("\",")
             append("\"estado\":\"").append(if (jornadaLocal?.estado == JornadaEntity.ESTADO_FINALIZADA) "CLOSED" else "OPEN").append("\",")
+            append("\"bateria_inicio\":").append(currentBattery).append(",")
             append("\"ubicacion_inicio\":\"").append(initialLocationWkt).append("\"")
             if (jornadaLocal?.estado == JornadaEntity.ESTADO_FINALIZADA) {
                 val fechaFinIso = buildShiftEndIso(jornadaLocal, lastRealPoint, batchTimestamp)
                 append(",\"fecha_fin\":\"").append(fechaFinIso).append("\"")
+                append(",\"bateria_fin\":").append(currentBattery)
                 if (lastRealPoint != null) {
                     append(",\"ubicacion_fin\":\"SRID=4326;POINT(${lastRealPoint.longitud} ${lastRealPoint.latitud})\"")
                 }
@@ -378,6 +382,7 @@ class SyncRepositoryImpl(
                     append("\"precision_metros\":").append(pt.precision).append(",")
                     append("\"velocidad_ms\":").append(pt.velocidad ?: "null").append(",")
                     append("\"altitud_metros\":").append(pt.altitud ?: "null").append(",")
+                    append("\"nivel_bateria\":").append(currentBattery).append(",")
                     append("\"es_simulado\":false,")
                     append("\"previous_hash\":\"").append(prevHash).append("\",")
                     append("\"hmac_hash\":\"").append(pointHash).append("\",")

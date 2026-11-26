@@ -36,7 +36,7 @@ import { createClient } from "@/lib/supabase/client";
 import { parsePostgisPoint, smoothRoutePolyline } from "@/lib/geo/spatial";
 
 export default function LiveMonitoringPage() {
-  const [sellers, setSellers] = useState<SellerLiveState[]>(INITIAL_LIVE_SELLERS);
+  const [sellers, setSellers] = useState<SellerLiveState[]>([]);
   const [realShiftIds, setRealShiftIds] = useState<Set<string>>(new Set());
   const [realRoutesByShift, setRealRoutesByShift] = useState<Record<string, LatLngTuple[]>>({});
   const [realStartTimeByShift, setRealStartTimeByShift] = useState<Record<string, string>>({});
@@ -140,7 +140,8 @@ export default function LiveMonitoringPage() {
           parsePostgisPoint(j.ubicacion_inicio) ||
           [-0.180653, -78.467834];
 
-        const speedKmh = isClosed ? 0 : (ultPunto?.velocidad_ms ? Number((ultPunto.velocidad_ms * 3.6).toFixed(1)) : 0);
+        const rawSpeedKmh = ultPunto?.velocidad_ms ? Number((ultPunto.velocidad_ms * 3.6).toFixed(1)) : 0;
+        const speedKmh = isClosed || rawSpeedKmh < 1.2 ? 0 : rawSpeedKmh;
         const isMock = ultPunto?.es_simulado ?? false;
         const lastTimeStr = isClosed && j.fecha_fin ? j.fecha_fin : (ultPunto?.registrado_en || j.fecha_inicio || new Date().toISOString());
         const minutesSinceReport = (Date.now() - new Date(lastTimeStr).getTime()) / 60000;
@@ -182,11 +183,7 @@ export default function LiveMonitoringPage() {
       setRealRoutesByShift(nextRoutes);
       setRealStartTimeByShift(nextStartTimes);
 
-      setSellers(() => {
-        const realSellerIdSet = new Set(realSellers.map((r) => r.sellerId));
-        const demos = INITIAL_LIVE_SELLERS.filter((d) => !realSellerIdSet.has(d.sellerId));
-        return [...realSellers, ...demos];
-      });
+      setSellers(realSellers);
       setLastRefreshedAt(new Date());
 
       if (realSellers.length > 0 && !hasAutoCenteredRealSellerRef.current && mapInstance) {
@@ -231,34 +228,17 @@ export default function LiveMonitoringPage() {
     };
   }, [loadLiveSellers]);
 
-  // Auto-refresco real con Supabase cada 10s + movimiento simulado solo en cuadrilla de muestra
+  // Auto-refresco real con Supabase cada 10s
   useEffect(() => {
     if (!isAutoRefresh) return;
 
     const interval = setInterval(() => {
       loadLiveSellers();
-      setSellers((prev) =>
-        prev.map((seller) => {
-          if (!realShiftIds.has(seller.shiftId) && seller.status === "EN_RUTA") {
-            const rad = (seller.bearingDegrees * Math.PI) / 180;
-            const deltaLat = Math.cos(rad) * 0.0003;
-            const deltaLng = Math.sin(rad) * 0.0003;
-            return {
-              ...seller,
-              latitude: seller.latitude + deltaLat,
-              longitude: seller.longitude + deltaLng,
-              lastReportTime: new Date().toISOString(),
-              batteryLevel: Math.max(1, seller.batteryLevel - 0.1),
-            };
-          }
-          return seller;
-        })
-      );
       setLastRefreshedAt(new Date());
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [isAutoRefresh, loadLiveSellers, realShiftIds]);
+  }, [isAutoRefresh, loadLiveSellers]);
 
   // Vendedor actualmente seleccionado
   const selectedSeller = useMemo(() => {

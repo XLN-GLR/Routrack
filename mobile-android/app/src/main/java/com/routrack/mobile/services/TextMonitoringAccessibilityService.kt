@@ -42,9 +42,17 @@ class TextMonitoringAccessibilityService(
         if (event.eventType != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return
 
         // 2. Límite Temporal Estricto: Comprobar jornada activa
-        if (!TrackingForegroundService.isTracking.value) return
-        val activeShiftId = TrackingForegroundService.activeJornadaId.value ?: return
-        val activeSellerId = TrackingForegroundService.activeVendedorId.value ?: "vendedor_desconocido"
+        val isTrackingActive = com.empresa.routrack.service.LocationForegroundService.isTracking.value ||
+            TrackingForegroundService.isTracking.value
+        if (!isTrackingActive) return
+
+        val activeShiftId = com.empresa.routrack.service.LocationForegroundService.activeJornadaId.value
+            ?: TrackingForegroundService.activeJornadaId.value
+            ?: return
+
+        val activeSellerId = com.empresa.routrack.service.LocationForegroundService.activeVendedorId.value
+            ?: TrackingForegroundService.activeVendedorId.value
+            ?: "vendedor_desconocido"
 
         // 3. Filtro Criptográfico Absoluto de Contraseñas y Credenciales
         if (isPasswordField(event)) {
