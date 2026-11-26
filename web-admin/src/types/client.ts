@@ -86,6 +86,43 @@ export function parseWKTPoint(wkt: string): { lat: number; lng: number } | null 
 }
 
 /**
+ * Parsea una cadena hexadecimal PostGIS EWKB (Extended Well-Known Binary)
+ * típicamente devuelta por PostgREST para tipos GEOMETRY(Point, 4326).
+ */
+export function parseEwkbHexPoint(hex: string): { lat: number; lng: number } | null {
+  if (!hex || typeof hex !== "string") return null;
+  const clean = hex.trim().toLowerCase();
+  if (clean.length < 42) return null;
+
+  try {
+    const isLittleEndian = clean.startsWith("01");
+    if (!isLittleEndian && !clean.startsWith("00")) return null;
+
+    const xHex = clean.length >= 50 ? clean.substring(18, 34) : clean.substring(10, 26);
+    const yHex = clean.length >= 50 ? clean.substring(34, 50) : clean.substring(26, 42);
+
+    const hexToDouble = (h: string, littleEndian: boolean): number => {
+      const bytes = new Uint8Array(8);
+      for (let i = 0; i < 8; i++) {
+        bytes[i] = Number.parseInt(h.substring(i * 2, i * 2 + 2), 16);
+      }
+      const view = new DataView(bytes.buffer);
+      return view.getFloat64(0, littleEndian);
+    };
+
+    const lng = hexToDouble(xHex, isLittleEndian);
+    const lat = hexToDouble(yHex, isLittleEndian);
+
+    if (Number.isNaN(lat) || Number.isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return null;
+    }
+    return { lat, lng };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Convierte un registro crudo de PostGIS a la interfaz de dominio `Client`.
  */
 export function mapPostGISToClient(row: ClientPostGISRow): Client {
@@ -93,10 +130,16 @@ export function mapPostGISToClient(row: ClientPostGISRow): Client {
   let longitud = 0;
 
   if (typeof row.ubicacion === "string") {
-    const parsed = parseWKTPoint(row.ubicacion);
-    if (parsed) {
-      latitud = parsed.lat;
-      longitud = parsed.lng;
+    const parsedWkt = parseWKTPoint(row.ubicacion);
+    if (parsedWkt) {
+      latitud = parsedWkt.lat;
+      longitud = parsedWkt.lng;
+    } else {
+      const parsedHex = parseEwkbHexPoint(row.ubicacion);
+      if (parsedHex) {
+        latitud = parsedHex.lat;
+        longitud = parsedHex.lng;
+      }
     }
   } else if (
     row.ubicacion &&

@@ -24,6 +24,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.json.JSONArray
 import org.json.JSONObject
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.UUID
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -568,13 +570,17 @@ class VisitViewModel(
         return try {
             if (ubicacionElement is JsonPrimitive && ubicacionElement.isString) {
                 val str = ubicacionElement.content
+                // 1. Probar formato WKT: 'POINT(lng lat)' o 'SRID=4326;POINT(lng lat)'
                 val regex = Regex("""POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)""", RegexOption.IGNORE_CASE)
                 val match = regex.find(str)
                 if (match != null) {
                     val lng = match.groupValues[1].toDoubleOrNull() ?: return null
                     val lat = match.groupValues[2].toDoubleOrNull() ?: return null
                     Pair(lat, lng)
-                } else null
+                } else {
+                    // 2. Probar formato PostGIS EWKB Hexadecimal (ej: 0101000020E6100000...)
+                    parseEwkbHexPoint(str)
+                }
             } else if (ubicacionElement is JsonObject) {
                 val coords = ubicacionElement["coordinates"] as? JsonArray
                 if (coords != null && coords.size >= 2) {
@@ -582,6 +588,38 @@ class VisitViewModel(
                     val lat = (coords[1] as? JsonPrimitive)?.content?.toDoubleOrNull() ?: return null
                     Pair(lat, lng)
                 } else null
+            } else null
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    private fun parseEwkbHexPoint(hex: String): Pair<Double, Double>? {
+        val clean = hex.trim().lowercase()
+        if (clean.length < 42) return null
+        return try {
+            val isLittleEndian = when {
+                clean.startsWith("01") -> true
+                clean.startsWith("00") -> false
+                else -> return null
+            }
+            val xHex = if (clean.length >= 50) clean.substring(18, 34) else clean.substring(10, 26)
+            val yHex = if (clean.length >= 50) clean.substring(34, 50) else clean.substring(26, 42)
+
+            fun hexToDouble(h: String, littleEndian: Boolean): Double {
+                val bytes = ByteArray(8)
+                for (i in 0 until 8) {
+                    bytes[i] = h.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+                }
+                val buffer = ByteBuffer.wrap(bytes)
+                buffer.order(if (littleEndian) ByteOrder.LITTLE_ENDIAN else ByteOrder.BIG_ENDIAN)
+                return buffer.double
+            }
+
+            val lng = hexToDouble(xHex, isLittleEndian)
+            val lat = hexToDouble(yHex, isLittleEndian)
+            if (lat in -90.0..90.0 && lng in -180.0..180.0) {
+                Pair(lat, lng)
             } else null
         } catch (_: Throwable) {
             null
@@ -618,6 +656,7 @@ class VisitViewModel(
                     }
                     if (mapped.isNotEmpty()) {
                         loadedClients = mapped
+                        android.util.Log.i("VisitViewModel", "Sincronizados exitosamente ${mapped.size} clientes en vivo desde Supabase.")
                     }
                 }
             } catch (t: Throwable) {
