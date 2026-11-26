@@ -21,6 +21,7 @@ import {
 import type { Client, ClientFormData, ClientPostGISRow } from "@/types/client";
 import { mapPostGISToClient, formatCoordinatesDisplay, formatToWKTPoint } from "@/types/client";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import ClientModal from "@/components/clients/ClientModal";
 import ClientLocationPicker from "@/components/clients/ClientLocationPicker";
 
@@ -104,6 +105,7 @@ const INITIAL_MOCK_CLIENTS: Client[] = [
 ];
 
 export default function ClientsPage() {
+  const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
@@ -131,12 +133,17 @@ export default function ClientsPage() {
         .select("*")
         .order("nombre", { ascending: true });
 
-      if (!error && data && data.length > 0) {
+      if (error) {
+        console.error("Error al cargar clientes desde Supabase:", error);
+        return;
+      }
+
+      if (data) {
         const mapped = (data as unknown as ClientPostGISRow[]).map(mapPostGISToClient);
         setClients(mapped);
       }
-    } catch {
-      // Si el backend no está disponible en este momento, se mantiene el estado local
+    } catch (err) {
+      console.error("Fallo inesperado de conexión al cargar clientes:", err);
     }
   }, []);
 
@@ -195,21 +202,35 @@ export default function ClientsPage() {
   // Alternar estado activo/inactivo
   const handleToggleActive = async (client: Client) => {
     const newStatus = !client.activo;
-    setClients((prev) =>
-      prev.map((c) => (c.id === client.id ? { ...c, activo: newStatus, updated_at: new Date().toISOString() } : c))
-    );
-
     try {
       const supabase = createSupabaseClient();
-      await supabase.from("clientes").update({ activo: newStatus }).eq("id", client.id);
-    } catch {
-      // Ignorar error de red y mantener en local
-    }
+      const { error: updateError } = await supabase
+        .from("clientes")
+        .update({ activo: newStatus, updated_at: new Date().toISOString() })
+        .eq("id", client.id);
 
-    setNotification({
-      type: "success",
-      message: `El cliente "${client.nombre}" ahora está ${newStatus ? "HABILITADO" : "DESHABILITADO"} para visitas.`,
-    });
+      if (updateError) {
+        setNotification({
+          type: "error",
+          message: `Error al actualizar estado en BD: ${updateError.message}`,
+        });
+        return;
+      }
+
+      setClients((prev) =>
+        prev.map((c) => (c.id === client.id ? { ...c, activo: newStatus, updated_at: new Date().toISOString() } : c))
+      );
+
+      setNotification({
+        type: "success",
+        message: `El cliente "${client.nombre}" ahora está ${newStatus ? "HABILITADO" : "DESHABILITADO"} para visitas.`,
+      });
+    } catch {
+      setNotification({
+        type: "error",
+        message: "No se pudo conectar con el servidor para actualizar el estado.",
+      });
+    }
   };
 
   // Eliminar cliente
@@ -219,19 +240,30 @@ export default function ClientsPage() {
     );
     if (!confirmDelete) return;
 
-    setClients((prev) => prev.filter((c) => c.id !== client.id));
-
     try {
       const supabase = createSupabaseClient();
-      await supabase.from("clientes").delete().eq("id", client.id);
-    } catch {
-      // Mantener eliminación local
-    }
+      const { error: deleteError } = await supabase.from("clientes").delete().eq("id", client.id);
 
-    setNotification({
-      type: "success",
-      message: `Cliente "${client.nombre}" eliminado correctamente.`,
-    });
+      if (deleteError) {
+        setNotification({
+          type: "error",
+          message: `Error al eliminar de la base de datos: ${deleteError.message}`,
+        });
+        return;
+      }
+
+      setClients((prev) => prev.filter((c) => c.id !== client.id));
+
+      setNotification({
+        type: "success",
+        message: `Cliente "${client.nombre}" eliminado correctamente.`,
+      });
+    } catch {
+      setNotification({
+        type: "error",
+        message: "Error de conexión al eliminar cliente.",
+      });
+    }
   };
 
   // Guardar cliente (Creación o Edición)
@@ -243,30 +275,9 @@ export default function ClientsPage() {
 
     if (clientId) {
       // Actualizar cliente existente
-      setClients((prev) =>
-        prev.map((c) =>
-          c.id === clientId
-            ? {
-                ...c,
-                nombre: formData.nombre,
-                nombre_comercial: formData.nombre_comercial ?? null,
-                identificacion_fiscal: formData.identificacion_fiscal,
-                direccion: formData.direccion,
-                telefono: formData.telefono ?? null,
-                latitud: formData.latitud,
-                longitud: formData.longitud,
-                radio_tolerancia_metros: formData.radio_tolerancia_metros,
-                activo: formData.activo,
-                updated_at: nowIso,
-              }
-            : c
-        )
-      );
-
-      // Persistir en Supabase con columna PostGIS
       try {
         const supabase = createSupabaseClient();
-        await supabase
+        const { error: updateError } = await supabase
           .from("clientes")
           .update({
             nombre: formData.nombre,
@@ -280,60 +291,130 @@ export default function ClientsPage() {
             updated_at: nowIso,
           })
           .eq("id", clientId);
-      } catch {
-        // Fallback local completado
-      }
 
-      setNotification({
-        type: "success",
-        message: `Cliente "${formData.nombre}" actualizado exitosamente.`,
-      });
-      return { success: true };
+        if (updateError) {
+          console.error("Error al actualizar cliente en Supabase:", updateError);
+          setNotification({
+            type: "error",
+            message: `Error al actualizar en base de datos: ${updateError.message}`,
+          });
+          return { success: false, error: updateError.message };
+        }
+
+        setClients((prev) =>
+          prev.map((c) =>
+            c.id === clientId
+              ? {
+                  ...c,
+                  nombre: formData.nombre,
+                  nombre_comercial: formData.nombre_comercial ?? null,
+                  identificacion_fiscal: formData.identificacion_fiscal,
+                  direccion: formData.direccion,
+                  telefono: formData.telefono ?? null,
+                  latitud: formData.latitud,
+                  longitud: formData.longitud,
+                  radio_tolerancia_metros: formData.radio_tolerancia_metros,
+                  activo: formData.activo,
+                  updated_at: nowIso,
+                }
+              : c
+          )
+        );
+
+        setNotification({
+          type: "success",
+          message: `Cliente "${formData.nombre}" actualizado exitosamente.`,
+        });
+        return { success: true };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Error inesperado al actualizar cliente";
+        setNotification({ type: "error", message: msg });
+        return { success: false, error: msg };
+      }
     } else {
       // Crear nuevo cliente
-      const newId = `c${Date.now().toString(16).padStart(12, "0")}-0000-0000-0000-000000000000`;
-      const newClient: Client = {
-        id: newId,
-        organizacion_id: "00000000-0000-0000-0000-000000000001",
-        nombre: formData.nombre,
-        nombre_comercial: formData.nombre_comercial ?? null,
-        identificacion_fiscal: formData.identificacion_fiscal,
-        direccion: formData.direccion,
-        telefono: formData.telefono ?? null,
-        latitud: formData.latitud,
-        longitud: formData.longitud,
-        radio_tolerancia_metros: formData.radio_tolerancia_metros,
-        activo: formData.activo,
-        created_at: nowIso,
-        updated_at: nowIso,
-      };
-
-      setClients((prev) => [newClient, ...prev]);
-
-      // Persistir en Supabase
       try {
         const supabase = createSupabaseClient();
-        await supabase.from("clientes").insert({
-          id: newId,
-          organizacion_id: "00000000-0000-0000-0000-000000000001",
-          nombre: formData.nombre,
-          nombre_comercial: formData.nombre_comercial ?? null,
-          identificacion_fiscal: formData.identificacion_fiscal,
-          direccion: formData.direccion,
-          telefono: formData.telefono ?? null,
-          ubicacion: formatToWKTPoint(formData.latitud, formData.longitud),
-          radio_tolerancia_metros: formData.radio_tolerancia_metros,
-          activo: formData.activo,
-        });
-      } catch {
-        // Fallback local completado
-      }
 
-      setNotification({
-        type: "success",
-        message: `Nuevo cliente "${formData.nombre}" registrado exitosamente.`,
-      });
-      return { success: true };
+        // Obtener organización real del usuario autenticado
+        let orgId = user?.organization_id;
+        if (!orgId || orgId === "org-default") {
+          const { data: profileData } = await supabase
+            .from("perfiles")
+            .select("organizacion_id")
+            .limit(1)
+            .maybeSingle();
+          if (profileData?.organizacion_id) {
+            orgId = profileData.organizacion_id;
+          } else {
+            const { data: orgData } = await supabase
+              .from("organizaciones")
+              .select("id")
+              .limit(1)
+              .maybeSingle();
+            orgId = orgData?.id || "11111111-1111-4111-8111-111111111111";
+          }
+        }
+
+        const newId = typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : "c" + Math.random().toString(16).substring(2, 10) + "-0000-4000-8000-000000000000";
+
+        const { data: insertedData, error: insertError } = await supabase
+          .from("clientes")
+          .insert({
+            id: newId,
+            organizacion_id: orgId,
+            nombre: formData.nombre,
+            nombre_comercial: formData.nombre_comercial ?? null,
+            identificacion_fiscal: formData.identificacion_fiscal,
+            direccion: formData.direccion,
+            telefono: formData.telefono ?? null,
+            ubicacion: formatToWKTPoint(formData.latitud, formData.longitud),
+            radio_tolerancia_metros: formData.radio_tolerancia_metros,
+            activo: formData.activo,
+          })
+          .select("*");
+
+        if (insertError) {
+          console.error("Error al registrar cliente en Supabase:", insertError);
+          setNotification({
+            type: "error",
+            message: `Error al guardar en base de datos: ${insertError.message}`,
+          });
+          return { success: false, error: insertError.message };
+        }
+
+        const createdClient: Client = insertedData && insertedData[0]
+          ? mapPostGISToClient(insertedData[0] as unknown as ClientPostGISRow)
+          : {
+              id: newId,
+              organizacion_id: orgId,
+              nombre: formData.nombre,
+              nombre_comercial: formData.nombre_comercial ?? null,
+              identificacion_fiscal: formData.identificacion_fiscal,
+              direccion: formData.direccion,
+              telefono: formData.telefono ?? null,
+              latitud: formData.latitud,
+              longitud: formData.longitud,
+              radio_tolerancia_metros: formData.radio_tolerancia_metros,
+              activo: formData.activo,
+              created_at: nowIso,
+              updated_at: nowIso,
+            };
+
+        setClients((prev) => [createdClient, ...prev]);
+
+        setNotification({
+          type: "success",
+          message: `Nuevo cliente "${formData.nombre}" registrado exitosamente en la base de datos.`,
+        });
+        return { success: true };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Error inesperado al crear cliente";
+        setNotification({ type: "error", message: msg });
+        return { success: false, error: msg };
+      }
     }
   };
 

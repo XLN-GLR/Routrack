@@ -102,7 +102,7 @@ class AuthRepositoryImpl @JvmOverloads constructor(
                         ?: DEFAULT_SEED_ORG_ID,
                     rol = currentUser.appMetadata?.get("role")?.toString()?.replace("\"", "")
                         ?: currentUser.appMetadata?.get("rol")?.toString()?.replace("\"", "")
-                        ?: "ADMIN",
+                        ?: "VENDEDOR",
                     nombreCompleto = currentUser.userMetadata?.get("full_name")?.toString()?.replace("\"", "")
                         ?: currentUser.email
                         ?: email,

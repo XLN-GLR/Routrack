@@ -16,7 +16,11 @@ CREATE EXTENSION IF NOT EXISTS "postgis";
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.jwt_organizacion_id()
 RETURNS UUID AS $$
-  SELECT NULLIF(
+DECLARE
+  v_org_id UUID;
+BEGIN
+  -- 1. Intentar obtener desde claims del token JWT (app_metadata)
+  v_org_id := NULLIF(
     COALESCE(
       (auth.jwt() -> 'app_metadata' ->> 'organization_id'),
       (auth.jwt() -> 'app_metadata' ->> 'organizacion_id'),
@@ -25,11 +29,26 @@ RETURNS UUID AS $$
     ),
     ''
   )::UUID;
-$$ LANGUAGE SQL STABLE;
+
+  -- 2. Fallback a public.perfiles para usuarios sin claims manuales en el token
+  IF v_org_id IS NULL AND auth.uid() IS NOT NULL THEN
+    SELECT p.organizacion_id INTO v_org_id
+    FROM public.perfiles p
+    WHERE p.id = auth.uid()
+    LIMIT 1;
+  END IF;
+
+  RETURN v_org_id;
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
 CREATE OR REPLACE FUNCTION public.jwt_rol()
 RETURNS TEXT AS $$
-  SELECT NULLIF(
+DECLARE
+  v_rol TEXT;
+BEGIN
+  -- 1. Intentar obtener desde claims del token JWT (app_metadata)
+  v_rol := NULLIF(
     COALESCE(
       (auth.jwt() -> 'app_metadata' ->> 'role'),
       (auth.jwt() -> 'app_metadata' ->> 'rol'),
@@ -38,7 +57,18 @@ RETURNS TEXT AS $$
     ),
     ''
   );
-$$ LANGUAGE SQL STABLE;
+
+  -- 2. Fallback a public.perfiles
+  IF v_rol IS NULL AND auth.uid() IS NOT NULL THEN
+    SELECT p.rol INTO v_rol
+    FROM public.perfiles p
+    WHERE p.id = auth.uid()
+    LIMIT 1;
+  END IF;
+
+  RETURN COALESCE(v_rol, 'VENDEDOR');
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
 -- ------------------------------------------------------------------------------
 -- 3. ESQUEMA DE TABLAS
@@ -626,6 +656,31 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Sincronizar todos los perfiles y claims de usuarios existentes
+INSERT INTO public.perfiles (id, organizacion_id, rol, nombre_completo, email, activo)
+SELECT 
+    u.id, 
+    '11111111-1111-4111-8111-111111111111'::UUID, 
+    'VENDEDOR', 
+    COALESCE(u.raw_user_meta_data->>'nombre_completo', u.raw_user_meta_data->>'name', split_part(u.email, '@', 1)), 
+    COALESCE(u.email, 'vendedor@routrack.local'), 
+    TRUE
+FROM auth.users u
+LEFT JOIN public.perfiles p ON u.id = p.id
+WHERE p.id IS NULL
+ON CONFLICT (id) DO NOTHING;
+
+UPDATE auth.users u
+SET raw_app_meta_data = COALESCE(u.raw_app_meta_data, '{}'::jsonb) || 
+    jsonb_build_object(
+        'organization_id', p.organizacion_id,
+        'organizacion_id', p.organizacion_id,
+        'role', p.rol,
+        'rol', p.rol
+    )
+FROM public.perfiles p
+WHERE u.id = p.id;
 
 -- 9.4. Vincular Usuario Administrador (bjacnier28giler@gmail.com)
 -- Si el usuario ya fue creado en Authentication > Users, se vincula automáticamente como ADMIN.

@@ -21,12 +21,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.empresa.routrack.data.repository.RepositoryProvider
 import com.empresa.routrack.data.repository.UserProfile
 import com.empresa.routrack.ui.auth.LoginScreen
 import com.empresa.routrack.ui.auth.LoginViewModel
 import com.empresa.routrack.ui.settings.AccessibilityPermissionScreen
 import com.empresa.routrack.ui.tracking.TrackingScreen
 import com.empresa.routrack.ui.tracking.TrackingViewModel
+import com.routrack.mobile.presentation.visits.HighAccuracyLocationProvider
+import com.routrack.mobile.presentation.visits.LocationResult
+import com.routrack.mobile.presentation.visits.VisitCheckInScreen
+import com.routrack.mobile.presentation.visits.VisitViewModel
 
 /**
  * Actividad Principal de ROUTRACK Mobile.
@@ -68,6 +73,7 @@ class MainActivity : ComponentActivity() {
 
 private enum class MainScreen {
     TRACKING,
+    VISITS,
     ACCESSIBILITY_SETTINGS
 }
 
@@ -92,6 +98,33 @@ fun RoutrackHomeScaffold(
         } catch (t: Throwable) {
             android.util.Log.e("MainActivity", "Error al inicializar TrackingViewModel", t)
             initError = t.localizedMessage ?: "Error al inicializar la base de datos o telemetría."
+            null
+        }
+    }
+
+    val visitViewModel: VisitViewModel? = remember {
+        try {
+            if (appContext != null && trackingViewModel != null) {
+                val visitRepo = RepositoryProvider.getVisitRepository(appContext)
+                val shiftRepo = RepositoryProvider.getShiftRepository(appContext)
+                val locationProvider = HighAccuracyLocationProvider {
+                    val s = trackingViewModel.uiState.value
+                    LocationResult(
+                        latitude = s.ultimaLatitud ?: -0.190123,
+                        longitude = s.ultimaLongitud ?: -78.487654,
+                        accuracyMeters = s.ultimaPrecision ?: 15f
+                    )
+                }
+                VisitViewModel(
+                    visitRepository = visitRepo,
+                    shiftRepository = shiftRepo,
+                    locationProvider = locationProvider,
+                    currentShiftIdProvider = { trackingViewModel.uiState.value.activeJornada?.id },
+                    currentSellerIdProvider = { profile.id }
+                )
+            } else null
+        } catch (t: Throwable) {
+            android.util.Log.e("MainActivity", "Error al inicializar VisitViewModel", t)
             null
         }
     }
@@ -130,8 +163,23 @@ fun RoutrackHomeScaffold(
                 nombreVendedor = profile.nombreCompleto,
                 onNavigateToAccessibility = {
                     currentScreen = MainScreen.ACCESSIBILITY_SETTINGS
+                },
+                onNavigateToVisits = {
+                    currentScreen = MainScreen.VISITS
                 }
             )
+        }
+        MainScreen.VISITS -> {
+            if (visitViewModel != null) {
+                VisitCheckInScreen(
+                    viewModel = visitViewModel,
+                    onNavigateBack = {
+                        currentScreen = MainScreen.TRACKING
+                    }
+                )
+            } else {
+                currentScreen = MainScreen.TRACKING
+            }
         }
         MainScreen.ACCESSIBILITY_SETTINGS -> {
             AccessibilityPermissionScreen(

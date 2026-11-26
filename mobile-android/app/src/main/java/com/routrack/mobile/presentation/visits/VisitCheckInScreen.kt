@@ -82,6 +82,7 @@ import java.util.Locale
 @Composable
 fun VisitCheckInScreen(
     viewModel: VisitViewModel,
+    onNavigateBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -102,7 +103,8 @@ fun VisitCheckInScreen(
                         state = state,
                         onSearchQueryChanged = viewModel::onSearchQueryChanged,
                         onTogglePendingFilter = viewModel::onTogglePendingFilter,
-                        onStartCheckIn = viewModel::performCheckIn
+                        onStartCheckIn = viewModel::performCheckIn,
+                        onNavigateBack = onNavigateBack
                     )
                 }
 
@@ -139,7 +141,8 @@ private fun ClientListContent(
     state: VisitUiState.ClientList,
     onSearchQueryChanged: (String) -> Unit,
     onTogglePendingFilter: () -> Unit,
-    onStartCheckIn: (AssignedClient) -> Unit
+    onStartCheckIn: (AssignedClient) -> Unit,
+    onNavigateBack: (() -> Unit)? = null
 ) {
     val filteredClients = remember(state.clients, state.searchQuery, state.filterOnlyPending) {
         val query = state.searchQuery.trim().lowercase(Locale.ROOT)
@@ -166,18 +169,36 @@ private fun ClientListContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
-                Text(
-                    text = "Cartera de Clientes",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
-                )
-                Text(
-                    text = "Puntos de venta asignados para la jornada",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF64748B)
-                )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                if (onNavigateBack != null) {
+                    IconButton(
+                        onClick = onNavigateBack,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Volver a telemetría",
+                            tint = Color(0xFF0F172A)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
+                Column {
+                    Text(
+                        text = "Cartera de Clientes",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                    )
+                    Text(
+                        text = "Puntos de venta asignados para la jornada",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF64748B)
+                    )
+                }
             }
 
             Surface(

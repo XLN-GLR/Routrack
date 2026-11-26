@@ -1,8 +1,8 @@
 # Memoria Viva del Proyecto — ROUTRACK
 
-**Última Actualización:** 25 de Noviembre de 2026  
+**Última Actualización:** 26 de Noviembre de 2026  
 **Documento:** Estado Vivo y Registro Dinámico de Contexto (Project Memory)  
-**Versión:** 2.2.0  
+**Versión:** 2.3.0  
 **Autor:** Senior Software Engineer, Cloud/Mobile Solutions Architect & Technical Lead  
 
 ---
@@ -341,6 +341,21 @@
   - Activación de Monitoreo de Mensajes (`TextMonitoringAccessibilityService.kt`): Enlace directo con `LocationForegroundService.isTracking`, `activeJornadaId` y `activeVendedorId` para permitir la auditoría de acuerdos en WhatsApp y apps de mensajería durante turnos activos una vez habilitado el permiso en Ajustes de Accesibilidad.
   - Eliminación de Datos de Prueba en Panel Web (`live/page.tsx`, `page.tsx`, `routes/page.tsx`, `clients/page.tsx`, `visits/page.tsx`): Remoción de usuarios y clientes de demostración (`INITIAL_LIVE_SELLERS`, `DEMO_SELLERS`, `AVAILABLE_SELLERS`, `MOCK_ROUTE_STOPS`, `INITIAL_MOCK_CLIENTS`, `INITIAL_MOCK_VISITS`). El panel opera ahora exclusivamente con datos reales de Supabase, desplegando los estados vacíos oficiales cuando no existen registros. Clampeo de velocidad en visor web si `speedKmh < 1.2` a 0.0 km/h.
   - Verificación empírica: Ensamblado exitoso del APK debug (`assembleDebug`, `BUILD SUCCESSFUL in 38s`), compilación de producción de Next.js (11/11 rutas estáticas con `npm run build`), y 18/18 suites de prueba superadas al 100% en `run-all-tests.mjs`.
+- **[x] FIX-20261126-1 — Corrección de RLS (HTTP 403 / 42501) en jornadas_laborales para usuarios vendedores y no-admin:**
+  - Diagnóstico: Al iniciar jornada un vendedor nuevo (ej. `kerrycopito`), la app Android arrojaba `Error de cliente HTTP 403: jornadas_laborales: {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"jornadas_laborales\""}`. La causa raíz radicaba en que las políticas RLS exigen `organizacion_id = public.jwt_organizacion_id()`, pero la función SQL `public.jwt_organizacion_id()` solo leía los claims del JWT (`auth.jwt()->'app_metadata'->>'organization_id'`). Al registrarse un usuario estándar en Supabase GoTrue, `app_metadata` no contiene `organization_id` por defecto (solo el admin inicial lo tenía inyectado manualmente vía SQL), provocando que `public.jwt_organizacion_id()` retornara `NULL` y violara la política `WITH CHECK` para cualquier vendedor.
+  - Corrección en Base de Datos (`20261126000000_fix_rls_jwt_claims_fallback.sql` y `init_production_database.sql`):
+    1. Se actualizó `public.jwt_organizacion_id()` con fallback a `public.perfiles` (`SECURITY DEFINER`): si el JWT carece del claim, consulta directamente la organización asignada en el perfil del usuario autenticado (`auth.uid()`).
+    2. Se actualizó `public.jwt_rol()` con fallback análogo a `public.perfiles`.
+    3. Sincronización masiva de `raw_app_meta_data` en `auth.users` para todos los usuarios existentes según su perfil.
+    4. Trigger `on_auth_user_created` reconfigurado como `AFTER INSERT` para aprovisionar `public.perfiles` garantizando que el ID de `auth.users` ya existe (evitando violación de clave foránea).
+  - Corrección en Android (`AuthRepository.kt`): Se ajustó el rol de respaldo ante perfil no cargado a `VENDEDOR` en lugar de `ADMIN`.
+  - Verificación empírica: Compilación exitosa de APK debug funcional (`mobile-android/app/build/outputs/apk/debug/app-debug.apk`, 27.58 MB) mediante Gradle 9.6 + Android SDK 34 (`BUILD SUCCESSFUL in 2m 52s`).
+- **[x] FIX-20261126-2 — Conexión de interfaz de Visitas/Ventas en Android y corrección de persistencia de Clientes en Web:**
+  - Diagnóstico 1 (Pérdida de Clientes en Web): Al registrar un cliente en `/clients`, se borraba al cambiar de pestaña. Causa: `clients/page.tsx` insertaba con `organizacion_id: "00000000-0000-0000-0000-000000000001"` y un ID con prefijo `c` inválido para UUID de PostgreSQL. Supabase retornaba error en `{ error }`, pero el código usaba `try/catch` (que no captura errores devueltos por Supabase-js), agregaba el cliente solo al `useState` en memoria y reportaba falso éxito. Al cambiar de pestaña, Next.js recargaba datos de Supabase y el cliente no existía.
+  - Corrección en Web (`web-admin/src/app/(dashboard)/clients/page.tsx`): Se integró `useAuth()` para resolver el `organization_id` real del usuario autenticado, `crypto.randomUUID()` para generar identificadores compatibles con PostgreSQL y validación estricta de `{ error }` en inserción, edición y eliminación con retroalimentación explícita.
+  - Diagnóstico 2 (Falta de acceso a Visitas/Ventas en Móvil): La pantalla completa de visitas y ventas (`VisitCheckInScreen.kt`) ya existía en el código fuente con Check-In geoespacial, cálculo de geocerca, acuerdos comerciales y Check-Out, pero estaba desconectada de la navegación en `MainActivity.kt` y `TrackingScreen.kt` (solo existían opciones de iniciar/finalizar jornada).
+  - Corrección en Móvil (`TrackingScreen.kt`, `VisitCheckInScreen.kt`, `MainActivity.kt`): Se añadió el botón primario "Gestionar Visitas / Clientes" visible durante la jornada activa, se integró el estado de navegación `MainScreen.VISITS` en `MainActivity.kt`, y se proveyó `VisitViewModel` conectado a la telemetría en tiempo real.
+  - Verificación empírica: Ensamblado exitoso del APK debug (`assembleDebug`, `BUILD SUCCESSFUL in 2m 40s`), generando el artefacto final `mobile-android/app/build/outputs/apk/debug/app-debug.apk` (27.58 MB).
 
 ### 4.2. Tareas Pendientes Inmediatas
 - *Ninguna.* Las 35 tareas del plan maestro de desarrollo de ROUTRACK han sido ejecutadas, verificadas empíricamente y superadas al 100%.

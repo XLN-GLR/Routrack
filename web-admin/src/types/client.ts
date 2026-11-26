@@ -62,7 +62,7 @@ export interface ClientPostGISRow {
  * NOTA CRÍTICA: En WKT la coordenada X es Longitud y la Y es Latitud.
  */
 export function formatToWKTPoint(latitud: number, longitud: number): string {
-  return `POINT(${longitud.toFixed(6)} ${latitud.toFixed(6)})`;
+  return `SRID=4326;POINT(${longitud.toFixed(6)} ${latitud.toFixed(6)})`;
 }
 
 /**
