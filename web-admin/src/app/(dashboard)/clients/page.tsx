@@ -355,6 +355,7 @@ export default function ClientsPage() {
             orgId = orgData?.id || "11111111-1111-4111-8111-111111111111";
           }
         }
+        const finalOrgId: string = orgId || "11111111-1111-4111-8111-111111111111";
 
         const newId = typeof crypto !== "undefined" && crypto.randomUUID
           ? crypto.randomUUID()
@@ -364,7 +365,7 @@ export default function ClientsPage() {
           .from("clientes")
           .insert({
             id: newId,
-            organizacion_id: orgId,
+            organizacion_id: finalOrgId,
             nombre: formData.nombre,
             nombre_comercial: formData.nombre_comercial ?? null,
             identificacion_fiscal: formData.identificacion_fiscal,
@@ -389,7 +390,7 @@ export default function ClientsPage() {
           ? mapPostGISToClient(insertedData[0] as unknown as ClientPostGISRow)
           : {
               id: newId,
-              organizacion_id: orgId,
+              organizacion_id: finalOrgId,
               nombre: formData.nombre,
               nombre_comercial: formData.nombre_comercial ?? null,
               identificacion_fiscal: formData.identificacion_fiscal,
