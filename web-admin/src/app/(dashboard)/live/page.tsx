@@ -228,14 +228,14 @@ export default function LiveMonitoringPage() {
     };
   }, [loadLiveSellers]);
 
-  // Auto-refresco real con Supabase cada 10s
+  // Auto-refresco real con Supabase cada 5s
   useEffect(() => {
     if (!isAutoRefresh) return;
 
     const interval = setInterval(() => {
       loadLiveSellers();
       setLastRefreshedAt(new Date());
-    }, 10000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [isAutoRefresh, loadLiveSellers]);
@@ -378,14 +378,14 @@ export default function LiveMonitoringPage() {
                 ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                 : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
             }`}
-            title="Alternar refresco automático cada 15 segundos"
+            title="Alternar refresco automático cada 5 segundos"
           >
             <span
               className={`h-2 w-2 rounded-full ${
                 isAutoRefresh ? "bg-emerald-600 animate-pulse" : "bg-slate-400"
               }`}
             />
-            <span>{isAutoRefresh ? "Auto (15s)" : "Pausado"}</span>
+            <span>{isAutoRefresh ? "Auto (5s)" : "Pausado"}</span>
           </button>
 
           <button
