@@ -3,8 +3,10 @@ package com.routrack.mobile.presentation.visits
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.empresa.routrack.data.local.entity.VisitaEntity
+import com.empresa.routrack.data.network.SupabaseClientProvider
 import com.empresa.routrack.data.repository.ShiftRepository
 import com.empresa.routrack.data.repository.VisitRepository
+import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -14,6 +16,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -42,6 +50,22 @@ data class AssignedClient(
     val radioToleranciaMetros: Int = 50,
     val visitadoHoy: Boolean = false,
     val ultimaVisitaId: String? = null
+)
+
+/**
+ * DTO para la deserialización de clientes desde la tabla remota de Supabase.
+ */
+@Serializable
+data class RemoteClientDto(
+    val id: String,
+    val nombre: String,
+    @SerialName("nombre_comercial") val nombreComercial: String? = null,
+    @SerialName("identificacion_fiscal") val identificacionFiscal: String? = null,
+    val direccion: String,
+    val telefono: String? = null,
+    @SerialName("radio_tolerancia_metros") val radioToleranciaMetros: Int? = 50,
+    val activo: Boolean? = true,
+    val ubicacion: JsonElement? = null
 )
 
 /**
@@ -214,6 +238,8 @@ class VisitViewModel(
         )
     )
 
+    private var loadedClients: List<AssignedClient> = defaultAssignedClients
+
     private val _uiState = MutableStateFlow<VisitUiState>(
         VisitUiState.ClientList(clients = defaultAssignedClients)
     )
@@ -222,6 +248,10 @@ class VisitViewModel(
     init {
         refreshVisitedStatus()
         startElapsedTimer()
+    }
+
+    fun refreshClients() {
+        refreshVisitedStatus()
     }
 
     // -------------------------------------------------------------------------
@@ -527,14 +557,74 @@ class VisitViewModel(
             _uiState.value = current.copy(isLocating = false, errorMessage = errorMessage)
         } else {
             _uiState.value = VisitUiState.ClientList(
-                clients = defaultAssignedClients,
+                clients = loadedClients,
                 errorMessage = errorMessage
             )
         }
     }
 
+    private fun parseLocation(ubicacionElement: JsonElement?): Pair<Double, Double>? {
+        if (ubicacionElement == null) return null
+        return try {
+            if (ubicacionElement is JsonPrimitive && ubicacionElement.isString) {
+                val str = ubicacionElement.content
+                val regex = Regex("""POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)""", RegexOption.IGNORE_CASE)
+                val match = regex.find(str)
+                if (match != null) {
+                    val lng = match.groupValues[1].toDoubleOrNull() ?: return null
+                    val lat = match.groupValues[2].toDoubleOrNull() ?: return null
+                    Pair(lat, lng)
+                } else null
+            } else if (ubicacionElement is JsonObject) {
+                val coords = ubicacionElement["coordinates"] as? JsonArray
+                if (coords != null && coords.size >= 2) {
+                    val lng = (coords[0] as? JsonPrimitive)?.content?.toDoubleOrNull() ?: return null
+                    val lat = (coords[1] as? JsonPrimitive)?.content?.toDoubleOrNull() ?: return null
+                    Pair(lat, lng)
+                } else null
+            } else null
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
     private fun refreshVisitedStatus() {
         viewModelScope.launch(ioDispatcher) {
+            // 1. Sincronizar cartera de clientes en vivo desde Supabase
+            try {
+                val supabase = SupabaseClientProvider.postgrest
+                val remoteRows = supabase.from("clientes")
+                    .select {
+                        filter {
+                            eq("activo", true)
+                        }
+                    }
+                    .decodeList<RemoteClientDto>()
+
+                if (remoteRows.isNotEmpty()) {
+                    val mapped = remoteRows.mapNotNull { dto ->
+                        val (lat, lng) = parseLocation(dto.ubicacion) ?: return@mapNotNull null
+                        AssignedClient(
+                            id = dto.id,
+                            nombre = dto.nombre,
+                            nombreComercial = dto.nombreComercial,
+                            identificacionFiscal = dto.identificacionFiscal ?: "",
+                            direccion = dto.direccion,
+                            telefono = dto.telefono,
+                            latitud = lat,
+                            longitud = lng,
+                            radioToleranciaMetros = dto.radioToleranciaMetros ?: 50
+                        )
+                    }
+                    if (mapped.isNotEmpty()) {
+                        loadedClients = mapped
+                    }
+                }
+            } catch (t: Throwable) {
+                android.util.Log.w("VisitViewModel", "Aviso: no se pudo sincronizar clientes desde Supabase, usando catálogo local", t)
+            }
+
+            // 2. Asociar visitas de la jornada actual
             val shiftId = currentShiftIdProvider() ?: shiftRepository.getActiveShift()?.id
             val visitedMap = if (shiftId != null) {
                 val visits = visitRepository.getVisitsForShift(shiftId)
@@ -543,7 +633,7 @@ class VisitViewModel(
                 emptyMap()
             }
 
-            val updated = defaultAssignedClients.map { client ->
+            val updated = loadedClients.map { client ->
                 val v = visitedMap[client.id]
                 client.copy(
                     visitadoHoy = v != null,
@@ -551,7 +641,13 @@ class VisitViewModel(
                 )
             }
 
-            _uiState.value = VisitUiState.ClientList(clients = updated)
+            _uiState.update { current ->
+                if (current is VisitUiState.ClientList) {
+                    current.copy(clients = updated)
+                } else {
+                    VisitUiState.ClientList(clients = updated)
+                }
+            }
         }
     }
 

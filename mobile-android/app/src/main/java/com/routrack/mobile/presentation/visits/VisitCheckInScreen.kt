@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Warning
@@ -88,6 +89,10 @@ fun VisitCheckInScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    LaunchedEffect(Unit) {
+        viewModel.refreshClients()
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -104,7 +109,8 @@ fun VisitCheckInScreen(
                         onSearchQueryChanged = viewModel::onSearchQueryChanged,
                         onTogglePendingFilter = viewModel::onTogglePendingFilter,
                         onStartCheckIn = viewModel::performCheckIn,
-                        onNavigateBack = onNavigateBack
+                        onNavigateBack = onNavigateBack,
+                        onRefreshClients = viewModel::refreshClients
                     )
                 }
 
@@ -142,7 +148,8 @@ private fun ClientListContent(
     onSearchQueryChanged: (String) -> Unit,
     onTogglePendingFilter: () -> Unit,
     onStartCheckIn: (AssignedClient) -> Unit,
-    onNavigateBack: (() -> Unit)? = null
+    onNavigateBack: (() -> Unit)? = null,
+    onRefreshClients: (() -> Unit)? = null
 ) {
     val filteredClients = remember(state.clients, state.searchQuery, state.filterOnlyPending) {
         val query = state.searchQuery.trim().lowercase(Locale.ROOT)
@@ -201,18 +208,34 @@ private fun ClientListContent(
                 }
             }
 
-            Surface(
-                shape = CircleShape,
-                color = Color(0xFFEFF6FF),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBFDBFE))
-            ) {
-                Text(
-                    text = "${filteredClients.size} clientes",
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1D4ED8)
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFEFF6FF),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBFDBFE))
+                ) {
+                    Text(
+                        text = "${filteredClients.size} clientes",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1D4ED8)
+                    )
+                }
+                if (onRefreshClients != null) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    IconButton(
+                        onClick = onRefreshClients,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Sincronizar clientes desde Supabase",
+                            tint = Color(0xFF1D4ED8),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
         }
 
